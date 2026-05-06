@@ -60,11 +60,15 @@ command -v comfy-models
 
 ## Model Config
 
-If `.comfy-agent-tools.json` is missing in the current project, initialize it:
+If `.comfy-agent-tools.json` is missing in the current project, ask the user
+where they want to store or use ComfyUI model files for these tools. Do not pick
+`/mnt/models/comfyui` automatically; mention it only as an example.
+
+After the user provides a path, initialize config and set that exact path:
 
 ```bash
 comfy-models init
-comfy-models set-models-dir /mnt/models/comfyui
+comfy-models set-models-dir <models_dir>
 ```
 
 Then validate:
@@ -78,9 +82,12 @@ In repo/dev mode, prefix CLI commands with `uv run`, for example:
 
 ```bash
 uv run comfy-models init
-uv run comfy-models set-models-dir /mnt/models/comfyui
+uv run comfy-models set-models-dir <models_dir>
 uv run comfy-models validate
 ```
+
+If `.comfy-agent-tools.json` already exists, respect its configured `models_dir`
+and do not ask again unless validation fails or the user wants to change it.
 
 If validation reports missing models, switch to `comfy-model-downloader` when the
 user is trying to run a supported built-in capability. Use

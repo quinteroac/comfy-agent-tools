@@ -59,10 +59,14 @@ After the tools are available, initialize project-local config only when needed:
 
 ```bash
 comfy-models init
-comfy-models set-models-dir /mnt/models/comfyui
+comfy-models set-models-dir <models_dir>
 comfy-models validate
 comfy-models show
 ```
+
+On a new machine, the agent should ask where the user wants to store or use
+ComfyUI model files before running `set-models-dir`. `/mnt/models/comfyui` is a
+common example, not something setup should assume automatically.
 
 If validation reports missing built-in model files, the agent should use
 `comfy-model-downloader` to download only the capability requested by the user:

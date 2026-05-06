@@ -68,6 +68,7 @@ def test_comfy_model_onboarding_skill_frontmatter() -> None:
     assert "anima-preview3-turbo" in content
     assert "architecture" in content
     assert "validate-profile" in content
+    assert "set-models-dir <models_dir>" in content
     assert "comfy-tools-setup" in content
     assert "comfy-model-downloader" in content
 
@@ -113,7 +114,8 @@ def test_comfy_tools_setup_skill_frontmatter() -> None:
     assert "uv tool upgrade comfy-agent-tools" in content
     assert "uv run comfy-models validate" in content
     assert "comfy-models init" in content
-    assert "comfy-models set-models-dir /mnt/models/comfyui" in content
+    assert "comfy-models set-models-dir <models_dir>" in content
+    assert "Do not pick" in content
     assert "comfy-models validate" in content
     assert "comfy-model-downloader" in content
 

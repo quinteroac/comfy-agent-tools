@@ -16,7 +16,8 @@ Primary surfaces:
 - `README.md`: public installation and usage docs.
 
 Do not distribute models, generated outputs, or local config. Models live outside
-the repo, usually under `/mnt/models/comfyui`.
+the repo. On a new machine, ask the user which `models_dir` they want; do not
+assume `/mnt/models/comfyui` during setup.
 
 ## Setup
 
@@ -86,9 +87,9 @@ Current skills:
 
 ## Models And Profiles
 
-The repo should not download models automatically. Built-in defaults assume:
+The repo should not download models automatically. Built-in defaults include:
 
-- models dir: `/mnt/models/comfyui`
+- models dir fallback: `/mnt/models/comfyui`
 - image generation: Anima Preview3 turbo profile
 - image editing: Qwen Image Edit 2511
 - video: LTX 2.3 10Eros profile
@@ -97,6 +98,14 @@ The repo should not download models automatically. Built-in defaults assume:
 Use `comfy-models` for persistent profile/default changes. Keep architecture and
 profile separate: for example, `ltx23` is the architecture and `ltx23-10eros` is
 a profile.
+
+When `.comfy-agent-tools.json` is missing, ask the user for the model directory
+before running:
+
+```bash
+uv run comfy-models init
+uv run comfy-models set-models-dir <models_dir>
+```
 
 When a user requests generation and the built-in profile files are missing, use
 `comfy-model-downloader` and download only the requested capability:

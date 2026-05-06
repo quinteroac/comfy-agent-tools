@@ -20,19 +20,18 @@ repository, prefer `uv run comfy-models`; outside the repo, let
 
 ## Setup
 
-If `.comfy-agent-tools.json` is missing, initialize and validate the local config:
+If `.comfy-agent-tools.json` is missing, ask the user where they want to store
+or use ComfyUI model files, then initialize and validate the local config:
 
 ```bash
 uv run comfy-models init
+uv run comfy-models set-models-dir <models_dir>
 uv run comfy-models validate
 uv run comfy-models show
 ```
 
-If models live somewhere else:
-
-```bash
-uv run comfy-models set-models-dir /mnt/models/comfyui
-```
+If config already exists, respect its `models_dir` unless the user asks to
+change it.
 
 ## Supported Architectures
 
