@@ -27,6 +27,29 @@ large real downloads as part of normal validation.
 GPU smoke tests are optional and can be expensive. Keep generated media under
 `outputs/`.
 
+## Contribution Flow
+
+Contributions should use fork-based pull requests:
+
+1. Fork `quinteroac/comfy-agent-tools`.
+2. Create a feature branch in your fork.
+3. Make your changes.
+4. Run tests:
+
+```bash
+uv run pytest
+```
+
+5. Update `CHANGELOG.md` for user-visible changes.
+6. Open a pull request against `quinteroac/comfy-agent-tools:main`.
+
+Please do not push directly to `main`. Maintainers may use direct commits only
+for small administrative changes.
+
+Agent-assisted contributions are welcome. The contributor opening the PR is
+responsible for understanding the generated code, explaining the approach during
+review, and maintaining the change after merge.
+
 ## Git Hooks
 
 Install local hooks with:

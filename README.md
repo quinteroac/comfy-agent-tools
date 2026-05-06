@@ -11,6 +11,9 @@ runtime, initialize model profiles, and run generation commands.
 Models are always local. This project does not download, install, or distribute
 model files.
 
+Contributions use fork-based pull requests. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## How It Runs
 
 Generation runs through
