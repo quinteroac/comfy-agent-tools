@@ -1,6 +1,7 @@
 # comfy-agent-tools
 
-Skills-first local media generation tools backed by `comfy-diffusion`.
+Skills-first local media generation tools backed by
+[`comfy-diffusion`](https://github.com/quinteroac/comfy-diffusion).
 
 `comfy-agent-tools` gives agents a small set of skills and Python CLIs for local
 image, video, and music generation. Users install the skills; the skills teach
@@ -9,6 +10,15 @@ runtime, initialize model profiles, and run generation commands.
 
 Models are always local. This project does not download, install, or distribute
 model files.
+
+## How It Runs
+
+Generation runs through
+[`comfy-diffusion`](https://github.com/quinteroac/comfy-diffusion), a Python
+library that vendors ComfyUI runtime pieces and exposes them as importable
+pipelines. `comfy-agent-tools` calls those pipelines directly from the CLIs; it
+does not require launching a ComfyUI server, opening the ComfyUI web UI, or
+managing a separate ComfyUI process.
 
 ## Install The Skills
 

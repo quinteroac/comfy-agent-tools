@@ -25,5 +25,7 @@ and uses semantic versioning once releases are tagged.
 
 ### Changed
 
+- Document that generation runs through comfy-diffusion without requiring a
+  ComfyUI server.
 - Update setup guidance so agents ask for `models_dir` on new machines instead
   of assuming `/mnt/models/comfyui`.
