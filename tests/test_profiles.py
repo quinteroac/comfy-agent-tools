@@ -1,0 +1,97 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from comfy_agent_tools.profiles import (
+    ArchitectureMismatchError,
+    BUILTIN_DEFAULTS,
+    BUILTIN_PROFILES,
+    default_config,
+    resolve_capability,
+    resolve_model_path,
+    resolve_profile,
+    validate_defaults,
+)
+
+
+def test_builtin_profiles_separate_architecture_and_profile() -> None:
+    profile = BUILTIN_PROFILES["ltx23-10eros"]
+
+    assert profile["architecture"] == "ltx23"
+    assert "videogen.ia2av" in profile["supports"]
+    assert "10Eros" in profile["label"]
+
+    anima = BUILTIN_PROFILES["anima-preview3-turbo"]
+    assert anima["architecture"] == "anima"
+    assert anima["supports"] == ["imagegen.generate"]
+    assert anima["defaults"]["steps"] == 8
+    assert anima["defaults"]["cfg"] == 1.0
+    assert anima["models"]["lora"] == "loras/anima/anima-turbo-lora-v0.1.safetensors"
+
+
+def test_builtin_defaults_point_to_supported_profiles() -> None:
+    config = default_config()
+
+    validate_defaults(config)
+    assert BUILTIN_DEFAULTS["imagegen.generate"] == "anima-preview3-turbo"
+    assert BUILTIN_DEFAULTS["imagegen.edit"] == "qwen-edit2511"
+    for capability, profile_name in BUILTIN_DEFAULTS.items():
+        profile = resolve_profile(profile_name, config)
+        assert capability in profile["supports"]
+
+
+def test_inherited_ltx_profile_overrides_checkpoint_only() -> None:
+    config = default_config()
+    config["profiles"] = {
+        "my-ltx23-finetune": {
+            "extends": "ltx23-10eros",
+            "architecture": "ltx23",
+            "models": {"checkpoint": "checkpoints/my_ltx23_finetune.safetensors"},
+        }
+    }
+    config["defaults"]["videogen.t2v"] = "my-ltx23-finetune"
+
+    profile = resolve_profile("my-ltx23-finetune", config)
+
+    assert profile["architecture"] == "ltx23"
+    assert profile["models"]["checkpoint"] == "checkpoints/my_ltx23_finetune.safetensors"
+    assert profile["models"]["text_encoder"] == "text_encoders/gemma_3_12B_it_fp4_mixed.safetensors"
+
+
+def test_inherited_profile_rejects_architecture_mismatch() -> None:
+    config = default_config()
+    config["profiles"] = {
+        "bad-ltx": {
+            "extends": "ltx23-10eros",
+            "architecture": "qwen-image-edit",
+        }
+    }
+
+    with pytest.raises(ArchitectureMismatchError):
+        resolve_profile("bad-ltx", config)
+
+
+def test_resolve_capability_uses_local_models_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    config_path = tmp_path / ".comfy-agent-tools.json"
+    config_path.write_text(
+        """
+{
+  "models_dir": "/tmp/custom-models",
+  "defaults": {
+    "imagegen.generate": "qwen-edit2511"
+  },
+  "profiles": {}
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    profile, source = resolve_capability("imagegen.generate", config_path)
+
+    assert source == "local"
+    assert profile.models_dir == Path("/tmp/custom-models")
+    assert resolve_model_path(profile.models_dir, profile.models["unet"]) == Path(
+        "/tmp/custom-models/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors"
+    )

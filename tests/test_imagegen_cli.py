@@ -1,0 +1,265 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from unittest.mock import MagicMock
+
+from PIL import Image
+
+from comfy_agent_tools.cli import imagegen
+from comfy_agent_tools.imagegen.artifacts import create_seed_image
+
+
+def test_parser_generate_defaults() -> None:
+    args = imagegen.build_parser().parse_args(["generate", "--prompt", "hello"])
+
+    assert args.command == "generate"
+    assert args.width is None
+    assert args.height is None
+    assert args.models_dir is None
+    assert args.extra_lora == []
+    assert args.verbose is False
+
+
+def test_parser_accepts_verbose_for_all_modes(tmp_path: Path) -> None:
+    parser = imagegen.build_parser()
+
+    generate = parser.parse_args(["generate", "--prompt", "hello", "--verbose"])
+    edit = parser.parse_args(
+        ["edit", "--input", str(tmp_path / "input.png"), "--prompt", "hello", "--verbose"]
+    )
+    upscale = parser.parse_args(["upscale", "--input", str(tmp_path / "input.png"), "--verbose"])
+
+    assert generate.verbose is True
+    assert edit.verbose is True
+    assert upscale.verbose is True
+
+
+def test_generate_creates_seed_image_with_requested_dimensions() -> None:
+    image = create_seed_image(320, 240)
+
+    assert image.size == (320, 240)
+    assert image.mode == "RGB"
+
+
+def test_generate_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    produced = Image.new("RGB", (8, 8), "red")
+    lora_path = tmp_path / "loras" / "anima" / "realism.safetensors"
+    lora_path.parent.mkdir(parents=True)
+    lora_path.write_bytes(b"fake")
+
+    def fake_run_anima_t2i(
+        *, prompt: str, width: int, height: int, config: object
+    ) -> list[Image.Image]:
+        assert prompt == "make an icon"
+        assert width == 64
+        assert height == 32
+        assert config.extra_loras[0].path == Path("loras/anima/realism.safetensors")
+        return [produced]
+
+    monkeypatch.setattr(imagegen, "run_anima_t2i", fake_run_anima_t2i)
+
+    rc = imagegen.main(
+        [
+            "generate",
+            "--prompt",
+            "make an icon",
+            "--width",
+            "64",
+            "--height",
+            "32",
+            "--models-dir",
+            str(tmp_path),
+            "--extra-lora",
+            "loras/anima/realism.safetensors:0.8:0.0",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["kind"] == "image"
+    assert payload["mode"] == "generate"
+    assert payload["upscaled"] is False
+    assert payload["requested_width"] == 64
+    assert payload["requested_height"] == 32
+    assert payload["steps"] == 8
+    assert payload["cfg"] == 1.0
+    assert payload["capability"] == "imagegen.generate"
+    assert payload["model_profile"] == "anima-preview3-turbo"
+    assert payload["architecture"] == "anima"
+    assert payload["models_dir"] == str(tmp_path)
+    assert payload["extra_loras"] == [
+        {"path": str(lora_path), "strength_model": 0.8, "strength_clip": 0.0}
+    ]
+    assert payload["resolved_models"]["unet"].endswith("diffusion_models/animaOfficial_preview3Base.safetensors")
+    assert payload["resolved_models"]["lora"].endswith("loras/anima/anima-turbo-lora-v0.1.safetensors")
+    assert payload["outputs"] == [{"width": 8, "height": 8, "mode": "RGB"}]
+    assert len(payload["artifacts"]) == 1
+    assert Path(payload["artifacts"][0]).is_file()
+
+
+def test_generate_suppresses_inference_output_by_default(
+    monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock
+) -> None:
+    def noisy_run_anima_t2i(
+        *, prompt: str, width: int, height: int, config: object
+    ) -> list[Image.Image]:
+        print("progress should not leak")
+        return [Image.new("RGB", (8, 8), "red")]
+
+    monkeypatch.setattr(imagegen, "run_anima_t2i", noisy_run_anima_t2i)
+
+    rc = imagegen.main(["generate", "--prompt", "quiet please", "--out", str(tmp_path)])
+
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert "progress should not leak" not in captured.out
+    payload = json.loads(captured.out)
+    assert payload["ok"] is True
+
+
+def test_generate_verbose_allows_inference_output(
+    monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock
+) -> None:
+    def noisy_run_anima_t2i(
+        *, prompt: str, width: int, height: int, config: object
+    ) -> list[Image.Image]:
+        print("progress is visible")
+        return [Image.new("RGB", (8, 8), "red")]
+
+    monkeypatch.setattr(imagegen, "run_anima_t2i", noisy_run_anima_t2i)
+
+    rc = imagegen.main(
+        ["generate", "--prompt", "verbose please", "--out", str(tmp_path), "--verbose"]
+    )
+
+    assert rc == 0
+    assert "progress is visible" in capsys.readouterr().out
+
+
+def test_edit_requires_existing_input(tmp_path: Path, capsys: MagicMock) -> None:
+    rc = imagegen.main(
+        [
+            "edit",
+            "--input",
+            str(tmp_path / "missing.png"),
+            "--prompt",
+            "make it brighter",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 1
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    payload = json.loads(captured.out)
+    assert payload["ok"] is False
+    assert payload["mode"] == "edit"
+    assert payload["error_type"] == "not_found"
+    assert "input image not found" in payload["error"]
+
+
+def test_runtime_exception_returns_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    def failing_run_anima_t2i(
+        *, prompt: str, width: int, height: int, config: object
+    ) -> list[Image.Image]:
+        raise RuntimeError("ComfyUI runtime not available: missing psutil")
+
+    monkeypatch.setattr(imagegen, "run_anima_t2i", failing_run_anima_t2i)
+
+    rc = imagegen.main(["generate", "--prompt", "fail", "--out", str(tmp_path)])
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["mode"] == "generate"
+    assert payload["error_type"] == "runtime"
+
+
+def test_edit_uses_qwen_default(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    input_path = tmp_path / "input.png"
+    Image.new("RGB", (4, 4), "blue").save(input_path)
+    seen: dict[str, object] = {}
+
+    def fake_run_qwen_edit(*, prompt: str, image: Image.Image, config: object) -> list[Image.Image]:
+        seen["prompt"] = prompt
+        seen["unet"] = str(config.unet)
+        return [Image.new("RGB", (8, 8), "green")]
+
+    monkeypatch.setattr(imagegen, "run_qwen_edit", fake_run_qwen_edit)
+
+    rc = imagegen.main(
+        ["edit", "--input", str(input_path), "--prompt", "make it green", "--out", str(tmp_path)]
+    )
+
+    assert rc == 0
+    assert seen["prompt"] == "make it green"
+    assert seen["unet"] == "diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors"
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["model_profile"] == "qwen-edit2511"
+    assert payload["architecture"] == "qwen-image-edit"
+
+
+def test_extra_lora_missing_returns_json(tmp_path: Path, capsys: MagicMock) -> None:
+    rc = imagegen.main(
+        [
+            "generate",
+            "--prompt",
+            "missing lora",
+            "--models-dir",
+            str(tmp_path),
+            "--extra-lora",
+            "loras/anima/missing.safetensors",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["error_type"] == "not_found"
+    assert "extra LoRA file not found" in payload["error"]
+
+
+def test_upscale_uses_clear_reality_default(monkeypatch: MagicMock, tmp_path: Path) -> None:
+    input_path = tmp_path / "input.png"
+    Image.new("RGB", (4, 4), "blue").save(input_path)
+    seen: dict[str, object] = {}
+
+    def fake_run_upscale(*, image: Image.Image, config: object) -> list[Image.Image]:
+        seen["upscaler"] = str(config.upscaler)
+        return [image]
+
+    monkeypatch.setattr(imagegen, "run_upscale", fake_run_upscale)
+
+    rc = imagegen.main(["upscale", "--input", str(input_path), "--out", str(tmp_path)])
+
+    assert rc == 0
+    assert seen["upscaler"] == "upscale_models/4x-ClearRealityV1.pth"
+
+
+def test_upscale_success_metadata(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    input_path = tmp_path / "input.png"
+    Image.new("RGB", (4, 4), "blue").save(input_path)
+
+    def fake_run_upscale(*, image: Image.Image, config: object) -> list[Image.Image]:
+        return [Image.new("RGB", (16, 16), "blue")]
+
+    monkeypatch.setattr(imagegen, "run_upscale", fake_run_upscale)
+
+    rc = imagegen.main(["upscale", "--input", str(input_path), "--out", str(tmp_path)])
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["input"] == str(input_path)
+    assert payload["upscaled"] is True
+    assert payload["upscaler"] == "4x-ClearRealityV1.pth"
+    assert payload["capability"] == "imagegen.upscale"
+    assert payload["model_profile"] == "clear-reality"
+    assert payload["architecture"] == "upscale-model"
+    assert payload["outputs"] == [{"width": 16, "height": 16, "mode": "RGB"}]

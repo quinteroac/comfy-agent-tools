@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+set -eu
+
+if command -v uv >/dev/null 2>&1; then
+  uv run python scripts/update_changelog.py --check-staged
+else
+  python3 scripts/update_changelog.py --check-staged
+fi
