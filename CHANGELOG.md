@@ -7,6 +7,10 @@ and uses semantic versioning once releases are tagged.
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix Civitai authenticated downloads by passing CIVITAI_API_TOKEN as a query token across redirects.
+
 ### Added
 
 - Add capability-scoped built-in model downloader and comfy-model-downloader skill.

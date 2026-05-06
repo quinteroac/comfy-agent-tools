@@ -90,6 +90,20 @@ def test_download_checksum_mismatch(tmp_path: Path) -> None:
         )
 
 
+def test_civitai_download_uses_query_token_instead_of_auth_header(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CIVITAI_API_TOKEN", "secret-token")
+    url, headers = downloads._http_url_and_headers(
+        downloads.DownloadSource(
+            kind="http",
+            url="https://civitai.com/api/download/models/123?type=Model&format=SafeTensor",
+            token_env="CIVITAI_API_TOKEN",
+        )
+    )
+
+    assert "token=secret-token" in url
+    assert "Authorization" not in headers
+
+
 def test_download_local_profile_reports_unsupported_source(tmp_path: Path) -> None:
     config = default_config()
     config["models_dir"] = str(tmp_path)

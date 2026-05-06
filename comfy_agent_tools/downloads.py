@@ -9,6 +9,7 @@ from pathlib import Path
 import shutil
 import tempfile
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -282,8 +283,8 @@ def _download_item(item: DownloadItem, target: Path) -> int:
             headers = _auth_headers(source.token_env or "HF_TOKEN")
             _stream_download(url, part_path, headers=headers)
         elif source.kind == "http":
-            headers = _auth_headers(source.token_env)
-            _stream_download(str(source.url), part_path, headers=headers)
+            url, headers = _http_url_and_headers(source)
+            _stream_download(url, part_path, headers=headers)
         else:
             raise DownloadUnsupportedSourceError(f"unsupported download source kind: {source.kind}")
 
@@ -310,6 +311,23 @@ def _auth_headers(token_env: str | None) -> dict[str, str]:
     if not token:
         return {}
     return {"Authorization": f"Bearer {token}"}
+
+
+def _http_url_and_headers(source: DownloadSource) -> tuple[str, dict[str, str]]:
+    """Return URL and headers for direct HTTP downloads without leaking tokens."""
+    url = str(source.url)
+    if source.token_env and "civitai.com" in url:
+        token = os.environ.get(source.token_env)
+        if token:
+            return _url_with_query_param(url, "token", token), {}
+    return url, _auth_headers(source.token_env)
+
+
+def _url_with_query_param(url: str, key: str, value: str) -> str:
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query[key] = value
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
 def _stream_download(url: str, target: Path, *, headers: dict[str, str]) -> None:
