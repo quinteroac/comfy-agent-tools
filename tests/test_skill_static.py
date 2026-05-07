@@ -40,6 +40,8 @@ def test_comfy_videogen_skill_frontmatter() -> None:
     assert "--extra-lora" in content
     assert "comfy-tools-setup" in content
     assert "comfy-model-downloader" in content
+    assert "two-step pipeline" in content
+    assert "--width 540 --height 360" in content
 
 
 def test_comfy_musicgen_skill_frontmatter() -> None:

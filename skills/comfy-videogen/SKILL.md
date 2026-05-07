@@ -87,6 +87,8 @@ uv run comfy-videogen flf2v \
   --first path/to/start.png \
   --last path/to/end.png \
   --prompt "a smooth transition between the two frames with subtle camera motion and ambient sound" \
+  --width 540 \
+  --height 360 \
   --extra-lora /mnt/models/comfyui/loras/ltx23/detailer.safetensors:0.7:0.0 \
   --out outputs
 ```
@@ -131,9 +133,15 @@ drift, dance movement, performance gestures, or environmental reaction. The
 video duration is controlled by `--length / --fps`; long songs are trimmed to
 that window unless `--audio-start-time` or `--audio-duration` is passed.
 
-All local LTX modes use latent upscaling/refinement. The saved MP4 can be larger
-than the requested `--width`/`--height`; read `width` and `height` from the final
-JSON.
+This sizing rule applies only to local LTX 2.3 modes. It does not apply to
+Seedance 2.0 remote API modes or other non-LTX pipelines. Local LTX 2.3 runs a
+two-step pipeline with latent x2 spatial upscaling/refinement, so treat
+`--width` and `--height` as the base generation size, not the desired final MP4
+size. When the user asks for a final resolution, pass half the requested
+dimensions to avoid OOM and to hit the intended output: for final `1080x720`,
+use `--width 540 --height 360`; for final `768x512`, use `--width 384 --height
+256`. Read `width` and `height` from the final JSON to confirm the actual saved
+MP4 size.
 
 ## Defaults
 
