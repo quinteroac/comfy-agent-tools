@@ -340,12 +340,19 @@ uv run comfy-videogen flf2v \
   --first start.png \
   --last end.png \
   --prompt "a smooth transition between the two frames with subtle camera motion and ambient sound" \
+  --width 540 \
+  --height 360 \
   --out outputs
 ```
 
-All LTX 2.3 modes use latent upscaling/refinement. Final MP4 dimensions can be
-larger than requested `--width`/`--height`; read the JSON metadata for actual
-`width` and `height`.
+This sizing rule applies only to local LTX 2.3 modes. It does not apply to
+Seedance 2.0 remote API modes or other non-LTX pipelines. Local LTX 2.3 runs a
+two-step pipeline with latent x2 spatial upscaling/refinement, so treat
+`--width` and `--height` as the base generation size, not the desired final MP4
+size. If the desired final output is `1080x720`, run with `--width 540 --height
+360`; requesting `--width 1080 --height 720` would try to produce about
+`2160x1440`, which can cause OOM and is not the requested output. Read the JSON
+metadata for actual `width` and `height`.
 
 For `ia2av`, `--length` and `--fps` control video duration. Long audio files,
 including 120s WAVs from `comfy-musicgen`, are trimmed to `length / fps` by
