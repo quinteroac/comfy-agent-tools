@@ -1,4 +1,4 @@
-"""CLI for local LTX 2.3 video generation."""
+"""CLI for local LTX 2.3 and remote Seedance 2.0 video generation."""
 
 from __future__ import annotations
 
@@ -30,6 +30,21 @@ from comfy_agent_tools.videogen.config import (
     VideogenConfig,
 )
 from comfy_agent_tools.videogen.ltx23 import run_flf2v, run_i2v, run_ia2av, run_t2v
+from comfy_agent_tools.videogen.seedance2 import (
+    DEFAULT_SEEDANCE2_DURATION,
+    DEFAULT_SEEDANCE2_GENERATE_AUDIO,
+    DEFAULT_SEEDANCE2_RATIO,
+    DEFAULT_SEEDANCE2_RESOLUTION,
+    DEFAULT_SEEDANCE2_SEED,
+    DEFAULT_SEEDANCE2_WATERMARK,
+    SEEDANCE2_MODEL,
+    SEEDANCE2_PROVIDER,
+    Seedance2Config,
+    Seedance2Error,
+    run_flf2v as run_seedance2_flf2v,
+    run_r2v as run_seedance2_r2v,
+    run_t2v as run_seedance2_t2v,
+)
 from comfy_agent_tools.profiles import ProfileError, ResolvedProfile, resolve_capability
 
 
@@ -41,7 +56,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the comfy-videogen argument parser."""
     parser = argparse.ArgumentParser(
         prog="comfy-videogen",
-        description="Generate MP4 videos with local LTX 2.3 models.",
+        description="Generate MP4 videos with local LTX 2.3 models or remote Seedance 2.0 API nodes.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -102,6 +117,41 @@ def build_parser() -> argparse.ArgumentParser:
     flf2v.add_argument("--last", type=_path, required=True)
     flf2v.add_argument("--prompt", required=True)
 
+    def add_seedance2_common(subparser: argparse.ArgumentParser) -> None:
+        subparser.add_argument("--out", type=_path, default=DEFAULT_OUT)
+        subparser.add_argument("--model", default=SEEDANCE2_MODEL, choices=[SEEDANCE2_MODEL])
+        subparser.add_argument("--resolution", default=DEFAULT_SEEDANCE2_RESOLUTION, choices=["480p", "720p", "1080p"])
+        subparser.add_argument("--ratio", default=DEFAULT_SEEDANCE2_RATIO, choices=["16:9", "4:3", "1:1", "3:4", "9:16", "21:9", "adaptive"])
+        subparser.add_argument("--duration", type=int, default=DEFAULT_SEEDANCE2_DURATION)
+        subparser.add_argument(
+            "--generate-audio",
+            action=argparse.BooleanOptionalAction,
+            default=DEFAULT_SEEDANCE2_GENERATE_AUDIO,
+            help="Generate audio in the remote Seedance output. Use --no-generate-audio to disable.",
+        )
+        subparser.add_argument("--watermark", action="store_true", default=DEFAULT_SEEDANCE2_WATERMARK)
+        subparser.add_argument("--seed", type=int, default=DEFAULT_SEEDANCE2_SEED)
+        subparser.add_argument(
+            "--verbose",
+            action="store_true",
+            help="Show ComfyUI API node logs and progress output while running.",
+        )
+
+    seedance2_t2v = subparsers.add_parser("seedance2-t2v", help="Generate a remote Seedance 2.0 video from text.")
+    add_seedance2_common(seedance2_t2v)
+    seedance2_t2v.add_argument("--prompt", required=True)
+
+    seedance2_r2v = subparsers.add_parser("seedance2-r2v", help="Generate a remote Seedance 2.0 video from a reference image.")
+    add_seedance2_common(seedance2_r2v)
+    seedance2_r2v.add_argument("--input", type=_path, required=True)
+    seedance2_r2v.add_argument("--prompt", required=True)
+
+    seedance2_flf2v = subparsers.add_parser("seedance2-flf2v", help="Generate a remote Seedance 2.0 first/last-frame video.")
+    add_seedance2_common(seedance2_flf2v)
+    seedance2_flf2v.add_argument("--first", type=_path, required=True)
+    seedance2_flf2v.add_argument("--last", type=_path, required=True)
+    seedance2_flf2v.add_argument("--prompt", required=True)
+
     return parser
 
 
@@ -127,6 +177,22 @@ def _config(args: argparse.Namespace, profile: ResolvedProfile) -> VideogenConfi
         audio_duration=getattr(args, "audio_duration", None),
         negative_prompt=args.negative_prompt,
         extra_loras=list(getattr(args, "extra_lora", []) or []),
+    )
+
+
+def _seedance2_config(args: argparse.Namespace, profile: ResolvedProfile) -> Seedance2Config:
+    return Seedance2Config(
+        model=args.model if args.model is not None else str(profile.defaults.get("model", SEEDANCE2_MODEL)),
+        resolution=args.resolution if args.resolution is not None else str(profile.defaults.get("resolution", DEFAULT_SEEDANCE2_RESOLUTION)),
+        ratio=args.ratio if args.ratio is not None else str(profile.defaults.get("ratio", DEFAULT_SEEDANCE2_RATIO)),
+        duration=args.duration if args.duration is not None else int(profile.defaults.get("duration", DEFAULT_SEEDANCE2_DURATION)),
+        generate_audio=(
+            args.generate_audio
+            if args.generate_audio is not None
+            else bool(profile.defaults.get("generate_audio", DEFAULT_SEEDANCE2_GENERATE_AUDIO))
+        ),
+        watermark=args.watermark if args.watermark is not None else bool(profile.defaults.get("watermark", DEFAULT_SEEDANCE2_WATERMARK)),
+        seed=args.seed if args.seed is not None else int(profile.defaults.get("seed", DEFAULT_SEEDANCE2_SEED)),
     )
 
 
@@ -194,6 +260,44 @@ def _success(
     return payload
 
 
+def _seedance2_success(
+    *,
+    mode: str,
+    artifact: Path,
+    config: Seedance2Config,
+    profile: ResolvedProfile,
+    input_path: Path | None = None,
+    first_path: Path | None = None,
+    last_path: Path | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "ok": True,
+        "kind": "video",
+        "mode": mode,
+        "remote": True,
+        "provider": SEEDANCE2_PROVIDER,
+        "artifacts": [str(artifact)],
+        "seed": config.seed,
+        "model": config.model,
+        "resolution": config.resolution,
+        "ratio": config.ratio,
+        "duration_seconds": config.duration,
+        "generate_audio": config.generate_audio,
+        "watermark": config.watermark,
+        "capability": profile.capability,
+        "model_profile": profile.name,
+        "architecture": profile.architecture,
+        "resolved_models": {},
+    }
+    if input_path is not None:
+        payload["input"] = str(input_path)
+    if first_path is not None:
+        payload["first"] = str(first_path)
+    if last_path is not None:
+        payload["last"] = str(last_path)
+    return payload
+
+
 def _resolved_video_models(config: VideogenConfig) -> dict[str, str]:
     return {
         "checkpoint": str(config.resolve_model_path(config.checkpoint)),
@@ -228,6 +332,12 @@ def _classify_error(error: Exception) -> str:
         return "audio_mux"
     if isinstance(error, ProfileError):
         return error.error_type
+    if isinstance(error, Seedance2Error):
+        return error.error_type
+    if "api key" in message or "comfy_org_api_key" in message:
+        return "auth_required"
+    if "seedance 2.0 api" in message or "api request" in message:
+        return "remote_api_error"
     return "error"
 
 
@@ -244,6 +354,49 @@ def _write_result_video(result: dict[str, Any], out_dir: Path, *, prefix: str, f
 def run_command(args: argparse.Namespace) -> dict[str, Any]:
     """Run a parsed comfy-videogen command and return its JSON payload."""
     profile, _source = resolve_capability(_capability(args.command))
+
+    if args.command == "seedance2-t2v":
+        config = _seedance2_config(args, profile)
+        with _maybe_silence(not args.verbose):
+            result = run_seedance2_t2v(prompt=args.prompt, config=config, out_dir=args.out)
+        return _seedance2_success(
+            mode="seedance2-t2v",
+            artifact=result["artifact"],
+            config=config,
+            profile=profile,
+        )
+
+    if args.command == "seedance2-r2v":
+        if not args.input.is_file():
+            raise FileNotFoundError(f"input image not found: {args.input}")
+        config = _seedance2_config(args, profile)
+        with _maybe_silence(not args.verbose):
+            result = run_seedance2_r2v(image=args.input, prompt=args.prompt, config=config, out_dir=args.out)
+        return _seedance2_success(
+            mode="seedance2-r2v",
+            artifact=result["artifact"],
+            config=config,
+            profile=profile,
+            input_path=args.input,
+        )
+
+    if args.command == "seedance2-flf2v":
+        if not args.first.is_file():
+            raise FileNotFoundError(f"first image not found: {args.first}")
+        if not args.last.is_file():
+            raise FileNotFoundError(f"last image not found: {args.last}")
+        config = _seedance2_config(args, profile)
+        with _maybe_silence(not args.verbose):
+            result = run_seedance2_flf2v(first_image=args.first, last_image=args.last, prompt=args.prompt, config=config, out_dir=args.out)
+        return _seedance2_success(
+            mode="seedance2-flf2v",
+            artifact=result["artifact"],
+            config=config,
+            profile=profile,
+            first_path=args.first,
+            last_path=args.last,
+        )
+
     config = _config(args, profile)
     _ = config.resolved_extra_loras
 

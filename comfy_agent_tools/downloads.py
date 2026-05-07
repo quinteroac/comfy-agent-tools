@@ -186,6 +186,8 @@ DOWNLOAD_REGISTRY: dict[str, dict[str, DownloadSource]] = {
 
 def download_items_for_profile(profile: ResolvedProfile) -> list[DownloadItem]:
     """Return downloadable items for a resolved profile."""
+    if not profile.models:
+        raise DownloadUnsupportedSourceError(f"profile '{profile.name}' does not use local downloadable model files")
     registry = DOWNLOAD_REGISTRY.get(profile.name)
     if registry is None and profile.name in BUILTIN_PROFILES:
         raise DownloadUnsupportedSourceError(f"no download registry for profile: {profile.name}")

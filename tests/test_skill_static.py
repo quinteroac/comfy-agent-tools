@@ -33,6 +33,10 @@ def test_comfy_videogen_skill_frontmatter() -> None:
     assert "10Eros_v1-fp8mixed_learned.safetensors" in content
     assert "ltx-2.3-spatial-upscaler-x2-1.1.safetensors" in content
     assert "ia2av" in content
+    assert "seedance2-t2v" in content
+    assert "Seedance 2.0" in content
+    assert "COMFY_ORG_API_KEY" in content
+    assert "missing_dependency" in content
     assert "--extra-lora" in content
     assert "comfy-tools-setup" in content
     assert "comfy-model-downloader" in content
@@ -69,6 +73,8 @@ def test_comfy_model_onboarding_skill_frontmatter() -> None:
     assert "architecture" in content
     assert "validate-profile" in content
     assert "set-models-dir <models_dir>" in content
+    assert "seedance2-api" in content
+    assert "COMFY_ORG_API_KEY" in content
     assert "comfy-tools-setup" in content
     assert "comfy-model-downloader" in content
 
@@ -84,6 +90,8 @@ def test_comfy_model_downloader_skill_frontmatter() -> None:
     assert "comfy-models download imagegen.generate --dry-run" in content
     assert "HF_TOKEN" in content
     assert "CIVITAI_API_TOKEN" in content
+    assert "seedance2-api" in content
+    assert "COMFY_ORG_API_KEY" in content
     assert "Do not download every model" in content
 
 
@@ -126,6 +134,8 @@ def test_readme_documents_skills_first_installation() -> None:
     assert "npx skills add quinteroac/comfy-agent-tools" in content
     assert "uv tool install git+https://github.com/quinteroac/comfy-agent-tools" in content
     assert "Python CLIs on demand" in content
-    assert "Models are always local" in content
+    assert "Seedance 2.0" in content
+    assert "COMFY_ORG_API_KEY" in content
+    assert "seedance2-api" in content
     assert "comfy-models download imagegen.generate --dry-run" in content
     assert "comfy-model-downloader" in content

@@ -1,14 +1,19 @@
 ---
 name: comfy-videogen
-description: Generate MP4 videos locally with comfy-diffusion and the LTX 2.3 10Eros checkpoint. Use when the user wants local GPU-backed text-to-video, image-to-video, image+audio-to-video, or first/last-frame video generation with audio saved into the workspace. Do not use for hosted video APIs, image-only generation, music-only generation, voice generation, model downloads, ComfyUI server workflows, UI work, or custom node installation.
+description: Generate MP4 videos with comfy-diffusion using local LTX 2.3 10Eros or remote ByteDance Seedance 2.0 API nodes. Use when the user wants local GPU-backed text-to-video, image-to-video, image+audio-to-video, first/last-frame video generation, or Seedance 2.0 API text/reference/first-last-frame video saved into the workspace. Do not use for image-only generation, music-only generation, voice generation, model downloads, ComfyUI server workflows, UI work, custom node installation, or non-Seedance hosted video APIs.
 ---
 
 # comfy-videogen
 
-Use this skill for local video generation through the `comfy-videogen` CLI. The
-CLI uses LTX 2.3 model files under `/mnt/models/comfyui`. If the built-in LTX
-2.3 profile is missing files, use `comfy-model-downloader` for the requested
-`videogen.<mode>` capability before running inference.
+Use this skill for video generation through the `comfy-videogen` CLI. Local LTX
+2.3 modes use model files under `/mnt/models/comfyui`. Remote Seedance 2.0 modes
+use ComfyUI API Nodes vendored by `comfy-diffusion` and require
+`COMFY_ORG_API_KEY`.
+
+If a built-in LTX 2.3 profile is missing files, use `comfy-model-downloader` for
+the requested local `videogen.<mode>` capability before running inference. Do
+not use the downloader for Seedance 2.0; `seedance2-api` has no local model
+files.
 
 The CLI is quiet by default and prints only final JSON. Use `--verbose` only when
 debugging ComfyUI runtime output, warnings, or progress bars.
@@ -39,6 +44,10 @@ with `--extra-lora` only to modes that support ad hoc LoRA insertion.
 - `flf2v`: first image plus last image plus prompt to MP4 with audio. This mode
   uses the experimental 10Eros first/last-frame adaptation with latent
   upscaling/refinement.
+- `seedance2-t2v`: remote Seedance 2.0 text prompt to MP4.
+- `seedance2-r2v`: remote Seedance 2.0 reference image plus prompt to MP4.
+- `seedance2-flf2v`: remote Seedance 2.0 first image plus last image plus
+  prompt to MP4.
 
 ## Commands
 
@@ -82,6 +91,33 @@ uv run comfy-videogen flf2v \
   --out outputs
 ```
 
+Seedance 2.0 text to video:
+
+```bash
+COMFY_ORG_API_KEY=... uv run comfy-videogen seedance2-t2v \
+  --prompt "cinematic shot of a futuristic city at sunset, slow camera drift" \
+  --out outputs
+```
+
+Seedance 2.0 reference image to video:
+
+```bash
+COMFY_ORG_API_KEY=... uv run comfy-videogen seedance2-r2v \
+  --input path/to/image.png \
+  --prompt "slow expressive portrait animation, subtle head movement and soft lighting changes" \
+  --out outputs
+```
+
+Seedance 2.0 first/last frame:
+
+```bash
+COMFY_ORG_API_KEY=... uv run comfy-videogen seedance2-flf2v \
+  --first path/to/start.png \
+  --last path/to/end.png \
+  --prompt "smooth cinematic transition between both frames" \
+  --out outputs
+```
+
 ## Prompt Guidance
 
 Describe visual motion, camera movement, subject action, scene mood, and audio
@@ -95,10 +131,13 @@ drift, dance movement, performance gestures, or environmental reaction. The
 video duration is controlled by `--length / --fps`; long songs are trimmed to
 that window unless `--audio-start-time` or `--audio-duration` is passed.
 
-All modes use latent upscaling/refinement. The saved MP4 can be larger than the
-requested `--width`/`--height`; read `width` and `height` from the final JSON.
+All local LTX modes use latent upscaling/refinement. The saved MP4 can be larger
+than the requested `--width`/`--height`; read `width` and `height` from the final
+JSON.
 
 ## Defaults
+
+### LTX 2.3 Local
 
 - Models directory: `/mnt/models/comfyui`
 - Checkpoint: `checkpoints/10Eros_v1-fp8mixed_learned.safetensors`
@@ -116,6 +155,18 @@ through `loras/ltx23/` or the loose `loras/` fallback. In this cut, extra LoRAs
 are supported for `flf2v`; `t2v`, `i2v`, and `ia2av` return clean JSON errors if
 an extra LoRA is supplied because those modes still use upstream wrappers without
 a safe insertion point.
+
+### Seedance 2.0 Remote API
+
+- Auth: `COMFY_ORG_API_KEY`
+- Profile: `seedance2-api`
+- Provider: `comfy-api`
+- Model: `Seedance 2.0`
+- Params: `resolution=480p`, `ratio=16:9`, `duration=7`, `generate_audio=true`, `watermark=false`, `seed=0`
+- No local weights, no `models_dir`, no downloader, no LoRAs, no ComfyUI server.
+- Requires a `comfy-diffusion` version that vendors ComfyUI API Nodes with
+  `ByteDance Seedance 2.0`. If missing, the CLI returns `missing_dependency`.
+- Do not use Seedance 1.x/1.5, OAuth, or token auth in this skill.
 
 ## Output Handling
 

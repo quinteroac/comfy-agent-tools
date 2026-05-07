@@ -15,9 +15,9 @@ Primary surfaces:
 - `tests/`: pytest coverage for CLIs, profiles, LoRA handling, and static skill docs.
 - `README.md`: public installation and usage docs.
 
-Do not distribute models, generated outputs, or local config. Models live outside
-the repo. On a new machine, ask the user which `models_dir` they want; do not
-assume `/mnt/models/comfyui` during setup.
+Do not distribute models, generated outputs, API keys, or local config. Local
+models live outside the repo. On a new machine, ask the user which `models_dir`
+they want; do not assume `/mnt/models/comfyui` during setup.
 
 ## Setup
 
@@ -79,7 +79,7 @@ Current skills:
 
 - `comfy-tools-setup`: installs/validates the Python CLIs.
 - `comfy-imagegen`: local image generation/edit/upscale.
-- `comfy-videogen`: local LTX 2.3 video generation.
+- `comfy-videogen`: local LTX 2.3 video generation and remote Seedance 2.0 API video.
 - `comfy-musicgen`: local ACE-Step music generation.
 - `comfy-model-onboarding`: persistent model profiles/defaults.
 - `comfy-model-downloader`: on-demand downloads for supported built-in models.
@@ -94,6 +94,7 @@ The repo should not download models automatically. Built-in defaults include:
 - image editing: Qwen Image Edit 2511
 - video: LTX 2.3 10Eros profile
 - music: ACE-Step 1.5 base
+- remote video API: Seedance 2.0 via `COMFY_ORG_API_KEY`
 
 Use `comfy-models` for persistent profile/default changes. Keep architecture and
 profile separate: for example, `ltx23` is the architecture and `ltx23-10eros` is
@@ -117,6 +118,11 @@ uv run comfy-models download imagegen.generate --yes
 
 Do not download all supported models unless explicitly asked. Use `HF_TOKEN` for
 gated Hugging Face repositories and `CIVITAI_API_TOKEN` for Civitai when needed.
+
+Seedance 2.0 is not a local model profile. Do not route `seedance2-api` through
+the downloader, `models_dir`, local LoRAs, or checkpoint onboarding. It requires
+`COMFY_ORG_API_KEY`, uses ComfyUI API Nodes vendored by `comfy-diffusion`, and
+must remain limited to Seedance 2.0 only.
 
 ## LoRAs
 

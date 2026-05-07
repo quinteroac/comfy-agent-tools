@@ -115,6 +115,45 @@ def test_parser_ia2av_audio_window(tmp_path: Path) -> None:
     assert args.audio_duration == 4.0
 
 
+def test_parser_seedance2_defaults(tmp_path: Path) -> None:
+    parser = videogen.build_parser()
+
+    t2v = parser.parse_args(["seedance2-t2v", "--prompt", "hello"])
+    r2v = parser.parse_args(["seedance2-r2v", "--input", str(tmp_path / "a.png"), "--prompt", "hello"])
+    flf2v = parser.parse_args(
+        [
+            "seedance2-flf2v",
+            "--first",
+            str(tmp_path / "a.png"),
+            "--last",
+            str(tmp_path / "b.png"),
+            "--prompt",
+            "hello",
+        ]
+    )
+
+    assert t2v.command == "seedance2-t2v"
+    assert t2v.model == "Seedance 2.0"
+    assert t2v.resolution == "480p"
+    assert t2v.ratio == "16:9"
+    assert t2v.duration == 7
+    assert t2v.generate_audio is True
+    assert t2v.watermark is False
+    assert t2v.seed == 0
+    assert r2v.input == tmp_path / "a.png"
+    assert flf2v.first == tmp_path / "a.png"
+    assert flf2v.last == tmp_path / "b.png"
+
+
+def test_parser_seedance2_accepts_verbose_and_no_audio() -> None:
+    args = videogen.build_parser().parse_args(
+        ["seedance2-t2v", "--prompt", "hello", "--no-generate-audio", "--verbose"]
+    )
+
+    assert args.generate_audio is False
+    assert args.verbose is True
+
+
 def test_t2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
     monkeypatch.setattr(videogen, "run_t2v", lambda *, prompt, config: _result())
     monkeypatch.setattr(videogen, "save_mp4_with_audio", lambda frames, audio, path, fps: Path(path).touch())
@@ -297,6 +336,85 @@ def test_ia2av_success_json_uses_video_duration_when_audio_duration_omitted(
     assert payload["audio_duration_seconds"] == 2 / 24
 
 
+def test_seedance2_t2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    artifact = tmp_path / "seedance.mp4"
+
+    def fake_run(*, prompt, config, out_dir):
+        artifact.write_bytes(b"mp4")
+        return {"artifact": artifact}
+
+    monkeypatch.setattr(videogen, "run_seedance2_t2v", fake_run)
+
+    rc = videogen.main(["seedance2-t2v", "--prompt", "remote video", "--out", str(tmp_path)])
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["mode"] == "seedance2-t2v"
+    assert payload["remote"] is True
+    assert payload["provider"] == "comfy-api"
+    assert payload["capability"] == "videogen.seedance2-t2v"
+    assert payload["model_profile"] == "seedance2-api"
+    assert payload["architecture"] == "seedance2-api"
+    assert payload["model"] == "Seedance 2.0"
+    assert payload["resolution"] == "480p"
+    assert payload["ratio"] == "16:9"
+    assert payload["duration_seconds"] == 7
+    assert payload["generate_audio"] is True
+    assert payload["watermark"] is False
+    assert payload["resolved_models"] == {}
+    assert payload["artifacts"] == [str(artifact)]
+
+
+def test_seedance2_r2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    input_path = tmp_path / "input.png"
+    artifact = tmp_path / "seedance-r2v.mp4"
+    Image.new("RGB", (8, 8), "green").save(input_path)
+
+    def fake_run(*, image, prompt, config, out_dir):
+        assert image == input_path
+        assert prompt == "move"
+        artifact.write_bytes(b"mp4")
+        return {"artifact": artifact}
+
+    monkeypatch.setattr(videogen, "run_seedance2_r2v", fake_run)
+
+    rc = videogen.main(["seedance2-r2v", "--input", str(input_path), "--prompt", "move", "--out", str(tmp_path)])
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "seedance2-r2v"
+    assert payload["input"] == str(input_path)
+    assert payload["artifacts"] == [str(artifact)]
+
+
+def test_seedance2_flf2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    first = tmp_path / "first.png"
+    last = tmp_path / "last.png"
+    artifact = tmp_path / "seedance-flf2v.mp4"
+    Image.new("RGB", (8, 8), "green").save(first)
+    Image.new("RGB", (8, 8), "blue").save(last)
+
+    def fake_run(*, first_image, last_image, prompt, config, out_dir):
+        assert first_image == first
+        assert last_image == last
+        artifact.write_bytes(b"mp4")
+        return {"artifact": artifact}
+
+    monkeypatch.setattr(videogen, "run_seedance2_flf2v", fake_run)
+
+    rc = videogen.main(
+        ["seedance2-flf2v", "--first", str(first), "--last", str(last), "--prompt", "transition", "--out", str(tmp_path)]
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "seedance2-flf2v"
+    assert payload["first"] == str(first)
+    assert payload["last"] == str(last)
+    assert payload["artifacts"] == [str(artifact)]
+
+
 def test_i2v_missing_input_returns_json(tmp_path: Path, capsys: MagicMock) -> None:
     rc = videogen.main(["i2v", "--input", str(tmp_path / "missing.png"), "--prompt", "move"])
 
@@ -306,6 +424,52 @@ def test_i2v_missing_input_returns_json(tmp_path: Path, capsys: MagicMock) -> No
     assert payload["kind"] == "video"
     assert payload["mode"] == "i2v"
     assert payload["error_type"] == "not_found"
+
+
+def test_seedance2_missing_api_key_returns_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    monkeypatch.delenv("COMFY_ORG_API_KEY", raising=False)
+
+    rc = videogen.main(["seedance2-t2v", "--prompt", "remote", "--out", str(tmp_path)])
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["mode"] == "seedance2-t2v"
+    assert payload["error_type"] == "auth_required"
+
+
+def test_seedance2_missing_dependency_returns_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    monkeypatch.setenv("COMFY_ORG_API_KEY", "test-key")
+
+    def fail(*, prompt, config, out_dir):
+        from comfy_agent_tools.videogen.seedance2 import Seedance2MissingDependencyError
+
+        raise Seedance2MissingDependencyError("installed comfy-diffusion does not vendor Seedance 2.0")
+
+    monkeypatch.setattr(videogen, "run_seedance2_t2v", fail)
+
+    rc = videogen.main(["seedance2-t2v", "--prompt", "remote", "--out", str(tmp_path)])
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["error_type"] == "missing_dependency"
+
+
+def test_seedance2_remote_api_error_returns_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    monkeypatch.setenv("COMFY_ORG_API_KEY", "test-key")
+
+    def fail(*, prompt, config, out_dir):
+        from comfy_agent_tools.videogen.seedance2 import Seedance2Error
+
+        raise Seedance2Error("Seedance 2.0 API request failed: bad gateway")
+
+    monkeypatch.setattr(videogen, "run_seedance2_t2v", fail)
+
+    rc = videogen.main(["seedance2-t2v", "--prompt", "remote", "--out", str(tmp_path)])
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["error_type"] == "remote_api_error"
 
 
 def test_ia2av_missing_audio_returns_json(tmp_path: Path, capsys: MagicMock) -> None:

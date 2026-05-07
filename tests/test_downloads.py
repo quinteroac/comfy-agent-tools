@@ -15,8 +15,19 @@ def test_download_registry_covers_builtin_profile_models() -> None:
     config = default_config()
     for profile_name, raw in BUILTIN_PROFILES.items():
         profile = make_resolved_profile(raw["supports"][0], profile_name, resolve_profile(profile_name, config), config)
+        if not profile.models:
+            continue
         items = downloads.download_items_for_profile(profile)
         assert {item.model_key for item in items} == set(profile.models)
+
+
+def test_download_remote_seedance_profile_reports_unsupported_source() -> None:
+    config = default_config()
+    raw = resolve_profile("seedance2-api", config)
+    profile = make_resolved_profile("videogen.seedance2-t2v", "seedance2-api", raw, config)
+
+    with pytest.raises(downloads.DownloadUnsupportedSourceError):
+        downloads.download_items_for_profile(profile)
 
 
 def test_models_download_dry_run_reports_missing_without_writing(

@@ -13,6 +13,7 @@ and uses semantic versioning once releases are tagged.
 
 ### Added
 
+- Add remote Seedance 2.0 API video commands to comfy-videogen.
 - Add capability-scoped built-in model downloader and comfy-model-downloader skill.
 - Add skills-first local media generation tools for image, video, music, model
   profiles, LoRA onboarding, and setup bootstrap.

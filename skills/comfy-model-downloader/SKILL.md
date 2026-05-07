@@ -23,6 +23,10 @@ prefer `uv run comfy-models`; outside the repo, use the installed CLI.
 - Image plus audio to video: `videogen.ia2av`
 - Music generation: `musicgen.generate`
 
+Do not map Seedance 2.0 API requests to downloads. `videogen.seedance2-t2v`,
+`videogen.seedance2-r2v`, and `videogen.seedance2-flf2v` use the remote
+`seedance2-api` profile and require `COMFY_ORG_API_KEY`, not local model files.
+
 ## Flow
 
 1. Resolve the capability from the user's request.
@@ -54,6 +58,9 @@ uv run comfy-models validate-profile anima-preview3-turbo
 - `ltx23-10eros`: LTX 2.3 video and IA2AV.
 - `ace15-base`: ACE-Step 1.5 music generation.
 
+`seedance2-api` is intentionally excluded: it is a remote Comfy API profile, not
+a downloadable model profile.
+
 Do not download models for custom local profiles unless the CLI provides a
 source. For unknown custom checkpoints, use `comfy-model-onboarding` and ask the
 user for the file.
@@ -76,3 +83,4 @@ only after validation.
   `comfy-lora-onboarding`.
 - Do not change model defaults as part of downloading.
 - Do not install ComfyUI custom nodes or start a server.
+- Do not download or validate local files for Seedance 2.0 API generation.

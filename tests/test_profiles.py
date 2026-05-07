@@ -30,6 +30,13 @@ def test_builtin_profiles_separate_architecture_and_profile() -> None:
     assert anima["defaults"]["cfg"] == 1.0
     assert anima["models"]["lora"] == "loras/anima/anima-turbo-lora-v0.1.safetensors"
 
+    seedance = BUILTIN_PROFILES["seedance2-api"]
+    assert seedance["architecture"] == "seedance2-api"
+    assert seedance["models"] == {}
+    assert seedance["defaults"]["remote"] is True
+    assert seedance["defaults"]["model"] == "Seedance 2.0"
+    assert "videogen.seedance2-t2v" in seedance["supports"]
+
 
 def test_builtin_defaults_point_to_supported_profiles() -> None:
     config = default_config()
@@ -37,6 +44,7 @@ def test_builtin_defaults_point_to_supported_profiles() -> None:
     validate_defaults(config)
     assert BUILTIN_DEFAULTS["imagegen.generate"] == "anima-preview3-turbo"
     assert BUILTIN_DEFAULTS["imagegen.edit"] == "qwen-edit2511"
+    assert BUILTIN_DEFAULTS["videogen.seedance2-t2v"] == "seedance2-api"
     for capability, profile_name in BUILTIN_DEFAULTS.items():
         profile = resolve_profile(profile_name, config)
         assert capability in profile["supports"]

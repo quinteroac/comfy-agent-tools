@@ -19,6 +19,9 @@ BUILTIN_DEFAULTS: dict[str, str] = {
     "videogen.i2v": "ltx23-10eros",
     "videogen.flf2v": "ltx23-10eros",
     "videogen.ia2av": "ltx23-10eros",
+    "videogen.seedance2-t2v": "seedance2-api",
+    "videogen.seedance2-r2v": "seedance2-api",
+    "videogen.seedance2-flf2v": "seedance2-api",
     "musicgen.generate": "ace15-base",
 }
 
@@ -109,6 +112,23 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
             "scheduler": "simple",
         },
     },
+    "seedance2-api": {
+        "label": "ByteDance Seedance 2.0 API",
+        "architecture": "seedance2-api",
+        "supports": ["videogen.seedance2-t2v", "videogen.seedance2-r2v", "videogen.seedance2-flf2v"],
+        "models": {},
+        "defaults": {
+            "provider": "comfy-api",
+            "model": "Seedance 2.0",
+            "resolution": "480p",
+            "ratio": "16:9",
+            "duration": 7,
+            "generate_audio": True,
+            "watermark": False,
+            "seed": 0,
+            "remote": True,
+        },
+    },
 }
 
 SUPPORTED_ARCHITECTURES = {
@@ -117,6 +137,7 @@ SUPPORTED_ARCHITECTURES = {
     "upscale-model",
     "ltx23",
     "ace-step-1.5",
+    "seedance2-api",
 }
 
 

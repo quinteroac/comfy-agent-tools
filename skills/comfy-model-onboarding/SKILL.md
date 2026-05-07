@@ -42,9 +42,15 @@ Only configure these architectures in v1:
 - `upscale-model`: base profile `clear-reality`, capability `imagegen.upscale`.
 - `ltx23`: base profile `ltx23-10eros`, capabilities `videogen.t2v`, `videogen.i2v`, `videogen.flf2v`, `videogen.ia2av`.
 - `ace-step-1.5`: base profile `ace15-base`, capability `musicgen.generate`.
+- `seedance2-api`: remote profile `seedance2-api`, capabilities `videogen.seedance2-t2v`, `videogen.seedance2-r2v`, `videogen.seedance2-flf2v`.
 
 If a model is SDXL, Flux, Wan, a new audio architecture, or anything else, do not
 pretend it is supported. Explain that a new architecture adapter is required.
+
+Seedance 2.0 is not a local checkpoint or fine-tune architecture. Do not create
+local profiles for it, do not route it through `models_dir`, and do not use
+`comfy-model-downloader`. It requires `COMFY_ORG_API_KEY` and a
+`comfy-diffusion` version that vendors the ByteDance Seedance 2.0 API nodes.
 
 ## Onboarding Flow
 

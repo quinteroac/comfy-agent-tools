@@ -8,8 +8,10 @@ image, video, and music generation. Users install the skills; the skills teach
 the agent how to install or update the Python tools with `uv`, validate the local
 runtime, initialize model profiles, and run generation commands.
 
-Models are always local. This project does not download, install, or distribute
-model files.
+Local model files are not distributed with this repo. Local Anima, Qwen, LTX,
+ACE-Step, and upscaler profiles use model files under the user's configured
+`models_dir`; remote API profiles such as Seedance 2.0 use provider credentials
+instead of local weights.
 
 Contributions use fork-based pull requests. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -43,7 +45,7 @@ Python CLIs on demand, initialize local config if needed, and validate models.
 ## What You Get
 
 - `comfy-imagegen`: image generation, image editing, and upscaling.
-- `comfy-videogen`: LTX 2.3 text-to-video, image-to-video, first/last-frame video, and image+audio-to-video.
+- `comfy-videogen`: local LTX 2.3 video plus remote Seedance 2.0 API video.
 - `comfy-musicgen`: ACE-Step 1.5 music generation to WAV.
 - `comfy-models`: local model profiles, defaults, validation, and onboarding.
 - `comfy-model-onboarding`: skill guidance for new checkpoints and fine-tunes.
@@ -109,10 +111,12 @@ The default model directory is:
 /mnt/models/comfyui
 ```
 
-Models are downloaded only on demand. A request to generate an image downloads
-the active `imagegen.generate` profile if missing; a music request downloads
-`musicgen.generate`; a video request downloads the specific `videogen.<mode>`
-profile. The tools do not download every supported model unless explicitly asked.
+Local models are downloaded only on demand. A request to generate an image
+downloads the active `imagegen.generate` profile if missing; a music request
+downloads `musicgen.generate`; a local LTX video request downloads the specific
+`videogen.<mode>` profile. The tools do not download every supported model unless
+explicitly asked. Remote API profiles such as `seedance2-api` are not downloaded
+by `comfy-models`.
 
 Use `HF_TOKEN` for gated Hugging Face repositories and `CIVITAI_API_TOKEN` if a
 Civitai direct download requires authentication.
@@ -156,6 +160,9 @@ absent, the CLIs use built-in defaults:
 | `videogen.i2v` | `ltx23-10eros` | `ltx23` |
 | `videogen.flf2v` | `ltx23-10eros` | `ltx23` |
 | `videogen.ia2av` | `ltx23-10eros` | `ltx23` |
+| `videogen.seedance2-t2v` | `seedance2-api` | `seedance2-api` |
+| `videogen.seedance2-r2v` | `seedance2-api` | `seedance2-api` |
+| `videogen.seedance2-flf2v` | `seedance2-api` | `seedance2-api` |
 | `musicgen.generate` | `ace15-base` | `ace-step-1.5` |
 
 `ltx23` is the architecture/adapter; `ltx23-10eros` is the built-in profile
@@ -175,6 +182,10 @@ uv run comfy-models set-default videogen.t2v my-ltx23-finetune
 Use `comfy-model-onboarding` when adding a checkpoint, changing defaults, or
 resolving config errors. V1 supports only architectures already implemented by
 the tools.
+
+`seedance2-api` is remote: it has no local model files, does not use
+`models_dir`, is not handled by `comfy-models download`, and requires
+`COMFY_ORG_API_KEY`.
 
 Download missing files for the effective profile of a capability:
 
@@ -287,9 +298,11 @@ input or requested canvas. Read the final JSON metadata for actual dimensions.
 
 ## Video Generation
 
-`comfy-videogen` uses LTX 2.3 with the `ltx23-10eros` profile and writes MP4
-files with audio. It is quiet by default and prints final JSON only; pass
+`comfy-videogen` supports both local LTX 2.3 generation and remote Seedance 2.0
+API generation. It is quiet by default and prints final JSON only; pass
 `--verbose` to show ComfyUI logs.
+
+Local LTX 2.3 uses the `ltx23-10eros` profile and writes MP4 files with audio.
 
 Text to video:
 
@@ -341,6 +354,46 @@ window.
 
 Audio muxing is required. If audio cannot be written into the MP4, the command
 returns `ok:false` instead of saving a silent video.
+
+### Seedance 2.0 API Video
+
+Seedance 2.0 runs remotely through ComfyUI API Nodes vendored by
+`comfy-diffusion`; it does not require a ComfyUI server, does not use local model
+files, and is not downloaded with `comfy-models download`. Set
+`COMFY_ORG_API_KEY` before running. Only **Seedance 2.0** is exposed; Seedance
+1.x/1.5 and OAuth/token auth are intentionally out of scope.
+
+Text to video:
+
+```bash
+COMFY_ORG_API_KEY=... uv run comfy-videogen seedance2-t2v \
+  --prompt "cinematic shot of a futuristic city at sunset, slow camera drift" \
+  --out outputs
+```
+
+Reference image to video:
+
+```bash
+COMFY_ORG_API_KEY=... uv run comfy-videogen seedance2-r2v \
+  --input portrait.png \
+  --prompt "slow expressive portrait animation, subtle head movement and soft lighting changes" \
+  --out outputs
+```
+
+First/last frame to video:
+
+```bash
+COMFY_ORG_API_KEY=... uv run comfy-videogen seedance2-flf2v \
+  --first start.png \
+  --last end.png \
+  --prompt "smooth cinematic transition between both frames" \
+  --out outputs
+```
+
+Seedance defaults are `model="Seedance 2.0"`, `resolution=480p`, `ratio=16:9`,
+`duration=7`, `generate_audio=true`, `watermark=false`, and `seed=0`. The
+installed `comfy-diffusion` version must vendor ComfyUI API Nodes with
+`ByteDance Seedance 2.0`; otherwise the CLI returns `missing_dependency`.
 
 ## Music Generation
 
