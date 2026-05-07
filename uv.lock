@@ -364,11 +364,12 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
-    { name = "comfy-diffusion", extra = ["audio", "comfyui", "video"] },
+    { name = "comfy-diffusion", extra = ["comfyui", "video"] },
     { name = "hf-xet" },
     { name = "huggingface-hub" },
     { name = "pillow" },
     { name = "sqlalchemy" },
+    { name = "torchaudio" },
 ]
 
 [package.optional-dependencies]
@@ -379,12 +380,13 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.13" },
-    { name = "comfy-diffusion", extras = ["comfyui", "video", "audio"], specifier = ">=2.1.1" },
+    { name = "comfy-diffusion", extras = ["comfyui", "video", "audio"], git = "https://github.com/quinteroac/comfy-diffusion.git?rev=v2.1.2" },
     { name = "hf-xet", specifier = ">=1.2" },
     { name = "huggingface-hub", specifier = ">=0.36" },
     { name = "pillow", specifier = ">=12.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "sqlalchemy", specifier = ">=2.0" },
+    { name = "torchaudio", specifier = ">=2.9.1" },
 ]
 provides-extras = ["dev"]
 
@@ -402,8 +404,8 @@ wheels = [
 
 [[package]]
 name = "comfy-diffusion"
-version = "2.1.1"
-source = { registry = "https://pypi.org/simple" }
+version = "2.1.2"
+source = { git = "https://github.com/quinteroac/comfy-diffusion.git?rev=v2.1.2#14b0718f3e09b367687ee8a29064fa55e92e4a3e" }
 dependencies = [
     { name = "einops" },
     { name = "huggingface-hub" },
@@ -421,15 +423,8 @@ dependencies = [
     { name = "typer" },
     { name = "yarl" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/82/e0/06ea72c4c47cc7fcdbab1ee2ca042d840f3a7ce16103bcf7c17d645d559c/comfy_diffusion-2.1.1.tar.gz", hash = "sha256:aeeb562bbf62c526721afb9fa45d01d0d806315113ed9a7adb75fc787d12efb5", size = 11112946, upload-time = "2026-05-07T03:00:13.037Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/1a/29/f6985e4be4de676a3f2493a94f49c4963cf7f743e14e205dfd980ddf4676/comfy_diffusion-2.1.1-py3-none-any.whl", hash = "sha256:6a4e21bcb772d674a82417d8163eb008d607fbceaa2b353fab4ccff9897a96dd", size = 248669, upload-time = "2026-05-07T03:00:11.101Z" },
-]
 
 [package.optional-dependencies]
-audio = [
-    { name = "torchaudio" },
-]
 comfyui = [
     { name = "aiohttp" },
     { name = "blake3" },
