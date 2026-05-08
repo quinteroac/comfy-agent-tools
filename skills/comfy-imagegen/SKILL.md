@@ -72,6 +72,9 @@ uv run comfy-imagegen edit \
   --out outputs
 ```
 
+For FLUX.2 Klein edit profiles, pass `--width` and/or `--height` to choose the
+output canvas. Any omitted dimension defaults to the input image dimension.
+
 Upscale:
 
 ```bash

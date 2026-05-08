@@ -88,6 +88,8 @@ def build_parser() -> argparse.ArgumentParser:
     edit = subparsers.add_parser("edit", help="Edit an input image with a prompt.")
     add_qwen(edit)
     edit.add_argument("--input", type=_path, required=True)
+    edit.add_argument("--width", type=int, default=None, help="FLUX.2 Klein edit output width. Defaults to input width.")
+    edit.add_argument("--height", type=int, default=None, help="FLUX.2 Klein edit output height. Defaults to input height.")
 
     upscale = subparsers.add_parser("upscale", help="Upscale an input image.")
     add_common(upscale)
@@ -262,11 +264,23 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
 
     if args.command == "edit":
         image = load_rgb_image(args.input)
+        requested_width: int | None = None
+        requested_height: int | None = None
         with _maybe_silence(not args.verbose):
             if profile.architecture == "qwen-image-edit":
+                if args.width is not None or args.height is not None:
+                    raise ValueError("edit --width/--height are only supported by FLUX.2 Klein profiles")
                 images = run_qwen_edit(prompt=args.prompt, image=image, config=config)
             elif profile.architecture == "flux-klein":
-                images = run_flux_klein_edit(prompt=args.prompt, image=image, config=config)
+                requested_width = args.width if args.width is not None else int(image.size[0])
+                requested_height = args.height if args.height is not None else int(image.size[1])
+                images = run_flux_klein_edit(
+                    prompt=args.prompt,
+                    image=image,
+                    width=requested_width,
+                    height=requested_height,
+                    config=config,
+                )
             else:
                 raise ValueError(f"unsupported image editing architecture: {profile.architecture}")
         artifacts = save_images(images, args.out, prefix="comfy-imagegen-edit")
@@ -277,6 +291,8 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
             upscaled=False,
             images=images,
             input_path=args.input,
+            requested_width=requested_width,
+            requested_height=requested_height,
             profile=profile,
         )
 

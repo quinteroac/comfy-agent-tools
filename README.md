@@ -304,6 +304,9 @@ uv run comfy-imagegen edit \
   --out outputs
 ```
 
+For `flux-klein-9b-snofs` image editing, add `--width` and/or `--height` to set
+the output canvas. Omitted dimensions default to the input image dimensions.
+
 Upscale uses ClearReality:
 
 ```bash

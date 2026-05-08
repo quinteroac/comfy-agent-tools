@@ -28,14 +28,16 @@ def run_flux_klein_edit(
     *,
     prompt: str,
     image: Image.Image,
+    width: int | None = None,
+    height: int | None = None,
     config: ImagegenConfig,
 ) -> list[Image.Image]:
     """Run FLUX.2 Klein 9B distilled single-reference image editing."""
-    width, height = image.size
+    input_width, input_height = image.size
     return _run_flux_klein(
         prompt=prompt,
-        width=width,
-        height=height,
+        width=width if width is not None else input_width,
+        height=height if height is not None else input_height,
         config=config,
         reference_image=image,
     )
@@ -82,6 +84,7 @@ def _run_flux_klein(
         from comfy_diffusion.sampling import cfg_guider, random_noise, sample_custom
         from comfy_diffusion.vae import vae_encode
 
+        model = model_sampling_flux(model, _FLUX_MAX_SHIFT, _FLUX_MIN_SHIFT, width, height)
         positive, _ = encode_prompt(clip, prompt, "")
         negative = conditioning_zero_out(positive)
         ref_latent = vae_encode(vae, reference_image)

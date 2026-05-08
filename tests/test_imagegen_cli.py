@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -8,7 +10,8 @@ from PIL import Image
 
 from comfy_agent_tools.cli import imagegen
 from comfy_agent_tools.imagegen.artifacts import create_seed_image
-from comfy_agent_tools.imagegen.flux_klein import _encode_flux2_prompt
+from comfy_agent_tools.imagegen.config import ImagegenConfig
+from comfy_agent_tools.imagegen.flux_klein import _encode_flux2_prompt, run_flux_klein_edit
 
 
 def test_parser_generate_defaults() -> None:
@@ -21,6 +24,25 @@ def test_parser_generate_defaults() -> None:
     assert args.extra_lora == []
     assert args.verbose is False
     assert args.no_manifest is False
+
+
+def test_parser_edit_accepts_optional_dimensions(tmp_path: Path) -> None:
+    args = imagegen.build_parser().parse_args(
+        [
+            "edit",
+            "--input",
+            str(tmp_path / "input.png"),
+            "--prompt",
+            "hello",
+            "--width",
+            "768",
+            "--height",
+            "512",
+        ]
+    )
+
+    assert args.width == 768
+    assert args.height == 512
 
 
 def test_parser_accepts_verbose_for_all_modes(tmp_path: Path) -> None:
@@ -287,9 +309,13 @@ def test_edit_uses_flux_klein_profile(monkeypatch: MagicMock, tmp_path: Path, ca
     input_path = tmp_path / "input.png"
     Image.new("RGB", (32, 32), "blue").save(input_path)
 
-    def fake_run_flux_klein_edit(*, prompt: str, image: Image.Image, config: object) -> list[Image.Image]:
+    def fake_run_flux_klein_edit(
+        *, prompt: str, image: Image.Image, width: int, height: int, config: object
+    ) -> list[Image.Image]:
         assert prompt == "edit with snofs"
         assert image.size == (32, 32)
+        assert width == 32
+        assert height == 32
         assert str(config.clip) == "text_encoders/qwen_3_8b_fp8mixed.safetensors"
         return [Image.new("RGB", (32, 32), "pink")]
 
@@ -304,6 +330,58 @@ def test_edit_uses_flux_klein_profile(monkeypatch: MagicMock, tmp_path: Path, ca
     assert payload["model_profile"] == "flux-klein-9b-snofs"
     assert payload["architecture"] == "flux-klein"
     assert payload["input"] == str(input_path)
+    assert payload["requested_width"] == 32
+    assert payload["requested_height"] == 32
+
+
+def test_edit_flux_klein_accepts_requested_dimensions(
+    monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock
+) -> None:
+    config_path = tmp_path / ".comfy-agent-tools.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "models_dir": str(tmp_path),
+                "defaults": {"imagegen.edit": "flux-klein-9b-snofs"},
+                "profiles": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    input_path = tmp_path / "input.png"
+    Image.new("RGB", (32, 48), "blue").save(input_path)
+
+    def fake_run_flux_klein_edit(
+        *, prompt: str, image: Image.Image, width: int, height: int, config: object
+    ) -> list[Image.Image]:
+        assert prompt == "edit wide"
+        assert image.size == (32, 48)
+        assert width == 64
+        assert height == 48
+        return [Image.new("RGB", (64, 48), "pink")]
+
+    monkeypatch.setattr(imagegen, "run_flux_klein_edit", fake_run_flux_klein_edit)
+
+    rc = imagegen.main(
+        [
+            "edit",
+            "--input",
+            str(input_path),
+            "--prompt",
+            "edit wide",
+            "--width",
+            "64",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["requested_width"] == 64
+    assert payload["requested_height"] == 48
+    assert payload["outputs"] == [{"width": 64, "height": 48, "mode": "RGB"}]
 
 
 def test_flux_klein_encoder_uses_qwen3_tokens() -> None:
@@ -327,6 +405,90 @@ def test_flux_klein_encoder_uses_qwen3_tokens() -> None:
 
     assert result["tokens"] == {"qwen3_8b": [1, 2, 3]}
     assert result["guidance"] == 1.0
+
+
+def test_flux_klein_edit_applies_model_sampling(
+    monkeypatch: MagicMock, tmp_path: Path
+) -> None:
+    calls: dict[str, object] = {}
+
+    class FakeModelManager:
+        def __init__(self, models_dir: Path) -> None:
+            calls["models_dir"] = models_dir
+
+        def load_unet(self, path: Path) -> str:
+            return f"unet:{path.name}"
+
+        def load_clip(self, path: Path, *, clip_type: str) -> str:
+            calls["clip_type"] = clip_type
+            return f"clip:{path.name}"
+
+        def load_vae(self, path: Path) -> str:
+            return f"vae:{path.name}"
+
+    conditioning = types.ModuleType("comfy_diffusion.conditioning")
+    conditioning.reference_latent = lambda cond, ref: ("reference", cond, ref)
+    conditioning.conditioning_zero_out = lambda cond: ("zero", cond)
+    conditioning.encode_prompt = lambda clip, prompt, negative: (("positive", prompt), ("negative", negative))
+
+    latent = types.ModuleType("comfy_diffusion.latent")
+    latent.empty_flux2_latent_image = lambda width, height, batch_size: ("latent", width, height, batch_size)
+
+    lora = types.ModuleType("comfy_diffusion.lora")
+    lora.apply_lora = lambda model, clip, path, model_strength, clip_strength: (model, clip)
+
+    models = types.ModuleType("comfy_diffusion.models")
+    models.ModelManager = FakeModelManager
+
+    def fake_model_sampling_flux(
+        model: str, max_shift: float, min_shift: float, width: int, height: int
+    ) -> str:
+        calls["model_sampling_flux"] = (model, max_shift, min_shift, width, height)
+        return f"sampled:{model}:{width}x{height}"
+
+    models.model_sampling_flux = fake_model_sampling_flux
+
+    sampling = types.ModuleType("comfy_diffusion.sampling")
+    sampling.flux2_scheduler = lambda steps, width, height: ("sigmas", steps, width, height)
+    sampling.get_sampler = lambda sampler: ("sampler", sampler)
+    sampling.cfg_guider = lambda model, positive, negative, cfg: ("guider", model, positive, negative, cfg)
+    sampling.random_noise = lambda seed: ("noise", seed)
+    sampling.sample_custom = lambda noise, guider, sampler, sigmas, latent: (("latent_out", guider), None)
+    sampling.sample_custom_simple = lambda *args: ("latent_out_simple", args)
+
+    vae = types.ModuleType("comfy_diffusion.vae")
+    vae.vae_encode = lambda vae_model, image: ("ref_latent", image.size)
+    vae.vae_decode = lambda vae_model, latent_out: Image.new("RGB", (16, 16), "pink")
+
+    monkeypatch.setitem(sys.modules, "comfy_diffusion", types.ModuleType("comfy_diffusion"))
+    monkeypatch.setitem(sys.modules, "comfy_diffusion.conditioning", conditioning)
+    monkeypatch.setitem(sys.modules, "comfy_diffusion.latent", latent)
+    monkeypatch.setitem(sys.modules, "comfy_diffusion.lora", lora)
+    monkeypatch.setitem(sys.modules, "comfy_diffusion.models", models)
+    monkeypatch.setitem(sys.modules, "comfy_diffusion.sampling", sampling)
+    monkeypatch.setitem(sys.modules, "comfy_diffusion.vae", vae)
+    monkeypatch.setattr("comfy_agent_tools.imagegen.flux_klein.require_comfy_runtime", lambda: None)
+    monkeypatch.setattr(
+        "comfy_agent_tools.imagegen.flux_klein.apply_extra_loras",
+        lambda model, clip, loras: (model, clip),
+    )
+
+    images = run_flux_klein_edit(
+        prompt="edit",
+        image=Image.new("RGB", (32, 32), "blue"),
+        width=64,
+        height=48,
+        config=ImagegenConfig(models_dir=tmp_path, steps=4, cfg=1.0),
+    )
+
+    assert images[0].size == (16, 16)
+    assert calls["model_sampling_flux"] == (
+        "unet:qwen_image_edit_2511_fp8mixed.safetensors",
+        1.15,
+        0.5,
+        64,
+        48,
+    )
 
 
 def test_extra_lora_missing_returns_json(tmp_path: Path, capsys: MagicMock) -> None:
