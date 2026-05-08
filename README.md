@@ -173,6 +173,17 @@ absent, the CLIs use built-in defaults:
 `ltx23` is the architecture/adapter; `ltx23-10eros` is the built-in profile
 validated for that architecture.
 
+An optional built-in image profile, `flux-klein-9b-snofs`, supports both
+`imagegen.generate` and `imagegen.edit` with architecture `flux-klein`. It uses
+`diffusion_models/flux-2-klein-9b-fp8.safetensors`,
+`text_encoders/qwen_3_8b_fp8mixed.safetensors`, `vae/flux2-vae.safetensors`,
+and `loras/flux-klein/klein_snofs_v1_1.safetensors`. The FLUX.2 Klein weights
+are gated and non-commercial; SNOFS permits local image generation and selling
+outputs, but does not permit public/commercial generation services, derivative
+models, or weight redistribution without a separate license. Flux Klein edits
+follow the official distilled image-edit workflow from `comfy-diffusion`, with
+reference latents attached to both positive and negative conditioning.
+
 Add a compatible LTX 2.3 fine-tune profile:
 
 ```bash
@@ -198,6 +209,7 @@ Download missing files for the effective profile of a capability:
 uv run comfy-models download imagegen.generate --dry-run
 uv run comfy-models download imagegen.generate --yes
 uv run comfy-models download-profile anima-preview3-turbo --yes
+uv run comfy-models download-profile flux-klein-9b-snofs --dry-run
 ```
 
 `download` skips files that already exist, writes temporary `*.part` files while
@@ -219,6 +231,8 @@ loras/
     animation-sheet.safetensors
   qwen-image-edit/
     product-retouch.safetensors
+  flux-klein/
+    klein_snofs_v1_1.safetensors
   ltx23/
     camera-static.safetensors
     detailer.safetensors

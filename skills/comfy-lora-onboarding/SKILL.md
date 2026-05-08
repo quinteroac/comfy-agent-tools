@@ -45,7 +45,7 @@ Filenames should describe purpose or intent. Prefer names like
 When the user asks to apply a LoRA by name, style, or purpose:
 
 1. Identify the active architecture from the command/profile: `anima`,
-   `qwen-image-edit`, `ltx23`, or `ace-step-1.5`.
+   `qwen-image-edit`, `flux-klein`, `ltx23`, or `ace-step-1.5`.
 2. Search first in `${models_dir}/loras/<architecture>/`.
 3. Search `${models_dir}/loras/` as fallback for loose LoRAs.
 4. Rank candidates by matching filename tokens against the user request.

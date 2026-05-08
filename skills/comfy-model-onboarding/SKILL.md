@@ -39,12 +39,14 @@ Only configure these architectures in v1:
 
 - `qwen-image-edit`: base profile `qwen-edit2511`, capabilities `imagegen.generate`, `imagegen.edit`.
 - `anima`: base profile `anima-preview3-turbo`, capability `imagegen.generate`.
+- `flux-klein`: base profile `flux-klein-9b-snofs`, capabilities `imagegen.generate`, `imagegen.edit`.
 - `upscale-model`: base profile `clear-reality`, capability `imagegen.upscale`.
 - `ltx23`: base profile `ltx23-10eros`, capabilities `videogen.t2v`, `videogen.i2v`, `videogen.flf2v`, `videogen.ia2av`.
 - `ace-step-1.5`: base profile `ace15-base`, capability `musicgen.generate`.
 - `seedance2-api`: remote profile `seedance2-api`, capabilities `videogen.seedance2-t2v`, `videogen.seedance2-r2v`, `videogen.seedance2-flf2v`.
 
-If a model is SDXL, Flux, Wan, a new audio architecture, or anything else, do not
+If a model is SDXL, Wan, a new audio architecture, or any Flux variant other than
+the built-in `flux-klein` adapter, do not
 pretend it is supported. Explain that a new architecture adapter is required.
 
 Seedance 2.0 is not a local checkpoint or fine-tune architecture. Do not create
@@ -102,6 +104,22 @@ uv run comfy-models set-default imagegen.generate my-anima
 Anima profiles generate images only. They do not support `imagegen.edit`. Keep
 turbo Anima profiles at `steps=8` and `cfg=1.0` unless the user explicitly wants
 to test a slower non-turbo profile.
+
+FLUX.2 Klein 9B SNOFS:
+
+```bash
+uv run comfy-models download-profile flux-klein-9b-snofs --dry-run
+uv run comfy-models download-profile flux-klein-9b-snofs --yes
+uv run comfy-models validate-profile flux-klein-9b-snofs
+uv run comfy-models set-default imagegen.generate flux-klein-9b-snofs
+uv run comfy-models set-default imagegen.edit flux-klein-9b-snofs
+```
+
+This profile uses gated Black Forest Labs FLUX.2 Klein 9B FP8 weights plus the
+SNOFS LoRA. Use `HF_TOKEN` after the user accepts the FLUX license terms. Do not
+redistribute the weights, and do not use this profile for a public/commercial
+generation service without separate licensing. Flux Klein edits follow the
+official distilled image-edit workflow from `comfy-diffusion`.
 
 ACE-Step 1.5 variant:
 

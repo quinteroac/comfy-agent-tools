@@ -17,8 +17,10 @@ def test_models_list_uses_builtin_fallback(monkeypatch: MagicMock, tmp_path: Pat
     assert payload["ok"] is True
     assert payload["config_source"] == "builtin"
     assert "anima" in payload["architectures"]
+    assert "flux-klein" in payload["architectures"]
     assert "ltx23" in payload["architectures"]
     assert payload["profiles"]["anima-preview3-turbo"]["architecture"] == "anima"
+    assert payload["profiles"]["flux-klein-9b-snofs"]["supports"] == ["imagegen.generate", "imagegen.edit"]
     assert payload["profiles"]["ltx23-10eros"]["architecture"] == "ltx23"
     assert payload["profiles"]["ltx23-motion-track"]["supports"] == ["videogen.motion-track"]
 

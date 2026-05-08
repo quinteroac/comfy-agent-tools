@@ -93,6 +93,7 @@ The repo should not download models automatically. Built-in defaults include:
 - models dir fallback: `/mnt/models/comfyui`
 - image generation: Anima Preview3 turbo profile
 - image editing: Qwen Image Edit 2511
+- optional image generation/editing: FLUX.2 Klein 9B FP8 with SNOFS LoRA
 - video: LTX 2.3 10Eros profile
 - motion-track video: LTX 2.3 10Eros plus Motion Track IC-LoRA
 - music: ACE-Step 1.5 base
@@ -141,6 +142,7 @@ There is no LoRA catalog. Prefer this folder convention under
 loras/
   anima/
   qwen-image-edit/
+  flux-klein/
   ltx23/
   ace-step-1.5/
 ```

@@ -29,6 +29,7 @@ from comfy_agent_tools.imagegen.config import (
     ImagegenConfig,
 )
 from comfy_agent_tools.imagegen.anima import run_anima_t2i
+from comfy_agent_tools.imagegen.flux_klein import run_flux_klein_edit, run_flux_klein_t2i
 from comfy_agent_tools.imagegen.qwen import run_qwen_edit
 from comfy_agent_tools.imagegen.upscale import run_upscale
 from comfy_agent_tools.media import write_run_manifest
@@ -238,6 +239,13 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
                     height=height,
                     config=config,
                 )
+            elif profile.architecture == "flux-klein":
+                images = run_flux_klein_t2i(
+                    prompt=args.prompt,
+                    width=width,
+                    height=height,
+                    config=config,
+                )
             else:
                 raise ValueError(f"unsupported image generation architecture: {profile.architecture}")
         artifacts = save_images(images, args.out, prefix="comfy-imagegen-generate")
@@ -255,7 +263,12 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
     if args.command == "edit":
         image = load_rgb_image(args.input)
         with _maybe_silence(not args.verbose):
-            images = run_qwen_edit(prompt=args.prompt, image=image, config=config)
+            if profile.architecture == "qwen-image-edit":
+                images = run_qwen_edit(prompt=args.prompt, image=image, config=config)
+            elif profile.architecture == "flux-klein":
+                images = run_flux_klein_edit(prompt=args.prompt, image=image, config=config)
+            else:
+                raise ValueError(f"unsupported image editing architecture: {profile.architecture}")
         artifacts = save_images(images, args.out, prefix="comfy-imagegen-edit")
         return _success(
             mode="edit",

@@ -118,6 +118,33 @@ DOWNLOAD_REGISTRY: dict[str, dict[str, DownloadSource]] = {
             filename="Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
         ),
     },
+    "flux-klein-9b-snofs": {
+        "unet": DownloadSource(
+            kind="hf",
+            repo_id="black-forest-labs/FLUX.2-klein-9b-fp8",
+            filename="flux-2-klein-9b-fp8.safetensors",
+            token_env="HF_TOKEN",
+            size_bytes=9_430_000_000,
+        ),
+        "clip": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/vae-text-encorder-for-flux-klein-9b",
+            filename="split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors",
+            size_bytes=8_660_000_000,
+        ),
+        "vae": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/vae-text-encorder-for-flux-klein-9b",
+            filename="split_files/vae/flux2-vae.safetensors",
+            size_bytes=336_000_000,
+        ),
+        "lora": DownloadSource(
+            kind="hf",
+            repo_id="Ashen3/SNOFS",
+            filename="klein_snofs_v1_1.safetensors",
+            size_bytes=1_090_000_000,
+        ),
+    },
     "clear-reality": {
         "upscaler": DownloadSource(
             kind="hf",

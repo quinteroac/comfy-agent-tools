@@ -8,6 +8,7 @@ from PIL import Image
 
 from comfy_agent_tools.cli import imagegen
 from comfy_agent_tools.imagegen.artifacts import create_seed_image
+from comfy_agent_tools.imagegen.flux_klein import _encode_flux2_prompt
 
 
 def test_parser_generate_defaults() -> None:
@@ -220,6 +221,112 @@ def test_edit_uses_qwen_default(monkeypatch: MagicMock, tmp_path: Path, capsys: 
     payload = json.loads(capsys.readouterr().out)
     assert payload["model_profile"] == "qwen-edit2511"
     assert payload["architecture"] == "qwen-image-edit"
+
+
+def test_generate_uses_flux_klein_profile(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    config_path = tmp_path / ".comfy-agent-tools.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "models_dir": str(tmp_path),
+                "defaults": {"imagegen.generate": "flux-klein-9b-snofs"},
+                "profiles": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    def fake_run_flux_klein_t2i(
+        *, prompt: str, width: int, height: int, config: object
+    ) -> list[Image.Image]:
+        assert prompt == "make it snofs"
+        assert width == 128
+        assert height == 128
+        assert str(config.lora) == "loras/flux-klein/klein_snofs_v1_1.safetensors"
+        return [Image.new("RGB", (16, 16), "purple")]
+
+    monkeypatch.setattr(imagegen, "run_flux_klein_t2i", fake_run_flux_klein_t2i)
+
+    rc = imagegen.main(
+        [
+            "generate",
+            "--prompt",
+            "make it snofs",
+            "--width",
+            "128",
+            "--height",
+            "128",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["model_profile"] == "flux-klein-9b-snofs"
+    assert payload["architecture"] == "flux-klein"
+    assert payload["steps"] == 4
+    assert payload["cfg"] == 1.0
+    assert payload["resolved_models"]["lora"].endswith("loras/flux-klein/klein_snofs_v1_1.safetensors")
+
+
+def test_edit_uses_flux_klein_profile(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    config_path = tmp_path / ".comfy-agent-tools.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "models_dir": str(tmp_path),
+                "defaults": {"imagegen.edit": "flux-klein-9b-snofs"},
+                "profiles": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    input_path = tmp_path / "input.png"
+    Image.new("RGB", (32, 32), "blue").save(input_path)
+
+    def fake_run_flux_klein_edit(*, prompt: str, image: Image.Image, config: object) -> list[Image.Image]:
+        assert prompt == "edit with snofs"
+        assert image.size == (32, 32)
+        assert str(config.clip) == "text_encoders/qwen_3_8b_fp8mixed.safetensors"
+        return [Image.new("RGB", (32, 32), "pink")]
+
+    monkeypatch.setattr(imagegen, "run_flux_klein_edit", fake_run_flux_klein_edit)
+
+    rc = imagegen.main(
+        ["edit", "--input", str(input_path), "--prompt", "edit with snofs", "--out", str(tmp_path)]
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["model_profile"] == "flux-klein-9b-snofs"
+    assert payload["architecture"] == "flux-klein"
+    assert payload["input"] == str(input_path)
+
+
+def test_flux_klein_encoder_uses_qwen3_tokens() -> None:
+    class FakeClip:
+        def __init__(self) -> None:
+            self.add_dict: dict[str, object] | None = None
+
+        def tokenize(self, text: str) -> dict[str, list[int]]:
+            assert text == " "
+            return {"qwen3_8b": [1, 2, 3]}
+
+        def encode_from_tokens_scheduled(
+            self, tokens: dict[str, list[int]], *, add_dict: dict[str, object]
+        ) -> dict[str, object]:
+            self.add_dict = add_dict
+            return {"tokens": tokens, "guidance": add_dict["guidance"]}
+
+    clip = FakeClip()
+
+    result = _encode_flux2_prompt(clip, "", guidance=1.0)
+
+    assert result["tokens"] == {"qwen3_8b": [1, 2, 3]}
+    assert result["guidance"] == 1.0
 
 
 def test_extra_lora_missing_returns_json(tmp_path: Path, capsys: MagicMock) -> None:

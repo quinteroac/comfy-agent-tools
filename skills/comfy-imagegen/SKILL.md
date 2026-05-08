@@ -1,6 +1,6 @@
 ---
 name: comfy-imagegen
-description: Generate, edit, or upscale raster images locally with comfy-diffusion, Anima Preview3, Qwen Image Edit 2511, and ClearReality. Use when the user wants local GPU-backed image generation or image editing from the current machine, especially when outputs should be saved into the workspace. Do not use for hosted OpenAI image generation, vector/SVG work, video, music, voice, model downloads, custom node installation, or ComfyUI server workflows.
+description: Generate, edit, or upscale raster images locally with comfy-diffusion, Anima Preview3, Qwen Image Edit 2511, FLUX.2 Klein 9B SNOFS, and ClearReality. Use when the user wants local GPU-backed image generation or image editing from the current machine, especially when outputs should be saved into the workspace. Do not use for hosted OpenAI image generation, vector/SVG work, video, music, voice, model downloads, custom node installation, or ComfyUI server workflows.
 ---
 
 # comfy-imagegen
@@ -31,8 +31,8 @@ If `.comfy-agent-tools.json` is missing or the user wants to configure a new
 checkpoint/fine-tune/default, use `comfy-model-onboarding` first.
 
 If model validation fails with `missing_model_file`, use `comfy-model-downloader`:
-`imagegen.generate` for Anima generation, `imagegen.edit` for Qwen editing, or
-`imagegen.upscale` for ClearReality upscale.
+`imagegen.generate` for the active generation profile, `imagegen.edit` for the
+active edit profile, or `imagegen.upscale` for ClearReality upscale.
 
 If the user asks to use or organize a LoRA by name or purpose, use
 `comfy-lora-onboarding` to search `loras/<architecture>/` first and pass the
@@ -41,8 +41,11 @@ chosen file with `--extra-lora`.
 ## Modes
 
 - `generate`: text prompt to image with Anima Preview3 + turbo LoRA. Use for
-  anime, illustration, and non-photorealistic art.
+  anime, illustration, and non-photorealistic art by default. When the active
+  profile is `flux-klein-9b-snofs`, use FLUX.2 Klein 9B FP8 plus SNOFS.
 - `edit`: input image plus prompt to edited image with Qwen Image Edit 2511.
+  When the active profile is `flux-klein-9b-snofs`, use FLUX.2 Klein 9B plus
+  SNOFS for single-reference editing.
 - `upscale`: input image to 4x upscale with ClearReality.
 
 ## Commands
@@ -98,6 +101,16 @@ dimensions match the saved PNG.
 
 For upscale, do not add prompt text; use the input image only.
 
+FLUX.2 Klein 9B SNOFS uses natural-language prompts, supports both generation
+and editing, and is step-distilled for `steps=4`, `cfg=1.0`. Keep dimensions
+divisible by 16. It requires gated Black Forest Labs weights and SNOFS has a
+separate personal-use license: local image generation is allowed, generated
+images may be sold, but public/commercial generation services, derivative model
+creation, and weight redistribution are not allowed without a separate license.
+For edits, Flux Klein follows the official distilled image-edit workflow:
+reference-image VAE encoding, reference latents on both positive and negative
+conditioning, `Flux2Scheduler`, `CFGGuider`, and `SamplerCustomAdvanced`.
+
 ## Defaults
 
 - Models directory: `/mnt/models/comfyui`
@@ -112,6 +125,13 @@ For upscale, do not add prompt text; use the input image only.
 - Qwen text encoder: `text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors`
 - Qwen LoRA: `loras/qwen-image-edit/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors`
 - Qwen params: `steps=4`, `cfg=3.0`, `seed=0`
+- FLUX profile: `flux-klein-9b-snofs`
+- FLUX architecture: `flux-klein`
+- FLUX diffusion model: `diffusion_models/flux-2-klein-9b-fp8.safetensors`
+- FLUX text encoder: `text_encoders/qwen_3_8b_fp8mixed.safetensors`
+- FLUX VAE: `vae/flux2-vae.safetensors`
+- SNOFS LoRA: `loras/flux-klein/klein_snofs_v1_1.safetensors`
+- FLUX params: `steps=4`, `cfg=1.0`, `sampler=euler`, `seed=0`
 - Upscaler: `upscale_models/4x-ClearRealityV1.pth`
 - Dependency: `comfy-diffusion[comfyui,video]`
 
@@ -124,6 +144,7 @@ through the LoRA folder convention:
 
 - `loras/anima/` for Anima generation LoRAs.
 - `loras/qwen-image-edit/` for Qwen edit LoRAs.
+- `loras/flux-klein/` for FLUX.2 Klein LoRAs such as SNOFS.
 - fallback to loose files in `loras/` only when no architecture folder match is clear.
 
 Warnings about missing `torchaudio` can appear in verbose mode because ComfyUI imports

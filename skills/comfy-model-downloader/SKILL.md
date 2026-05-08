@@ -54,6 +54,7 @@ uv run comfy-models validate-profile anima-preview3-turbo
 
 - `anima-preview3-turbo`: Anima Preview3 image generation.
 - `qwen-edit2511`: Qwen Image Edit 2511 generation/editing.
+- `flux-klein-9b-snofs`: FLUX.2 Klein 9B FP8 generation/editing with SNOFS.
 - `clear-reality`: ClearReality image upscaling.
 - `ltx23-10eros`: LTX 2.3 video and IA2AV.
 - `ace15-base`: ACE-Step 1.5 music generation.
@@ -68,8 +69,9 @@ user for the file.
 ## Auth And Sources
 
 Supported sources are Hugging Face and direct HTTP model links. Set `HF_TOKEN`
-for gated Hugging Face repositories. Set `CIVITAI_API_TOKEN` if Civitai requires
-authenticated downloads.
+for gated Hugging Face repositories; FLUX.2 Klein 9B requires accepting the
+Black Forest Labs license terms before download. Set `CIVITAI_API_TOKEN` if
+Civitai requires authenticated downloads.
 
 The tool writes into the active `models_dir`, usually `/mnt/models/comfyui`, and
 creates missing subfolders. Partial downloads use `*.part` files and are renamed
@@ -84,3 +86,5 @@ only after validation.
 - Do not change model defaults as part of downloading.
 - Do not install ComfyUI custom nodes or start a server.
 - Do not download or validate local files for Seedance 2.0 API generation.
+- Do not redistribute FLUX.2 Klein or SNOFS weights, and do not use SNOFS for a
+  public/commercial generation service without separate licensing.

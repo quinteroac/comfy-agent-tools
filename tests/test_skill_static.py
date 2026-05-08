@@ -20,6 +20,8 @@ def test_comfy_imagegen_skill_frontmatter() -> None:
     assert "comfy-model-downloader" in content
     assert "Qwen Image Edit 2511" in content
     assert "4x-ClearRealityV1.pth" in content
+    assert "flux-klein-9b-snofs" in content
+    assert "klein_snofs_v1_1.safetensors" in content
     assert "uv run comfy-media gallery --out outputs" in content
     assert "uv run comfy-media index --out outputs" in content
 
@@ -119,6 +121,8 @@ def test_comfy_model_onboarding_skill_frontmatter() -> None:
     assert "set-models-dir <models_dir>" in content
     assert "seedance2-api" in content
     assert "COMFY_ORG_API_KEY" in content
+    assert "flux-klein-9b-snofs" in content
+    assert "flux-klein" in content
     assert "comfy-tools-setup" in content
     assert "comfy-model-downloader" in content
 
@@ -134,6 +138,8 @@ def test_comfy_model_downloader_skill_frontmatter() -> None:
     assert "comfy-models download imagegen.generate --dry-run" in content
     assert "HF_TOKEN" in content
     assert "CIVITAI_API_TOKEN" in content
+    assert "flux-klein-9b-snofs" in content
+    assert "SNOFS" in content
     assert "seedance2-api" in content
     assert "COMFY_ORG_API_KEY" in content
     assert "Do not download every model" in content
@@ -148,6 +154,7 @@ def test_comfy_lora_onboarding_skill_frontmatter() -> None:
     assert "name: comfy-lora-onboarding" in frontmatter
     assert "description:" in frontmatter
     assert "loras/<architecture>" in content
+    assert "flux-klein" in content
     assert "descriptive filename" in content or "Filenames should describe" in content
     assert "Do not move" in content
     assert "--extra-lora" in content
@@ -182,5 +189,7 @@ def test_readme_documents_skills_first_installation() -> None:
     assert "COMFY_ORG_API_KEY" in content
     assert "seedance2-api" in content
     assert "comfy-models download imagegen.generate --dry-run" in content
+    assert "flux-klein-9b-snofs" in content
+    assert "klein_snofs_v1_1.safetensors" in content
     assert "comfy-model-downloader" in content
     assert "comfy-media" in content

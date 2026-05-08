@@ -30,6 +30,12 @@ def test_builtin_profiles_separate_architecture_and_profile() -> None:
     assert anima["defaults"]["cfg"] == 1.0
     assert anima["models"]["lora"] == "loras/anima/anima-turbo-lora-v0.1.safetensors"
 
+    flux = BUILTIN_PROFILES["flux-klein-9b-snofs"]
+    assert flux["architecture"] == "flux-klein"
+    assert flux["supports"] == ["imagegen.generate", "imagegen.edit"]
+    assert flux["defaults"]["steps"] == 4
+    assert flux["models"]["lora"] == "loras/flux-klein/klein_snofs_v1_1.safetensors"
+
     seedance = BUILTIN_PROFILES["seedance2-api"]
     assert seedance["architecture"] == "seedance2-api"
     assert seedance["models"] == {}

@@ -72,6 +72,25 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
             "scheduler": "normal",
         },
     },
+    "flux-klein-9b-snofs": {
+        "label": "FLUX.2 Klein 9B FP8 + SNOFS LoRA",
+        "architecture": "flux-klein",
+        "supports": ["imagegen.generate", "imagegen.edit"],
+        "models": {
+            "unet": "diffusion_models/flux-2-klein-9b-fp8.safetensors",
+            "clip": "text_encoders/qwen_3_8b_fp8mixed.safetensors",
+            "vae": "vae/flux2-vae.safetensors",
+            "lora": "loras/flux-klein/klein_snofs_v1_1.safetensors",
+        },
+        "defaults": {
+            "width": 1024,
+            "height": 1024,
+            "steps": 4,
+            "cfg": 1.0,
+            "sampler": "euler",
+            "scheduler": "flux2",
+        },
+    },
     "ltx23-10eros": {
         "label": "10Eros LTX 2.3",
         "architecture": "ltx23",
@@ -157,6 +176,7 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
 SUPPORTED_ARCHITECTURES = {
     "qwen-image-edit",
     "anima",
+    "flux-klein",
     "upscale-model",
     "ltx23",
     "ace-step-1.5",
