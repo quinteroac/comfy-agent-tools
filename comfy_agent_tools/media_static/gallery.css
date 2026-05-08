@@ -1,0 +1,227 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #f6f2ea;
+  color: #202326;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 22vw, 460px);
+  grid-template-rows: auto minmax(0, 1fr) 172px;
+  grid-template-areas:
+    "header header"
+    "stage info"
+    "filmstrip filmstrip";
+  height: 100vh;
+  min-width: 0;
+}
+
+header {
+  grid-area: header;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr) 160px;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  padding: 10px 12px;
+  background: rgba(246, 242, 234, 0.96);
+  border-bottom: 1px solid #d8d1c4;
+}
+
+h1 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1;
+}
+
+input,
+select {
+  width: 100%;
+  height: 34px;
+  border: 1px solid #bfb8aa;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: #fffdf8;
+  color: #202326;
+  font: inherit;
+}
+
+#stage {
+  grid-area: stage;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  padding: 16px;
+  background: #ede8dc;
+  overflow: hidden;
+}
+
+.stage-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 1px solid #d8d1c4;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #111316;
+}
+
+.stage-preview img,
+.stage-preview video,
+.stage-preview hyperframes-player {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.stage-preview video {
+  aspect-ratio: var(--media-aspect-ratio, auto);
+}
+
+.stage-preview audio {
+  width: min(720px, 72%);
+}
+
+.empty {
+  color: #6a716f;
+}
+
+#info {
+  grid-area: info;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border-left: 1px solid #d8d1c4;
+  padding: 16px;
+  background: #fffdf8;
+}
+
+#info h2 {
+  margin: 0 0 14px;
+  overflow-wrap: anywhere;
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 8px 12px;
+  font-size: 14px;
+}
+
+dt {
+  color: #596261;
+}
+
+dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+.filmstrip {
+  grid-area: filmstrip;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 12px;
+  border-top: 1px solid #d8d1c4;
+  background: #f6f2ea;
+}
+
+.item {
+  flex: 0 0 178px;
+  min-width: 0;
+  border: 1px solid #d8d1c4;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fffdf8;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.item.selected {
+  border-color: #237b6d;
+  outline: 2px solid #237b6d;
+}
+
+.thumb {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  background: #181b1e;
+  color: #f4f0e8;
+  overflow: hidden;
+}
+
+.thumb img,
+.thumb video,
+.thumb hyperframes-player {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumb audio {
+  width: 88%;
+}
+
+.body {
+  padding: 8px;
+}
+
+.title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.meta {
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #596261;
+  font-size: 11px;
+}
+
+@media (max-width: 900px) {
+  main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr) auto 156px;
+    grid-template-areas:
+      "header"
+      "stage"
+      "info"
+      "filmstrip";
+  }
+
+  header {
+    grid-template-columns: 1fr;
+  }
+
+  #info {
+    max-height: 220px;
+    border-left: 0;
+    border-top: 1px solid #d8d1c4;
+  }
+}

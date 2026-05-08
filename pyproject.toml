@@ -11,7 +11,7 @@ requires-python = ">=3.12"
 license = "MIT"
 dependencies = [
     "alembic>=1.13",
-    "comfy-diffusion[comfyui,video,audio] @ git+https://github.com/quinteroac/comfy-diffusion.git@v2.1.2",
+    "comfy-diffusion[comfyui,video,audio] @ git+https://github.com/quinteroac/comfy-diffusion.git@v2.2.0",
     "hf-xet>=1.2",
     "huggingface-hub>=0.36",
     "pillow>=12.0.0",
@@ -29,9 +29,13 @@ comfy-imagegen = "comfy_agent_tools.cli.imagegen:main"
 comfy-videogen = "comfy_agent_tools.cli.videogen:main"
 comfy-musicgen = "comfy_agent_tools.cli.musicgen:main"
 comfy-models = "comfy_agent_tools.cli.models:main"
+comfy-media = "comfy_agent_tools.cli.media:main"
 
 [tool.setuptools.packages.find]
 include = ["comfy_agent_tools*"]
+
+[tool.setuptools.package-data]
+comfy_agent_tools = ["media_static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

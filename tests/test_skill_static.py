@@ -44,6 +44,23 @@ def test_comfy_videogen_skill_frontmatter() -> None:
     assert "--width 540 --height 360" in content
 
 
+def test_comfy_motion_track_control_skill_frontmatter() -> None:
+    skill_path = Path("skills/comfy-motion-track-control/SKILL.md")
+    content = skill_path.read_text(encoding="utf-8")
+
+    assert content.startswith("---\n")
+    frontmatter = content.split("---", 2)[1]
+    assert "name: comfy-motion-track-control" in frontmatter
+    assert "description:" in frontmatter
+    assert "comfy-tools-setup" in content
+    assert "comfy-model-downloader" in content
+    assert "comfy-model-onboarding" in content
+    assert "HyperFrames" in content
+    assert "LTXICLoRALoaderModelOnly" in content
+    assert "LTXAddVideoICLoRAGuide" in content
+    assert "ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors" in content
+
+
 def test_comfy_musicgen_skill_frontmatter() -> None:
     skill_path = Path("skills/comfy-musicgen/SKILL.md")
     content = skill_path.read_text(encoding="utf-8")
@@ -59,6 +76,21 @@ def test_comfy_musicgen_skill_frontmatter() -> None:
     assert "--extra-lora" in content
     assert "comfy-tools-setup" in content
     assert "comfy-model-downloader" in content
+
+
+def test_comfy_media_skill_frontmatter() -> None:
+    skill_path = Path("skills/comfy-media/SKILL.md")
+    content = skill_path.read_text(encoding="utf-8")
+
+    assert content.startswith("---\n")
+    frontmatter = content.split("---", 2)[1]
+    assert "name: comfy-media" in frontmatter
+    assert "description:" in frontmatter
+    assert "comfy-tools-setup" in content
+    assert "uv run comfy-media index" in content
+    assert "uv run comfy-media gallery" in content
+    assert "export-hyperframes" in content
+    assert "HyperFrames" in content
 
 
 def test_comfy_model_onboarding_skill_frontmatter() -> None:
@@ -141,3 +173,4 @@ def test_readme_documents_skills_first_installation() -> None:
     assert "seedance2-api" in content
     assert "comfy-models download imagegen.generate --dry-run" in content
     assert "comfy-model-downloader" in content
+    assert "comfy-media" in content

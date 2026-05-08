@@ -159,6 +159,45 @@ DOWNLOAD_REGISTRY: dict[str, dict[str, DownloadSource]] = {
             size_bytes=996_000_000,
         ),
     },
+    "ltx23-motion-track": {
+        "checkpoint": DownloadSource(
+            kind="hf",
+            repo_id="TenStrip/LTX2.3-10Eros",
+            filename="10Eros_v1-fp8mixed_learned.safetensors",
+            size_bytes=29_161_842_950,
+        ),
+        "text_encoder": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/ltx-2",
+            filename="split_files/text_encoders/gemma_3_12B_it_fp4_mixed.safetensors",
+            sha256="aaca463d11e6d8d2a4bdb0d6299214c15ef78a3f73e0ef8113d5a9d0219b3f6d",
+            size_bytes=9_447_702_218,
+        ),
+        "distilled_lora": DownloadSource(
+            kind="hf",
+            repo_id="Lightricks/LTX-2.3",
+            filename="ltx-2.3-22b-distilled-lora-384.safetensors",
+        ),
+        "te_lora": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/ltx-2",
+            filename="split_files/loras/gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors",
+            sha256="87bcabeac9bec9f374232b5122d6511c2b2112d479e50176149e944b3712eb4a",
+            size_bytes=628_203_616,
+        ),
+        "upscaler": DownloadSource(
+            kind="hf",
+            repo_id="Lightricks/LTX-2.3",
+            filename="ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
+            sha256="5f416311fa8172b65af67530758964708d29a317b830d689a51143b7f91913ed",
+            size_bytes=996_000_000,
+        ),
+        "ic_lora": DownloadSource(
+            kind="hf",
+            repo_id="Lightricks/LTX-2.3-22b-IC-LoRA-Motion-Track-Control",
+            filename="ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors",
+        ),
+    },
     "ace15-base": {
         "unet": DownloadSource(
             kind="hf",

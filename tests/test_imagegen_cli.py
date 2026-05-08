@@ -19,6 +19,7 @@ def test_parser_generate_defaults() -> None:
     assert args.models_dir is None
     assert args.extra_lora == []
     assert args.verbose is False
+    assert args.no_manifest is False
 
 
 def test_parser_accepts_verbose_for_all_modes(tmp_path: Path) -> None:
@@ -99,6 +100,23 @@ def test_generate_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: M
     assert payload["outputs"] == [{"width": 8, "height": 8, "mode": "RGB"}]
     assert len(payload["artifacts"]) == 1
     assert Path(payload["artifacts"][0]).is_file()
+    assert len(payload["manifests"]) == 1
+    assert Path(payload["manifests"][0]).is_file()
+
+
+def test_generate_accepts_no_manifest(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    monkeypatch.setattr(
+        imagegen,
+        "run_anima_t2i",
+        lambda *, prompt, width, height, config: [Image.new("RGB", (8, 8), "red")],
+    )
+
+    rc = imagegen.main(["generate", "--prompt", "no manifest", "--out", str(tmp_path), "--no-manifest"])
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert "manifests" not in payload
+    assert not (tmp_path / ".comfy-media" / "runs").exists()
 
 
 def test_generate_suppresses_inference_output_by_default(

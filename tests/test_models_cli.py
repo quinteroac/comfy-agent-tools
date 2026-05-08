@@ -20,6 +20,7 @@ def test_models_list_uses_builtin_fallback(monkeypatch: MagicMock, tmp_path: Pat
     assert "ltx23" in payload["architectures"]
     assert payload["profiles"]["anima-preview3-turbo"]["architecture"] == "anima"
     assert payload["profiles"]["ltx23-10eros"]["architecture"] == "ltx23"
+    assert payload["profiles"]["ltx23-motion-track"]["supports"] == ["videogen.motion-track"]
 
 
 def test_models_init_and_show(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
@@ -82,6 +83,32 @@ def test_models_add_ltx_profile_and_set_default(monkeypatch: MagicMock, tmp_path
     data = json.loads((tmp_path / ".comfy-agent-tools.json").read_text(encoding="utf-8"))
     assert data["profiles"]["my-ltx23-finetune"]["architecture"] == "ltx23"
     assert data["defaults"]["videogen.t2v"] == "my-ltx23-finetune"
+
+
+def test_models_add_ltx_motion_profile_with_ic_lora(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    rc = models.main(
+        [
+            "add-profile",
+            "my-motion-track",
+            "--extends",
+            "ltx23-motion-track",
+            "--ic-lora",
+            "loras/ltx23/custom-motion-track.safetensors",
+        ]
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["profile"] == "my-motion-track"
+
+    rc = models.main(["set-default", "videogen.motion-track", "my-motion-track"])
+
+    assert rc == 0
+    data = json.loads((tmp_path / ".comfy-agent-tools.json").read_text(encoding="utf-8"))
+    assert data["profiles"]["my-motion-track"]["models"]["ic_lora"] == "loras/ltx23/custom-motion-track.safetensors"
+    assert data["defaults"]["videogen.motion-track"] == "my-motion-track"
 
 
 def test_models_set_default_rejects_unsupported_capability(
