@@ -15,6 +15,16 @@ If `comfy-videogen` or `comfy-models` is not available, use
 `comfy-tools-setup` first. In this repository, prefer `uv run comfy-videogen`;
 outside the repo, let `comfy-tools-setup` install the CLIs with `uv tool`.
 
+At the start of every motion-track workflow, start or reuse the local Comfy Media
+gallery for the active output directory:
+
+```bash
+uv run comfy-media gallery --out outputs --host 127.0.0.1 --port 8765
+```
+
+Use `comfy-media --help` only if the CLI is missing or behaves unexpectedly; do
+not skip the gallery just because generation can run headless.
+
 If `.comfy-agent-tools.json` is missing or the user needs a different
 `models_dir`, use `comfy-model-onboarding` first. Do not assume a local models
 directory on a new machine.
@@ -42,6 +52,13 @@ The CLI prints JSON only. On success, read `artifacts` for the MP4 path. On
 failure, read `error_type`; if it is `missing_dependency`, the installed
 `comfy-diffusion` build is older than v2.2.0 or does not expose the IC-LoRA wrappers for
 `LTXICLoRALoaderModelOnly` and `LTXAddVideoICLoRAGuide` yet.
+
+After every successful motion-track command, immediately index the same output
+directory so the new artifact appears in Comfy Media:
+
+```bash
+uv run comfy-media index --out outputs
+```
 
 ## Control Video Requirements
 

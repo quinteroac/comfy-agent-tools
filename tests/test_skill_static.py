@@ -20,6 +20,8 @@ def test_comfy_imagegen_skill_frontmatter() -> None:
     assert "comfy-model-downloader" in content
     assert "Qwen Image Edit 2511" in content
     assert "4x-ClearRealityV1.pth" in content
+    assert "uv run comfy-media gallery --out outputs" in content
+    assert "uv run comfy-media index --out outputs" in content
 
 
 def test_comfy_videogen_skill_frontmatter() -> None:
@@ -42,6 +44,8 @@ def test_comfy_videogen_skill_frontmatter() -> None:
     assert "comfy-model-downloader" in content
     assert "two-step pipeline" in content
     assert "--width 540 --height 360" in content
+    assert "uv run comfy-media gallery --out outputs" in content
+    assert "uv run comfy-media index --out outputs" in content
 
 
 def test_comfy_motion_track_control_skill_frontmatter() -> None:
@@ -59,6 +63,8 @@ def test_comfy_motion_track_control_skill_frontmatter() -> None:
     assert "LTXICLoRALoaderModelOnly" in content
     assert "LTXAddVideoICLoRAGuide" in content
     assert "ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors" in content
+    assert "uv run comfy-media gallery --out outputs" in content
+    assert "uv run comfy-media index --out outputs" in content
 
 
 def test_comfy_musicgen_skill_frontmatter() -> None:
@@ -76,6 +82,8 @@ def test_comfy_musicgen_skill_frontmatter() -> None:
     assert "--extra-lora" in content
     assert "comfy-tools-setup" in content
     assert "comfy-model-downloader" in content
+    assert "uv run comfy-media gallery --out outputs" in content
+    assert "uv run comfy-media index --out outputs" in content
 
 
 def test_comfy_media_skill_frontmatter() -> None:
@@ -91,6 +99,8 @@ def test_comfy_media_skill_frontmatter() -> None:
     assert "uv run comfy-media gallery" in content
     assert "export-hyperframes" in content
     assert "HyperFrames" in content
+    assert "begin by starting or reusing the" in content
+    assert "after each successful generation command" in content
 
 
 def test_comfy_model_onboarding_skill_frontmatter() -> None:

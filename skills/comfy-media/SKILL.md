@@ -9,6 +9,10 @@ Use this skill to inspect and organize generated media from `comfy-agent-tools`.
 If `comfy-media` is not available, use `comfy-tools-setup` first. In this
 repository, prefer `uv run comfy-media`.
 
+Every comfy-agent-tools media workflow should begin by starting or reusing the
+local gallery for the active output directory, then index the output directory
+after each successful generation command.
+
 Generated media commands write run manifests by default under:
 
 ```text

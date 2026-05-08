@@ -22,6 +22,16 @@ If `comfy-videogen` or `comfy-models` is not available, use
 `comfy-tools-setup` first. In this repository, prefer `uv run comfy-videogen`;
 outside the repo, let `comfy-tools-setup` install the CLIs with `uv tool`.
 
+At the start of every video workflow, start or reuse the local Comfy Media
+gallery for the active output directory:
+
+```bash
+uv run comfy-media gallery --out outputs --host 127.0.0.1 --port 8765
+```
+
+Use `comfy-media --help` only if the CLI is missing or behaves unexpectedly; do
+not skip the gallery just because generation can run headless.
+
 If `.comfy-agent-tools.json` is missing or the user wants to configure a new
 checkpoint/fine-tune/default such as an LTX 2.3 variant, use
 `comfy-model-onboarding` first.
@@ -196,6 +206,13 @@ a safe insertion point.
 
 The CLI prints JSON to stdout. On success, read `artifacts` for the saved MP4 path.
 On failure, read `error` and `error_type`; do not parse logs for control flow.
+
+After every successful video command, immediately index the same output directory
+so the new artifact appears in Comfy Media:
+
+```bash
+uv run comfy-media index --out outputs
+```
 
 Audio is required in v1. If MP4 audio muxing fails, the command fails instead of
 silently saving a no-audio video.
