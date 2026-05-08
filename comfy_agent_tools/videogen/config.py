@@ -14,6 +14,7 @@ DEFAULT_TEXT_ENCODER = Path("text_encoders/gemma_3_12B_it_fp4_mixed.safetensors"
 DEFAULT_DISTILLED_LORA = Path("loras/ltx23/ltx-2.3-22b-distilled-lora-384.safetensors")
 DEFAULT_TE_LORA = Path("loras/ltx23/gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors")
 DEFAULT_UPSCALER = Path("latent_upscale_models/ltx-2.3-spatial-upscaler-x2-1.1.safetensors")
+DEFAULT_IC_LORA = Path("loras/ltx23/ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors")
 
 DEFAULT_OUT = Path("outputs")
 DEFAULT_WIDTH = 512
@@ -25,6 +26,8 @@ DEFAULT_SEED = 0
 DEFAULT_AUDIO_START_TIME = 0.0
 DEFAULT_DISTILLED_LORA_STRENGTH = 0.5
 DEFAULT_TE_LORA_STRENGTH = 1.0
+DEFAULT_ATTENTION_STRENGTH = 1.0
+DEFAULT_REFERENCE_DOWNSCALE = 0.5
 DEFAULT_NEGATIVE_PROMPT = "worst quality, inconsistent motion, blurry, jittery, distorted"
 
 
@@ -38,6 +41,7 @@ class VideogenConfig:
     distilled_lora: Path = DEFAULT_DISTILLED_LORA
     te_lora: Path = DEFAULT_TE_LORA
     upscaler: Path = DEFAULT_UPSCALER
+    ic_lora: Path = DEFAULT_IC_LORA
     width: int = DEFAULT_WIDTH
     height: int = DEFAULT_HEIGHT
     length: int = DEFAULT_LENGTH
@@ -49,6 +53,8 @@ class VideogenConfig:
     negative_prompt: str = DEFAULT_NEGATIVE_PROMPT
     distilled_lora_strength: float = DEFAULT_DISTILLED_LORA_STRENGTH
     te_lora_strength: float = DEFAULT_TE_LORA_STRENGTH
+    attention_strength: float = DEFAULT_ATTENTION_STRENGTH
+    reference_downscale: float = DEFAULT_REFERENCE_DOWNSCALE
     extra_loras: list[ExtraLora] | None = None
 
     def resolve_model_path(self, path: Path) -> Path:

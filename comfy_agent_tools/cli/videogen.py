@@ -10,18 +10,22 @@ from pathlib import Path
 from typing import Any
 
 from comfy_agent_tools.loras import extra_loras_json, parse_extra_lora
+from comfy_agent_tools.media import write_run_manifest
 from comfy_agent_tools.videogen.artifacts import frame_metadata, make_video_path, save_mp4_with_audio
 from comfy_agent_tools.videogen.config import (
     DEFAULT_CFG,
     DEFAULT_AUDIO_START_TIME,
+    DEFAULT_ATTENTION_STRENGTH,
     DEFAULT_CHECKPOINT,
     DEFAULT_DISTILLED_LORA,
     DEFAULT_FPS,
     DEFAULT_HEIGHT,
+    DEFAULT_IC_LORA,
     DEFAULT_LENGTH,
     DEFAULT_MODELS_DIR,
     DEFAULT_NEGATIVE_PROMPT,
     DEFAULT_OUT,
+    DEFAULT_REFERENCE_DOWNSCALE,
     DEFAULT_SEED,
     DEFAULT_TE_LORA,
     DEFAULT_TEXT_ENCODER,
@@ -29,7 +33,7 @@ from comfy_agent_tools.videogen.config import (
     DEFAULT_WIDTH,
     VideogenConfig,
 )
-from comfy_agent_tools.videogen.ltx23 import run_flf2v, run_i2v, run_ia2av, run_t2v
+from comfy_agent_tools.videogen.ltx23 import run_flf2v, run_i2v, run_ia2av, run_motion_track, run_t2v
 from comfy_agent_tools.videogen.seedance2 import (
     DEFAULT_SEEDANCE2_DURATION,
     DEFAULT_SEEDANCE2_GENERATE_AUDIO,
@@ -63,11 +67,17 @@ def build_parser() -> argparse.ArgumentParser:
     def add_common(subparser: argparse.ArgumentParser) -> None:
         subparser.add_argument("--models-dir", type=_path, default=None)
         subparser.add_argument("--out", type=_path, default=DEFAULT_OUT)
+        subparser.add_argument(
+            "--no-manifest",
+            action="store_true",
+            help="Do not write a comfy-media run manifest for this generation.",
+        )
         subparser.add_argument("--checkpoint", type=_path, default=None)
         subparser.add_argument("--text-encoder", type=_path, default=None)
         subparser.add_argument("--distilled-lora", type=_path, default=None)
         subparser.add_argument("--te-lora", type=_path, default=None)
         subparser.add_argument("--upscaler", type=_path, default=None)
+        subparser.add_argument("--ic-lora", type=_path, default=None)
         subparser.add_argument("--width", type=int, default=None)
         subparser.add_argument("--height", type=int, default=None)
         subparser.add_argument("--length", type=int, default=None)
@@ -117,8 +127,24 @@ def build_parser() -> argparse.ArgumentParser:
     flf2v.add_argument("--last", type=_path, required=True)
     flf2v.add_argument("--prompt", required=True)
 
+    motion_track = subparsers.add_parser(
+        "motion-track",
+        help="Generate a video from an image and a motion-track IC-LoRA control video.",
+    )
+    add_common(motion_track)
+    motion_track.add_argument("--input", type=_path, required=True)
+    motion_track.add_argument("--control-video", type=_path, required=True)
+    motion_track.add_argument("--prompt", required=True)
+    motion_track.add_argument("--attention-strength", type=float, default=None)
+    motion_track.add_argument("--reference-downscale", type=float, default=None)
+
     def add_seedance2_common(subparser: argparse.ArgumentParser) -> None:
         subparser.add_argument("--out", type=_path, default=DEFAULT_OUT)
+        subparser.add_argument(
+            "--no-manifest",
+            action="store_true",
+            help="Do not write a comfy-media run manifest for this generation.",
+        )
         subparser.add_argument("--model", default=SEEDANCE2_MODEL, choices=[SEEDANCE2_MODEL])
         subparser.add_argument("--resolution", default=DEFAULT_SEEDANCE2_RESOLUTION, choices=["480p", "720p", "1080p"])
         subparser.add_argument("--ratio", default=DEFAULT_SEEDANCE2_RATIO, choices=["16:9", "4:3", "1:1", "3:4", "9:16", "21:9", "adaptive"])
@@ -167,6 +193,7 @@ def _config(args: argparse.Namespace, profile: ResolvedProfile) -> VideogenConfi
         distilled_lora=args.distilled_lora if args.distilled_lora is not None else profile.models.get("distilled_lora", DEFAULT_DISTILLED_LORA),
         te_lora=args.te_lora if args.te_lora is not None else profile.models.get("te_lora", DEFAULT_TE_LORA),
         upscaler=args.upscaler if args.upscaler is not None else profile.models.get("upscaler", DEFAULT_UPSCALER),
+        ic_lora=args.ic_lora if args.ic_lora is not None else profile.models.get("ic_lora", DEFAULT_IC_LORA),
         width=args.width if args.width is not None else int(profile.defaults.get("width", DEFAULT_WIDTH)),
         height=args.height if args.height is not None else int(profile.defaults.get("height", DEFAULT_HEIGHT)),
         length=args.length if args.length is not None else int(profile.defaults.get("length", DEFAULT_LENGTH)),
@@ -176,6 +203,16 @@ def _config(args: argparse.Namespace, profile: ResolvedProfile) -> VideogenConfi
         audio_start_time=getattr(args, "audio_start_time", DEFAULT_AUDIO_START_TIME),
         audio_duration=getattr(args, "audio_duration", None),
         negative_prompt=args.negative_prompt,
+        attention_strength=(
+            args.attention_strength
+            if getattr(args, "attention_strength", None) is not None
+            else float(profile.defaults.get("attention_strength", DEFAULT_ATTENTION_STRENGTH))
+        ),
+        reference_downscale=(
+            args.reference_downscale
+            if getattr(args, "reference_downscale", None) is not None
+            else float(profile.defaults.get("reference_downscale", DEFAULT_REFERENCE_DOWNSCALE))
+        ),
         extra_loras=list(getattr(args, "extra_lora", []) or []),
     )
 
@@ -218,6 +255,7 @@ def _success(
     audio_path: Path | None = None,
     audio_start_time: float | None = None,
     audio_duration: float | None = None,
+    control_video_path: Path | None = None,
     profile: ResolvedProfile,
 ) -> dict[str, Any]:
     meta = frame_metadata(frames, config.fps)
@@ -253,6 +291,11 @@ def _success(
             if config.audio_duration is not None
             else meta["duration_seconds"]
         )
+    if control_video_path is not None:
+        payload["control_video"] = str(control_video_path)
+        payload["ic_lora"] = str(config.resolve_model_path(config.ic_lora))
+        payload["attention_strength"] = config.attention_strength
+        payload["reference_downscale"] = config.reference_downscale
     if first_path is not None:
         payload["first"] = str(first_path)
     if last_path is not None:
@@ -305,6 +348,7 @@ def _resolved_video_models(config: VideogenConfig) -> dict[str, str]:
         "distilled_lora": str(config.resolve_model_path(config.distilled_lora)),
         "te_lora": str(config.resolve_model_path(config.te_lora)),
         "upscaler": str(config.resolve_model_path(config.upscaler)),
+        "ic_lora": str(config.resolve_model_path(config.ic_lora)),
     }
 
 
@@ -328,6 +372,8 @@ def _classify_error(error: Exception) -> str:
         return "out_of_memory"
     if "runtime not available" in message or "runtime bootstrap failed" in message:
         return "runtime"
+    if "ic-lora" in message and "helper" in message:
+        return "missing_dependency"
     if "audio" in message or "mux" in message or "aac" in message:
         return "audio_mux"
     if isinstance(error, ProfileError):
@@ -476,6 +522,29 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
             profile=profile,
         )
 
+    if args.command == "motion-track":
+        if not args.input.is_file():
+            raise FileNotFoundError(f"input image not found: {args.input}")
+        if not args.control_video.is_file():
+            raise FileNotFoundError(f"control video not found: {args.control_video}")
+        with _maybe_silence(not args.verbose):
+            result = run_motion_track(
+                image=args.input,
+                control_video=args.control_video,
+                prompt=args.prompt,
+                config=config,
+            )
+            artifact = _write_result_video(result, args.out, prefix="comfy-videogen-motion-track", fps=config.fps)
+        return _success(
+            mode="motion-track",
+            artifact=artifact,
+            config=config,
+            frames=result["frames"],
+            input_path=args.input,
+            control_video_path=args.control_video,
+            profile=profile,
+        )
+
     raise ValueError(f"unknown command: {args.command}")
 
 
@@ -487,6 +556,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         payload = run_command(args)
+        if payload.get("ok") is True and not getattr(args, "no_manifest", False):
+            payload["manifests"] = [str(write_run_manifest(out_dir=args.out, tool="comfy-videogen", payload=payload, args=args))]
     except Exception as exc:
         payload = _error(mode=mode, error=exc)
         print(json.dumps(payload, indent=2))

@@ -10,6 +10,7 @@ import torch
 
 from comfy_agent_tools.cli import videogen
 from comfy_agent_tools.videogen.artifacts import save_mp4_with_audio
+from comfy_agent_tools.videogen import ltx23
 
 
 def _frames() -> list[Image.Image]:
@@ -115,6 +116,40 @@ def test_parser_ia2av_audio_window(tmp_path: Path) -> None:
     assert args.audio_duration == 4.0
 
 
+def test_parser_motion_track_options(tmp_path: Path) -> None:
+    args = videogen.build_parser().parse_args(
+        [
+            "motion-track",
+            "--input",
+            str(tmp_path / "input.png"),
+            "--control-video",
+            str(tmp_path / "tracks.mp4"),
+            "--prompt",
+            "follow the drawn tracks",
+            "--attention-strength",
+            "0.8",
+            "--width",
+            "512",
+            "--height",
+            "320",
+            "--length",
+            "49",
+            "--fps",
+            "24",
+        ]
+    )
+
+    assert args.command == "motion-track"
+    assert args.input == tmp_path / "input.png"
+    assert args.control_video == tmp_path / "tracks.mp4"
+    assert args.prompt == "follow the drawn tracks"
+    assert args.attention_strength == 0.8
+    assert args.width == 512
+    assert args.height == 320
+    assert args.length == 49
+    assert args.fps == 24
+
+
 def test_parser_seedance2_defaults(tmp_path: Path) -> None:
     parser = videogen.build_parser()
 
@@ -176,6 +211,7 @@ def test_t2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicM
     assert payload["architecture"] == "ltx23"
     assert payload["resolved_models"]["checkpoint"].endswith("checkpoints/10Eros_v1-fp8mixed_learned.safetensors")
     assert Path(payload["artifacts"][0]).is_file()
+    assert Path(payload["manifests"][0]).is_file()
 
 
 def test_i2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
@@ -334,6 +370,60 @@ def test_ia2av_success_json_uses_video_duration_when_audio_duration_omitted(
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["audio_duration_seconds"] == 2 / 24
+
+
+def test_motion_track_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    input_path = tmp_path / "input.png"
+    control_path = tmp_path / "tracks.mp4"
+    Image.new("RGB", (8, 8), "green").save(input_path)
+    control_path.write_bytes(b"fake video")
+    seen: dict[str, object] = {}
+
+    def fake_run_motion_track(*, image: Path, control_video: Path, prompt: str, config: object) -> dict[str, object]:
+        seen["image"] = image
+        seen["control_video"] = control_video
+        seen["prompt"] = prompt
+        seen["attention_strength"] = config.attention_strength
+        return _result()
+
+    monkeypatch.setattr(videogen, "run_motion_track", fake_run_motion_track)
+    monkeypatch.setattr(videogen, "save_mp4_with_audio", lambda frames, audio, path, fps: Path(path).touch())
+
+    rc = videogen.main(
+        [
+            "motion-track",
+            "--input",
+            str(input_path),
+            "--control-video",
+            str(control_path),
+            "--prompt",
+            "follow tracks",
+            "--attention-strength",
+            "0.75",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    assert seen["image"] == input_path
+    assert seen["control_video"] == control_path
+    assert seen["prompt"] == "follow tracks"
+    assert seen["attention_strength"] == 0.75
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "motion-track"
+    assert payload["input"] == str(input_path)
+    assert payload["control_video"] == str(control_path)
+    assert payload["attention_strength"] == 0.75
+    assert payload["reference_downscale"] == 0.5
+    assert payload["capability"] == "videogen.motion-track"
+    assert payload["model_profile"] == "ltx23-motion-track"
+    assert payload["architecture"] == "ltx23"
+    assert payload["resolved_models"]["ic_lora"].endswith(
+        "loras/ltx23/ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors"
+    )
+    assert payload["ic_lora"] == payload["resolved_models"]["ic_lora"]
+    assert Path(payload["artifacts"][0]).is_file()
 
 
 def test_seedance2_t2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
@@ -497,6 +587,66 @@ def test_ia2av_missing_audio_returns_json(tmp_path: Path, capsys: MagicMock) -> 
     assert "input audio not found" in payload["error"]
 
 
+def test_motion_track_missing_control_video_returns_json(tmp_path: Path, capsys: MagicMock) -> None:
+    input_path = tmp_path / "input.png"
+    Image.new("RGB", (8, 8), "green").save(input_path)
+
+    rc = videogen.main(
+        [
+            "motion-track",
+            "--input",
+            str(input_path),
+            "--control-video",
+            str(tmp_path / "missing.mp4"),
+            "--prompt",
+            "follow tracks",
+        ]
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["mode"] == "motion-track"
+    assert payload["error_type"] == "not_found"
+    assert "control video not found" in payload["error"]
+
+
+def test_motion_track_missing_ic_helpers_returns_json(tmp_path: Path, capsys: MagicMock) -> None:
+    input_path = tmp_path / "input.png"
+    control_path = tmp_path / "tracks.mp4"
+    Image.new("RGB", (8, 8), "green").save(input_path)
+    control_path.write_bytes(b"fake video")
+    original_require = ltx23._require_ic_lora_helpers
+    ltx23._require_ic_lora_helpers = lambda: (_ for _ in ()).throw(
+        ModuleNotFoundError(
+            "installed comfy-diffusion does not expose IC-LoRA helpers; install comfy-diffusion v2.2.0 or newer "
+            "for LTXICLoRALoaderModelOnly and LTXAddVideoICLoRAGuide wrappers"
+        )
+    )
+
+    try:
+        rc = videogen.main(
+            [
+                "motion-track",
+                "--input",
+                str(input_path),
+                "--control-video",
+                str(control_path),
+                "--prompt",
+                "follow tracks",
+            ]
+        )
+    finally:
+        ltx23._require_ic_lora_helpers = original_require
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["mode"] == "motion-track"
+    assert payload["error_type"] == "missing_dependency"
+    assert "LTXICLoRALoaderModelOnly" in payload["error"]
+
+
 def test_runtime_exception_returns_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
     def fail(*, prompt: str, config: object) -> dict[str, object]:
         raise RuntimeError("ComfyUI runtime not available: missing dependency")
@@ -570,3 +720,11 @@ def test_ia2av_wrapper_uses_upstream_ia2v_pipeline() -> None:
     assert "audio_path=audio" in source
     assert "audio_start_time=config.audio_start_time" in source
     assert "audio_duration=config.audio_duration" in source
+
+
+def test_motion_track_wrapper_uses_comfy_diffusion_v220_ic_lora_helpers() -> None:
+    source = Path("comfy_agent_tools/videogen/ltx23.py").read_text(encoding="utf-8")
+
+    assert "apply_ic_lora_model_only" in source
+    assert "ltx_add_video_ic_lora_guide" in source
+    assert "latent_downscale_factor=latent_downscale_factor" in source

@@ -40,6 +40,7 @@ def test_parser_generate_defaults() -> None:
     assert args.cfg is None
     assert args.extra_lora == []
     assert args.verbose is False
+    assert args.no_manifest is False
 
 
 def test_parser_generate_overrides() -> None:
@@ -152,6 +153,7 @@ def test_generate_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: M
     ]
     assert payload["lyrics_present"] is True
     assert Path(payload["artifacts"][0]).is_file()
+    assert Path(payload["manifests"][0]).is_file()
 
 
 def test_generate_suppresses_output_by_default(

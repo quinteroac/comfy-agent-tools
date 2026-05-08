@@ -31,6 +31,7 @@ from comfy_agent_tools.musicgen.config import (
     DEFAULT_VAE,
     MusicgenConfig,
 )
+from comfy_agent_tools.media import write_run_manifest
 from comfy_agent_tools.profiles import ProfileError, ResolvedProfile, resolve_capability
 
 
@@ -49,6 +50,11 @@ def build_parser() -> argparse.ArgumentParser:
     generate = subparsers.add_parser("generate", help="Generate music from prompt tags and optional lyrics.")
     generate.add_argument("--models-dir", type=_path, default=None)
     generate.add_argument("--out", type=_path, default=DEFAULT_OUT)
+    generate.add_argument(
+        "--no-manifest",
+        action="store_true",
+        help="Do not write a comfy-media run manifest for this generation.",
+    )
     generate.add_argument("--unet", type=_path, default=None)
     generate.add_argument("--clip-0-6b", type=_path, default=None)
     generate.add_argument("--clip-1-7b", type=_path, default=None)
@@ -222,6 +228,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         payload = run_command(args)
+        if payload.get("ok") is True and not getattr(args, "no_manifest", False):
+            payload["manifests"] = [str(write_run_manifest(out_dir=args.out, tool="comfy-musicgen", payload=payload, args=args))]
     except Exception as exc:
         payload = _error(mode=mode, error=exc)
         print(json.dumps(payload, indent=2))

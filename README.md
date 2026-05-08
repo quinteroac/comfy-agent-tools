@@ -46,7 +46,9 @@ Python CLIs on demand, initialize local config if needed, and validate models.
 
 - `comfy-imagegen`: image generation, image editing, and upscaling.
 - `comfy-videogen`: local LTX 2.3 video plus remote Seedance 2.0 API video.
+- `comfy-motion-track-control`: LTX 2.3 Motion Track IC-LoRA guidance.
 - `comfy-musicgen`: ACE-Step 1.5 music generation to WAV.
+- `comfy-media`: local media gallery, indexing, and HyperFrames review-reel export.
 - `comfy-models`: local model profiles, defaults, validation, and onboarding.
 - `comfy-model-onboarding`: skill guidance for new checkpoints and fine-tunes.
 - `comfy-model-downloader`: skill guidance for downloading supported base models on demand.
@@ -98,7 +100,8 @@ uv sync --extra dev
 uv run comfy-models validate
 ```
 
-The Python runtime dependency is `comfy-diffusion[comfyui,video,audio]`. The
+The Python runtime dependency is `comfy-diffusion[comfyui,video,audio]` pinned
+to `v2.2.0` or newer for LTX 2.3 Motion Track IC-LoRA helpers. The
 media extras are required because ComfyUI imports media nodes during runtime
 startup, video generation writes MP4 files with audio, and music generation uses
 audio helpers.
@@ -138,6 +141,7 @@ checkpoints/10Eros_v1-fp8mixed_learned.safetensors
 text_encoders/gemma_3_12B_it_fp4_mixed.safetensors
 loras/ltx23/ltx-2.3-22b-distilled-lora-384.safetensors
 loras/ltx23/gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors
+loras/ltx23/ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors
 latent_upscale_models/ltx-2.3-spatial-upscaler-x2-1.1.safetensors
 
 diffusion_models/acestep_v1.5_base.safetensors
@@ -160,6 +164,7 @@ absent, the CLIs use built-in defaults:
 | `videogen.i2v` | `ltx23-10eros` | `ltx23` |
 | `videogen.flf2v` | `ltx23-10eros` | `ltx23` |
 | `videogen.ia2av` | `ltx23-10eros` | `ltx23` |
+| `videogen.motion-track` | `ltx23-motion-track` | `ltx23` |
 | `videogen.seedance2-t2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-r2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-flf2v` | `seedance2-api` | `seedance2-api` |
@@ -345,6 +350,22 @@ uv run comfy-videogen flf2v \
   --out outputs
 ```
 
+Motion-track IC-LoRA from an input image plus prepared trajectory control video:
+
+```bash
+uv run comfy-videogen motion-track \
+  --input start.png \
+  --control-video motion-reference.mp4 \
+  --prompt "cinematic portrait, hair and camera follow the drawn motion paths, natural motion" \
+  --attention-strength 1.0 \
+  --out outputs
+```
+
+Use the `comfy-motion-track-control` skill to prepare motion references. A
+common flow is to render colored point/spline trajectories over a still image
+with HyperFrames, then pass that MP4 as `--control-video`. The control profile
+uses the `ref0.5` IC-LoRA and records `reference_downscale=0.5`.
+
 This sizing rule applies only to local LTX 2.3 modes. It does not apply to
 Seedance 2.0 remote API modes or other non-LTX pipelines. Local LTX 2.3 runs a
 two-step pipeline with latent x2 spatial upscaling/refinement, so treat
@@ -464,6 +485,7 @@ include stable metadata such as:
 - `kind`
 - `mode`
 - `artifacts`
+- `manifests`
 - `seed`
 - `capability`
 - `model_profile`
@@ -476,6 +498,37 @@ Failures return a nonzero exit code and JSON with `ok:false`, `error`, and
 `error_type`.
 
 Use `--verbose` to show ComfyUI warnings, progress bars, and debug output.
+
+Successful image, video, and music commands write a comfy-media run manifest
+under `outputs/.comfy-media/runs/` by default. Use `--no-manifest` only when you
+do not want gallery/index metadata.
+
+## Media Gallery And HyperFrames Export
+
+Index generated images, videos, and audio:
+
+```bash
+uv run comfy-media index --out outputs
+```
+
+Open the local gallery:
+
+```bash
+uv run comfy-media gallery --out outputs --host 127.0.0.1 --port 8765
+```
+
+Export an index or manifest into a minimal HyperFrames review-reel project:
+
+```bash
+uv run comfy-media export-hyperframes \
+  --out outputs \
+  --selection outputs/.comfy-media/index.json \
+  --project-dir outputs/hyperframes-review
+```
+
+The export writes `index.html` and `comfy-media-selection.json` without requiring
+HyperFrames as a Python dependency. Preview or render it with your HyperFrames
+fork, for example `npx hyperframes preview outputs/hyperframes-review`.
 
 ## Development
 

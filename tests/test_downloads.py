@@ -49,6 +49,24 @@ def test_models_download_dry_run_reports_missing_without_writing(
     assert not (tmp_path / "models").exists()
 
 
+def test_models_download_motion_track_dry_run_includes_ic_lora(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: MagicMock
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    models.main(["set-models-dir", str(tmp_path / "models")])
+    capsys.readouterr()
+
+    rc = models.main(["download", "videogen.motion-track", "--dry-run"])
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["dry_run"] is True
+    assert payload["model_profile"] == "ltx23-motion-track"
+    assert str(tmp_path / "models/loras/ltx23/ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors") in payload["planned"]
+    assert not (tmp_path / "models").exists()
+
+
 def test_models_download_writes_missing_file_and_skips_existing(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: MagicMock
 ) -> None:
