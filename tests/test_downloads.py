@@ -72,7 +72,7 @@ def test_models_download_motion_track_dry_run_includes_ic_lora(
     assert payload["ok"] is True
     assert payload["dry_run"] is True
     assert payload["model_profile"] == "ltx23-motion-track"
-    assert str(tmp_path / "models/loras/ltx23/ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors") in payload["planned"]
+    assert str(tmp_path / "models/loras/ltx23/ltx-2.3-22b-ic-lora-hdr-0.9.safetensors") in payload["planned"]
     assert not (tmp_path / "models").exists()
 
 

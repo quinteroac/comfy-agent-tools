@@ -221,8 +221,10 @@ DOWNLOAD_REGISTRY: dict[str, dict[str, DownloadSource]] = {
         ),
         "ic_lora": DownloadSource(
             kind="hf",
-            repo_id="Lightricks/LTX-2.3-22b-IC-LoRA-Motion-Track-Control",
-            filename="ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors",
+            repo_id="Lightricks/LTX-2.3-22b-IC-LoRA-HDR",
+            filename="ltx-2.3-22b-ic-lora-hdr-0.9.safetensors",
+            token_env="HF_TOKEN",
+            size_bytes=327_000_000,
         ),
     },
     "ace15-base": {

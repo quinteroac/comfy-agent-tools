@@ -64,7 +64,7 @@ def test_comfy_motion_track_control_skill_frontmatter() -> None:
     assert "HyperFrames" in content
     assert "LTXICLoRALoaderModelOnly" in content
     assert "LTXAddVideoICLoRAGuide" in content
-    assert "ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors" in content
+    assert "ltx-2.3-22b-ic-lora-hdr-0.9.safetensors" in content
     assert "uv run comfy-media gallery --out outputs" in content
     assert "uv run comfy-media index --out outputs" in content
 

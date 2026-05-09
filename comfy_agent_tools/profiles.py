@@ -113,7 +113,7 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
         },
     },
     "ltx23-motion-track": {
-        "label": "10Eros LTX 2.3 Motion Track IC-LoRA",
+        "label": "10Eros LTX 2.3 HDR IC-LoRA",
         "architecture": "ltx23",
         "supports": ["videogen.motion-track"],
         "models": {
@@ -122,7 +122,7 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
             "distilled_lora": "loras/ltx23/ltx-2.3-22b-distilled-lora-384.safetensors",
             "te_lora": "loras/ltx23/gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors",
             "upscaler": "latent_upscale_models/ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
-            "ic_lora": "loras/ltx23/ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors",
+            "ic_lora": "loras/ltx23/ltx-2.3-22b-ic-lora-hdr-0.9.safetensors",
         },
         "defaults": {
             "width": 512,
@@ -131,7 +131,7 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
             "fps": 24,
             "cfg": 1.0,
             "attention_strength": 1.0,
-            "reference_downscale": 0.5,
+            "reference_downscale": 1.0,
         },
     },
     "ace15-base": {

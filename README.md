@@ -46,7 +46,7 @@ Python CLIs on demand, initialize local config if needed, and validate models.
 
 - `comfy-imagegen`: image generation, image editing, upscaling, and remote Grok Imagine.
 - `comfy-videogen`: local LTX 2.3 video plus remote Seedance 2.0 API video.
-- `comfy-motion-track-control`: LTX 2.3 Motion Track IC-LoRA guidance.
+- `comfy-motion-track-control`: LTX 2.3 HDR IC-LoRA guidance.
 - `comfy-musicgen`: ACE-Step 1.5 music generation to WAV.
 - `comfy-media`: local media gallery, indexing, and HyperFrames review-reel export.
 - `comfy-models`: local model profiles, defaults, validation, and onboarding.
@@ -101,7 +101,7 @@ uv run comfy-models validate
 ```
 
 The Python runtime dependency is `comfy-diffusion[comfyui,video,audio]` pinned
-to `v2.2.0` or newer for LTX 2.3 Motion Track IC-LoRA helpers. The
+to `v2.2.0` or newer for LTX 2.3 HDR IC-LoRA helpers. The
 media extras are required because ComfyUI imports media nodes during runtime
 startup, video generation writes MP4 files with audio, and music generation uses
 audio helpers.
@@ -141,7 +141,7 @@ checkpoints/10Eros_v1-fp8mixed_learned.safetensors
 text_encoders/gemma_3_12B_it_fp4_mixed.safetensors
 loras/ltx23/ltx-2.3-22b-distilled-lora-384.safetensors
 loras/ltx23/gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors
-loras/ltx23/ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors
+loras/ltx23/ltx-2.3-22b-ic-lora-hdr-0.9.safetensors
 latent_upscale_models/ltx-2.3-spatial-upscaler-x2-1.1.safetensors
 
 diffusion_models/acestep_v1.5_base.safetensors
@@ -402,7 +402,7 @@ uv run comfy-videogen flf2v \
   --out outputs
 ```
 
-Motion-track IC-LoRA from an input image plus prepared trajectory control video:
+HDR IC-LoRA from an input image plus prepared trajectory control video:
 
 ```bash
 uv run comfy-videogen motion-track \
@@ -416,7 +416,7 @@ uv run comfy-videogen motion-track \
 Use the `comfy-motion-track-control` skill to prepare motion references. A
 common flow is to render colored point/spline trajectories over a still image
 with HyperFrames, then pass that MP4 as `--control-video`. The control profile
-uses the `ref0.5` IC-LoRA and records `reference_downscale=0.5`.
+uses the `HDR` IC-LoRA and records `reference_downscale=1.0`.
 
 This sizing rule applies only to local LTX 2.3 modes. It does not apply to
 Seedance 2.0 remote API modes or other non-LTX pipelines. Local LTX 2.3 runs a

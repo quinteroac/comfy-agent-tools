@@ -1,13 +1,13 @@
 ---
 name: comfy-motion-track-control
-description: Generate local LTX 2.3 videos guided by the Motion Track Control IC-LoRA. Use when the user wants an image animated along drawn sparse motion trajectories, spline overlays, point tracks, or a prepared motion-control reference video. Do not use for style-only LoRAs, Seedance API video, image-only generation, music-only generation, automatic point tracking from real video, or ComfyUI server-only workflows.
+description: Generate local LTX 2.3 videos guided by the configured HDR IC-LoRA through the motion-track control workflow. Use when the user wants an image animated along drawn sparse motion trajectories, spline overlays, point tracks, or a prepared motion-control reference video. Do not use for style-only LoRAs, Seedance API video, image-only generation, music-only generation, automatic point tracking from real video, or ComfyUI server-only workflows.
 ---
 
 # comfy-motion-track-control
 
 Use this skill for local LTX 2.3 motion-track control through the
 `comfy-videogen motion-track` CLI. The mode uses the
-`Lightricks/LTX-2.3-22b-IC-LoRA-Motion-Track-Control` IC-LoRA, not a normal
+`Lightricks/LTX-2.3-22b-IC-LoRA-HDR` IC-LoRA, not a normal
 style LoRA. It requires an input image, a prepared control video containing
 colored spline/point trajectories, and a prompt.
 
@@ -70,9 +70,8 @@ the generation settings:
   track before adding complex curves.
 - Use visible colored trails, dots, or splines over the reference image.
 - Keep the reference visually simple enough that the trajectories are clear.
-- The official checkpoint is `ref0.5`, so the reference control is expected at
-  0.5x output resolution internally. The CLI profile records
-  `reference_downscale=0.5`.
+- The configured HDR IC-LoRA expects the reference control at full internal
+  resolution. The CLI profile records `reference_downscale=1.0`.
 
 ## HyperFrames Reference Workflow
 
@@ -113,10 +112,10 @@ explicitly asks for a ComfyUI server workflow.
 - Capability: `videogen.motion-track`
 - Profile: `ltx23-motion-track`
 - IC-LoRA:
-  `loras/ltx23/ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors`
+  `loras/ltx23/ltx-2.3-22b-ic-lora-hdr-0.9.safetensors`
 - Base profile: 10Eros LTX 2.3 with distilled and text-encoder LoRAs.
 - Video params: `width=512`, `height=320`, `length=49`, `fps=24`, `cfg=1.0`
-- Control params: `attention_strength=1.0`, `reference_downscale=0.5`
+- Control params: `attention_strength=1.0`, `reference_downscale=1.0`
 
 This mode does not extract tracks automatically from real videos in v1. If the
 user provides a real video, ask for or create a rendered trajectory/control

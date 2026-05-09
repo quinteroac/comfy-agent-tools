@@ -106,7 +106,7 @@ uv run comfy-videogen flf2v \
   --out outputs
 ```
 
-Motion-track IC-LoRA:
+HDR IC-LoRA:
 
 ```bash
 uv run comfy-videogen motion-track \
@@ -177,11 +177,11 @@ MP4 size.
 - Distilled LoRA: `loras/ltx23/ltx-2.3-22b-distilled-lora-384.safetensors`
 - Text-encoder LoRA: `loras/ltx23/gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors`
 - Upscaler: `latent_upscale_models/ltx-2.3-spatial-upscaler-x2-1.1.safetensors`
-- Motion-track IC-LoRA: `loras/ltx23/ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors`
+- HDR IC-LoRA: `loras/ltx23/ltx-2.3-22b-ic-lora-hdr-0.9.safetensors`
 - Video params: `width=512`, `height=320`, `length=49`, `fps=24`, `cfg=1.0`, `seed=0`
-- Motion-track params: `attention_strength=1.0`, `reference_downscale=0.5`
+- Motion-track params: `attention_strength=1.0`, `reference_downscale=1.0`
 - IA2AV audio params: `audio_start_time=0.0`, `audio_duration=length/fps` by default
-- Dependency: `comfy-diffusion[comfyui,video,audio]` v2.2.0 or newer for Motion Track IC-LoRA
+- Dependency: `comfy-diffusion[comfyui,video,audio]` v2.2.0 or newer for HDR IC-LoRA
 
 Extra LoRAs are optional and ad hoc. Use repeatable
 `--extra-lora PATH[:MODEL_STRENGTH[:CLIP_STRENGTH]]` after resolving the file

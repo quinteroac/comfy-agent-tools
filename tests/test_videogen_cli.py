@@ -415,12 +415,12 @@ def test_motion_track_success_json(monkeypatch: MagicMock, tmp_path: Path, capsy
     assert payload["input"] == str(input_path)
     assert payload["control_video"] == str(control_path)
     assert payload["attention_strength"] == 0.75
-    assert payload["reference_downscale"] == 0.5
+    assert payload["reference_downscale"] == 1.0
     assert payload["capability"] == "videogen.motion-track"
     assert payload["model_profile"] == "ltx23-motion-track"
     assert payload["architecture"] == "ltx23"
     assert payload["resolved_models"]["ic_lora"].endswith(
-        "loras/ltx23/ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors"
+        "loras/ltx23/ltx-2.3-22b-ic-lora-hdr-0.9.safetensors"
     )
     assert payload["ic_lora"] == payload["resolved_models"]["ic_lora"]
     assert Path(payload["artifacts"][0]).is_file()

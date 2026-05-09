@@ -14,7 +14,7 @@ DEFAULT_TEXT_ENCODER = Path("text_encoders/gemma_3_12B_it_fp4_mixed.safetensors"
 DEFAULT_DISTILLED_LORA = Path("loras/ltx23/ltx-2.3-22b-distilled-lora-384.safetensors")
 DEFAULT_TE_LORA = Path("loras/ltx23/gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors")
 DEFAULT_UPSCALER = Path("latent_upscale_models/ltx-2.3-spatial-upscaler-x2-1.1.safetensors")
-DEFAULT_IC_LORA = Path("loras/ltx23/ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors")
+DEFAULT_IC_LORA = Path("loras/ltx23/ltx-2.3-22b-ic-lora-hdr-0.9.safetensors")
 
 DEFAULT_OUT = Path("outputs")
 DEFAULT_WIDTH = 512
@@ -27,7 +27,7 @@ DEFAULT_AUDIO_START_TIME = 0.0
 DEFAULT_DISTILLED_LORA_STRENGTH = 0.5
 DEFAULT_TE_LORA_STRENGTH = 1.0
 DEFAULT_ATTENTION_STRENGTH = 1.0
-DEFAULT_REFERENCE_DOWNSCALE = 0.5
+DEFAULT_REFERENCE_DOWNSCALE = 1.0
 DEFAULT_NEGATIVE_PROMPT = "worst quality, inconsistent motion, blurry, jittery, distorted"
 
 
