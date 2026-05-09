@@ -30,6 +30,23 @@ from comfy_agent_tools.imagegen.config import (
 )
 from comfy_agent_tools.imagegen.anima import run_anima_t2i
 from comfy_agent_tools.imagegen.flux_klein import run_flux_klein_edit, run_flux_klein_t2i
+from comfy_agent_tools.imagegen.grok import (
+    DEFAULT_GROK_ASPECT_RATIO,
+    DEFAULT_GROK_EDIT_ASPECT_RATIO,
+    DEFAULT_GROK_MODEL,
+    DEFAULT_GROK_NUMBER_OF_IMAGES,
+    DEFAULT_GROK_RESOLUTION,
+    DEFAULT_GROK_SEED,
+    GROK_ASPECT_RATIOS,
+    GROK_EDIT_ASPECT_RATIOS,
+    GROK_MODELS,
+    GROK_PROVIDER,
+    GROK_RESOLUTIONS,
+    GrokImagineConfig,
+    GrokImagineError,
+    run_edit as run_grok_edit,
+    run_generate as run_grok_generate,
+)
 from comfy_agent_tools.imagegen.qwen import run_qwen_edit
 from comfy_agent_tools.imagegen.upscale import run_upscale
 from comfy_agent_tools.media import write_run_manifest
@@ -96,6 +113,35 @@ def build_parser() -> argparse.ArgumentParser:
     upscale.add_argument("--input", type=_path, required=True)
     upscale.add_argument("--upscaler", type=_path, default=None)
 
+    def add_grok_common(subparser: argparse.ArgumentParser, *, edit_mode: bool = False) -> None:
+        subparser.add_argument("--out", type=_path, default=DEFAULT_OUT)
+        subparser.add_argument(
+            "--no-manifest",
+            action="store_true",
+            help="Do not write a comfy-media run manifest for this generation.",
+        )
+        subparser.add_argument("--model", default=None, choices=GROK_MODELS)
+        subparser.add_argument("--resolution", default=None, choices=GROK_RESOLUTIONS)
+        ratios = GROK_EDIT_ASPECT_RATIOS if edit_mode else GROK_ASPECT_RATIOS
+        default_ratio = DEFAULT_GROK_EDIT_ASPECT_RATIO if edit_mode else DEFAULT_GROK_ASPECT_RATIO
+        subparser.add_argument("--aspect-ratio", default=None, choices=ratios, help=f"Defaults to {default_ratio}.")
+        subparser.add_argument("--number-of-images", type=int, default=None)
+        subparser.add_argument("--seed", type=int, default=None)
+        subparser.add_argument(
+            "--verbose",
+            action="store_true",
+            help="Show ComfyUI API node logs and progress output while running.",
+        )
+
+    grok_generate = subparsers.add_parser("grok-generate", help="Generate remote Grok Imagine images from text.")
+    add_grok_common(grok_generate)
+    grok_generate.add_argument("--prompt", required=True)
+
+    grok_edit = subparsers.add_parser("grok-edit", help="Edit an image with remote Grok Imagine.")
+    add_grok_common(grok_edit, edit_mode=True)
+    grok_edit.add_argument("--input", type=_path, required=True)
+    grok_edit.add_argument("--prompt", required=True)
+
     return parser
 
 
@@ -117,6 +163,25 @@ def _config(args: argparse.Namespace, profile: ResolvedProfile) -> ImagegenConfi
         scheduler=str(profile.defaults.get("scheduler", DEFAULT_SCHEDULER)),
         seed=getattr(args, "seed", DEFAULT_SEED),
         extra_loras=list(getattr(args, "extra_lora", []) or []),
+    )
+
+
+def _grok_config(args: argparse.Namespace, profile: ResolvedProfile) -> GrokImagineConfig:
+    default_ratio = (
+        profile.defaults.get("edit_aspect_ratio", DEFAULT_GROK_EDIT_ASPECT_RATIO)
+        if args.command == "grok-edit"
+        else profile.defaults.get("aspect_ratio", DEFAULT_GROK_ASPECT_RATIO)
+    )
+    return GrokImagineConfig(
+        model=args.model if args.model is not None else str(profile.defaults.get("model", DEFAULT_GROK_MODEL)),
+        resolution=args.resolution if args.resolution is not None else str(profile.defaults.get("resolution", DEFAULT_GROK_RESOLUTION)),
+        aspect_ratio=args.aspect_ratio if args.aspect_ratio is not None else str(default_ratio),
+        number_of_images=(
+            args.number_of_images
+            if args.number_of_images is not None
+            else int(profile.defaults.get("number_of_images", DEFAULT_GROK_NUMBER_OF_IMAGES))
+        ),
+        seed=args.seed if args.seed is not None else int(profile.defaults.get("seed", DEFAULT_GROK_SEED)),
     )
 
 
@@ -156,6 +221,38 @@ def _success(
         payload["requested_height"] = requested_height
     if upscaled:
         payload["upscaler"] = str(config.upscaler.name)
+    return payload
+
+
+def _grok_success(
+    *,
+    mode: str,
+    artifacts: list[Path],
+    images: list[object],
+    config: GrokImagineConfig,
+    profile: ResolvedProfile,
+    input_path: Path | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "ok": True,
+        "kind": "image",
+        "mode": mode,
+        "remote": True,
+        "provider": GROK_PROVIDER,
+        "artifacts": [str(path) for path in artifacts],
+        "seed": config.seed,
+        "model": config.model,
+        "resolution": config.resolution,
+        "aspect_ratio": config.aspect_ratio,
+        "number_of_images": config.number_of_images,
+        "outputs": [_image_metadata(image) for image in images],
+        "capability": profile.capability,
+        "model_profile": profile.name,
+        "architecture": profile.architecture,
+        "resolved_models": {},
+    }
+    if input_path is not None:
+        payload["input"] = str(input_path)
     return payload
 
 
@@ -207,6 +304,12 @@ def _classify_error(error: Exception) -> str:
         return "runtime"
     if isinstance(error, ProfileError):
         return error.error_type
+    if isinstance(error, GrokImagineError):
+        return error.error_type
+    if "api key" in message or "comfy_org_api_key" in message:
+        return "auth_required"
+    if "grok imagine api" in message or "api request" in message:
+        return "remote_api_error"
     return "error"
 
 
@@ -224,6 +327,36 @@ def _maybe_silence(enabled: bool) -> Any:
 def run_command(args: argparse.Namespace) -> dict[str, Any]:
     """Run a parsed comfy-imagegen command and return its JSON payload."""
     profile, _source = resolve_capability(_capability(args.command))
+
+    if args.command == "grok-generate":
+        config = _grok_config(args, profile)
+        with _maybe_silence(not args.verbose):
+            images = run_grok_generate(prompt=args.prompt, config=config)
+        artifacts = save_images(images, args.out, prefix="comfy-imagegen-grok-generate")
+        return _grok_success(
+            mode="grok-generate",
+            artifacts=artifacts,
+            images=images,
+            config=config,
+            profile=profile,
+        )
+
+    if args.command == "grok-edit":
+        if not args.input.is_file():
+            raise FileNotFoundError(f"input image not found: {args.input}")
+        config = _grok_config(args, profile)
+        with _maybe_silence(not args.verbose):
+            images = run_grok_edit(image=args.input, prompt=args.prompt, config=config)
+        artifacts = save_images(images, args.out, prefix="comfy-imagegen-grok-edit")
+        return _grok_success(
+            mode="grok-edit",
+            artifacts=artifacts,
+            images=images,
+            config=config,
+            profile=profile,
+            input_path=args.input,
+        )
+
     config = _config(args, profile)
     _ = config.resolved_extra_loras
 

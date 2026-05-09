@@ -30,6 +30,15 @@ def test_download_remote_seedance_profile_reports_unsupported_source() -> None:
         downloads.download_items_for_profile(profile)
 
 
+def test_download_remote_grok_profile_reports_unsupported_source() -> None:
+    config = default_config()
+    raw = resolve_profile("grok-imagine-api", config)
+    profile = make_resolved_profile("imagegen.grok-generate", "grok-imagine-api", raw, config)
+
+    with pytest.raises(downloads.DownloadUnsupportedSourceError):
+        downloads.download_items_for_profile(profile)
+
+
 def test_models_download_dry_run_reports_missing_without_writing(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: MagicMock
 ) -> None:

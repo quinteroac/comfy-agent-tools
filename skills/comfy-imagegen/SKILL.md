@@ -1,12 +1,12 @@
 ---
 name: comfy-imagegen
-description: Generate, edit, or upscale raster images locally with comfy-diffusion, Anima Preview3, Qwen Image Edit 2511, FLUX.2 Klein 9B SNOFS, and ClearReality. Use when the user wants local GPU-backed image generation or image editing from the current machine, especially when outputs should be saved into the workspace. Do not use for hosted OpenAI image generation, vector/SVG work, video, music, voice, model downloads, custom node installation, or ComfyUI server workflows.
+description: Generate, edit, or upscale raster images with comfy-diffusion, including local Anima Preview3, Qwen Image Edit 2511, FLUX.2 Klein 9B SNOFS, ClearReality, and remote Grok Imagine API nodes. Use when the user wants image generation or image editing from the current machine with outputs saved into the workspace. Do not use for hosted OpenAI image generation, vector/SVG work, video, music, voice, model downloads, custom node installation, or ComfyUI server workflows.
 ---
 
 # comfy-imagegen
 
-Use this skill for local image generation, image editing, and image upscaling through
-the `comfy-imagegen` CLI. The CLI uses models under `/mnt/models/comfyui`.
+Use this skill for image generation, image editing, and image upscaling through
+the `comfy-imagegen` CLI. Local modes use models under `/mnt/models/comfyui`.
 If a supported built-in model is missing, use `comfy-model-downloader` to fetch
 only the requested capability before running inference.
 
@@ -47,6 +47,10 @@ chosen file with `--extra-lora`.
   When the active profile is `flux-klein-9b-snofs`, use FLUX.2 Klein 9B plus
   SNOFS for single-reference editing.
 - `upscale`: input image to 4x upscale with ClearReality.
+- `grok-generate`: remote Grok Imagine text prompt to PNG through Comfy API
+  nodes. Requires `COMFY_ORG_API_KEY`, not local model files.
+- `grok-edit`: remote Grok Imagine input image plus prompt to PNG through Comfy
+  API nodes. Requires `COMFY_ORG_API_KEY`, not local model files.
 
 ## Commands
 
@@ -83,6 +87,27 @@ uv run comfy-imagegen upscale \
   --out outputs
 ```
 
+Grok Imagine:
+
+```bash
+COMFY_ORG_API_KEY=... uv run comfy-imagegen grok-generate \
+  --prompt "A cinematic product photo of a translucent orange cassette player on wet asphalt" \
+  --model grok-imagine-image \
+  --resolution 1K \
+  --aspect-ratio 1:1 \
+  --out outputs
+```
+
+Grok Imagine edit:
+
+```bash
+COMFY_ORG_API_KEY=... uv run comfy-imagegen grok-edit \
+  --input path/to/input.png \
+  --prompt "Keep the subject and composition, change the background to a clean moonlit studio" \
+  --resolution 1K \
+  --out outputs
+```
+
 ## Prompt Guidance
 
 For generation, Anima accepts Danbooru-style tags, natural language, or a mix.
@@ -103,6 +128,12 @@ Qwen Image Edit may rescale internally, so read `outputs[].width` and
 dimensions match the saved PNG.
 
 For upscale, do not add prompt text; use the input image only.
+
+Grok Imagine uses remote Comfy API nodes and is separate from local model
+profiles. Do not route `grok-imagine-api` through `models_dir`,
+`comfy-model-downloader`, local LoRAs, or checkpoint onboarding. Supported image
+models are `grok-imagine-image-pro`, `grok-imagine-image`, and
+`grok-imagine-image-beta`; supported resolutions are `1K` and `2K`.
 
 FLUX.2 Klein 9B SNOFS uses natural-language prompts, supports both generation
 and editing, and is step-distilled for `steps=4`, `cfg=1.0`. Keep dimensions
@@ -136,6 +167,10 @@ conditioning, `Flux2Scheduler`, `CFGGuider`, and `SamplerCustomAdvanced`.
 - SNOFS LoRA: `loras/flux-klein/klein_snofs_v1_1.safetensors`
 - FLUX params: `steps=4`, `cfg=1.0`, `sampler=euler`, `seed=0`
 - Upscaler: `upscale_models/4x-ClearRealityV1.pth`
+- Grok profile: `grok-imagine-api`
+- Grok provider: `comfy-api`
+- Grok model: `grok-imagine-image`
+- Grok params: `resolution=1K`, `aspect_ratio=1:1`, `number_of_images=1`, `seed=0`
 - Dependency: `comfy-diffusion[comfyui,video]`
 
 The Anima turbo LoRA expects `cfg=1.0`; increasing CFG can degrade or break the

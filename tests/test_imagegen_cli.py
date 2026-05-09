@@ -53,10 +53,30 @@ def test_parser_accepts_verbose_for_all_modes(tmp_path: Path) -> None:
         ["edit", "--input", str(tmp_path / "input.png"), "--prompt", "hello", "--verbose"]
     )
     upscale = parser.parse_args(["upscale", "--input", str(tmp_path / "input.png"), "--verbose"])
+    grok_generate = parser.parse_args(["grok-generate", "--prompt", "hello", "--verbose"])
+    grok_edit = parser.parse_args(["grok-edit", "--input", str(tmp_path / "input.png"), "--prompt", "hello", "--verbose"])
 
     assert generate.verbose is True
     assert edit.verbose is True
     assert upscale.verbose is True
+    assert grok_generate.verbose is True
+    assert grok_edit.verbose is True
+
+
+def test_parser_grok_defaults(tmp_path: Path) -> None:
+    parser = imagegen.build_parser()
+
+    generate = parser.parse_args(["grok-generate", "--prompt", "hello"])
+    edit = parser.parse_args(["grok-edit", "--input", str(tmp_path / "input.png"), "--prompt", "hello"])
+
+    assert generate.command == "grok-generate"
+    assert generate.model is None
+    assert generate.resolution is None
+    assert generate.aspect_ratio is None
+    assert generate.number_of_images is None
+    assert generate.seed is None
+    assert edit.command == "grok-edit"
+    assert edit.aspect_ratio is None
 
 
 def test_generate_creates_seed_image_with_requested_dimensions() -> None:
@@ -221,7 +241,107 @@ def test_runtime_exception_returns_json(monkeypatch: MagicMock, tmp_path: Path, 
     assert payload["error_type"] == "runtime"
 
 
+def test_grok_generate_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    produced = Image.new("RGB", (16, 12), "purple")
+    seen: dict[str, object] = {}
+
+    def fake_run_grok_generate(*, prompt: str, config: object) -> list[Image.Image]:
+        seen["prompt"] = prompt
+        seen["model"] = config.model
+        seen["aspect_ratio"] = config.aspect_ratio
+        seen["number_of_images"] = config.number_of_images
+        return [produced]
+
+    monkeypatch.setattr(imagegen, "run_grok_generate", fake_run_grok_generate)
+
+    rc = imagegen.main(
+        [
+            "grok-generate",
+            "--prompt",
+            "remote image",
+            "--model",
+            "grok-imagine-image-pro",
+            "--resolution",
+            "2K",
+            "--aspect-ratio",
+            "16:9",
+            "--number-of-images",
+            "1",
+            "--seed",
+            "123",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    assert seen == {
+        "prompt": "remote image",
+        "model": "grok-imagine-image-pro",
+        "aspect_ratio": "16:9",
+        "number_of_images": 1,
+    }
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["kind"] == "image"
+    assert payload["mode"] == "grok-generate"
+    assert payload["remote"] is True
+    assert payload["provider"] == "comfy-api"
+    assert payload["capability"] == "imagegen.grok-generate"
+    assert payload["model_profile"] == "grok-imagine-api"
+    assert payload["architecture"] == "grok-imagine-api"
+    assert payload["resolved_models"] == {}
+    assert payload["model"] == "grok-imagine-image-pro"
+    assert payload["resolution"] == "2K"
+    assert payload["aspect_ratio"] == "16:9"
+    assert payload["seed"] == 123
+    assert payload["outputs"] == [{"width": 16, "height": 12, "mode": "RGB"}]
+    assert Path(payload["artifacts"][0]).is_file()
+
+
+def test_grok_edit_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    input_path = tmp_path / "input.png"
+    Image.new("RGB", (4, 4), "blue").save(input_path)
+    seen: dict[str, object] = {}
+
+    def fake_run_grok_edit(*, image: Path, prompt: str, config: object) -> list[Image.Image]:
+        seen["image"] = image
+        seen["prompt"] = prompt
+        seen["aspect_ratio"] = config.aspect_ratio
+        return [Image.new("RGB", (10, 10), "green")]
+
+    monkeypatch.setattr(imagegen, "run_grok_edit", fake_run_grok_edit)
+
+    rc = imagegen.main(["grok-edit", "--input", str(input_path), "--prompt", "make it green", "--out", str(tmp_path)])
+
+    assert rc == 0
+    assert seen == {"image": input_path, "prompt": "make it green", "aspect_ratio": "auto"}
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "grok-edit"
+    assert payload["capability"] == "imagegen.grok-edit"
+    assert payload["input"] == str(input_path)
+    assert payload["aspect_ratio"] == "auto"
+
+
+def test_grok_missing_api_key_returns_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    from comfy_agent_tools.imagegen.grok import GrokImagineAuthRequiredError
+
+    def fail(*, prompt: str, config: object) -> list[Image.Image]:
+        raise GrokImagineAuthRequiredError("COMFY_ORG_API_KEY is required for Grok Imagine API generation")
+
+    monkeypatch.setattr(imagegen, "run_grok_generate", fail)
+
+    rc = imagegen.main(["grok-generate", "--prompt", "remote", "--out", str(tmp_path)])
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["mode"] == "grok-generate"
+    assert payload["error_type"] == "auth_required"
+
+
 def test_edit_uses_qwen_default(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    monkeypatch.chdir(tmp_path)
     input_path = tmp_path / "input.png"
     Image.new("RGB", (4, 4), "blue").save(input_path)
     seen: dict[str, object] = {}

@@ -26,6 +26,8 @@ prefer `uv run comfy-models`; outside the repo, use the installed CLI.
 Do not map Seedance 2.0 API requests to downloads. `videogen.seedance2-t2v`,
 `videogen.seedance2-r2v`, and `videogen.seedance2-flf2v` use the remote
 `seedance2-api` profile and require `COMFY_ORG_API_KEY`, not local model files.
+Do not map Grok Imagine API requests to downloads either. `imagegen.grok-generate`
+and `imagegen.grok-edit` use the remote `grok-imagine-api` profile.
 
 ## Flow
 
@@ -60,7 +62,7 @@ uv run comfy-models validate-profile anima-preview3-turbo
 - `ace15-base`: ACE-Step 1.5 music generation.
 
 `seedance2-api` is intentionally excluded: it is a remote Comfy API profile, not
-a downloadable model profile.
+a downloadable model profile. `grok-imagine-api` is excluded for the same reason.
 
 Do not download models for custom local profiles unless the CLI provides a
 source. For unknown custom checkpoints, use `comfy-model-onboarding` and ask the
@@ -86,5 +88,6 @@ only after validation.
 - Do not change model defaults as part of downloading.
 - Do not install ComfyUI custom nodes or start a server.
 - Do not download or validate local files for Seedance 2.0 API generation.
+- Do not download or validate local files for Grok Imagine API generation.
 - Do not redistribute FLUX.2 Klein or SNOFS weights, and do not use SNOFS for a
   public/commercial generation service without separate licensing.

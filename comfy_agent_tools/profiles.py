@@ -23,6 +23,8 @@ BUILTIN_DEFAULTS: dict[str, str] = {
     "videogen.seedance2-t2v": "seedance2-api",
     "videogen.seedance2-r2v": "seedance2-api",
     "videogen.seedance2-flf2v": "seedance2-api",
+    "imagegen.grok-generate": "grok-imagine-api",
+    "imagegen.grok-edit": "grok-imagine-api",
     "musicgen.generate": "ace15-base",
 }
 
@@ -171,6 +173,22 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
             "remote": True,
         },
     },
+    "grok-imagine-api": {
+        "label": "Grok Imagine API",
+        "architecture": "grok-imagine-api",
+        "supports": ["imagegen.grok-generate", "imagegen.grok-edit"],
+        "models": {},
+        "defaults": {
+            "provider": "comfy-api",
+            "model": "grok-imagine-image",
+            "resolution": "1K",
+            "aspect_ratio": "1:1",
+            "edit_aspect_ratio": "auto",
+            "number_of_images": 1,
+            "seed": 0,
+            "remote": True,
+        },
+    },
 }
 
 SUPPORTED_ARCHITECTURES = {
@@ -181,6 +199,7 @@ SUPPORTED_ARCHITECTURES = {
     "ltx23",
     "ace-step-1.5",
     "seedance2-api",
+    "grok-imagine-api",
 }
 
 

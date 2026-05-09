@@ -43,6 +43,13 @@ def test_builtin_profiles_separate_architecture_and_profile() -> None:
     assert seedance["defaults"]["model"] == "Seedance 2.0"
     assert "videogen.seedance2-t2v" in seedance["supports"]
 
+    grok = BUILTIN_PROFILES["grok-imagine-api"]
+    assert grok["architecture"] == "grok-imagine-api"
+    assert grok["models"] == {}
+    assert grok["defaults"]["remote"] is True
+    assert grok["defaults"]["model"] == "grok-imagine-image"
+    assert grok["supports"] == ["imagegen.grok-generate", "imagegen.grok-edit"]
+
 
 def test_builtin_defaults_point_to_supported_profiles() -> None:
     config = default_config()
@@ -51,6 +58,8 @@ def test_builtin_defaults_point_to_supported_profiles() -> None:
     assert BUILTIN_DEFAULTS["imagegen.generate"] == "anima-preview3-turbo"
     assert BUILTIN_DEFAULTS["imagegen.edit"] == "qwen-edit2511"
     assert BUILTIN_DEFAULTS["videogen.seedance2-t2v"] == "seedance2-api"
+    assert BUILTIN_DEFAULTS["imagegen.grok-generate"] == "grok-imagine-api"
+    assert BUILTIN_DEFAULTS["imagegen.grok-edit"] == "grok-imagine-api"
     for capability, profile_name in BUILTIN_DEFAULTS.items():
         profile = resolve_profile(profile_name, config)
         assert capability in profile["supports"]

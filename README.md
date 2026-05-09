@@ -10,8 +10,8 @@ runtime, initialize model profiles, and run generation commands.
 
 Local model files are not distributed with this repo. Local Anima, Qwen, LTX,
 ACE-Step, and upscaler profiles use model files under the user's configured
-`models_dir`; remote API profiles such as Seedance 2.0 use provider credentials
-instead of local weights.
+`models_dir`; remote API profiles such as Seedance 2.0 and Grok Imagine use
+provider credentials instead of local weights.
 
 Contributions use fork-based pull requests. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -44,7 +44,7 @@ Python CLIs on demand, initialize local config if needed, and validate models.
 
 ## What You Get
 
-- `comfy-imagegen`: image generation, image editing, and upscaling.
+- `comfy-imagegen`: image generation, image editing, upscaling, and remote Grok Imagine.
 - `comfy-videogen`: local LTX 2.3 video plus remote Seedance 2.0 API video.
 - `comfy-motion-track-control`: LTX 2.3 Motion Track IC-LoRA guidance.
 - `comfy-musicgen`: ACE-Step 1.5 music generation to WAV.
@@ -118,8 +118,8 @@ Local models are downloaded only on demand. A request to generate an image
 downloads the active `imagegen.generate` profile if missing; a music request
 downloads `musicgen.generate`; a local LTX video request downloads the specific
 `videogen.<mode>` profile. The tools do not download every supported model unless
-explicitly asked. Remote API profiles such as `seedance2-api` are not downloaded
-by `comfy-models`.
+explicitly asked. Remote API profiles such as `seedance2-api` and
+`grok-imagine-api` are not downloaded by `comfy-models`.
 
 Use `HF_TOKEN` for gated Hugging Face repositories and `CIVITAI_API_TOKEN` if a
 Civitai direct download requires authentication.
@@ -160,6 +160,8 @@ absent, the CLIs use built-in defaults:
 | `imagegen.generate` | `anima-preview3-turbo` | `anima` |
 | `imagegen.edit` | `qwen-edit2511` | `qwen-image-edit` |
 | `imagegen.upscale` | `clear-reality` | `upscale-model` |
+| `imagegen.grok-generate` | `grok-imagine-api` | `grok-imagine-api` |
+| `imagegen.grok-edit` | `grok-imagine-api` | `grok-imagine-api` |
 | `videogen.t2v` | `ltx23-10eros` | `ltx23` |
 | `videogen.i2v` | `ltx23-10eros` | `ltx23` |
 | `videogen.flf2v` | `ltx23-10eros` | `ltx23` |
@@ -200,6 +202,10 @@ resolving config errors. V1 supports only architectures already implemented by
 the tools.
 
 `seedance2-api` is remote: it has no local model files, does not use
+`models_dir`, is not handled by `comfy-models download`, and requires
+`COMFY_ORG_API_KEY`.
+
+`grok-imagine-api` is also remote: it has no local model files, does not use
 `models_dir`, is not handled by `comfy-models download`, and requires
 `COMFY_ORG_API_KEY`.
 
@@ -317,6 +323,35 @@ uv run comfy-imagegen upscale \
 
 Qwen Image Edit may rescale internally, so final dimensions can differ from the
 input or requested canvas. Read the final JSON metadata for actual dimensions.
+
+### Grok Imagine API Images
+
+Grok Imagine runs remotely through ComfyUI API Nodes vendored by
+`comfy-diffusion`; it does not require a ComfyUI server, does not use local model
+files, and is not downloaded with `comfy-models download`. Set
+`COMFY_ORG_API_KEY` before running.
+
+```bash
+COMFY_ORG_API_KEY=... uv run comfy-imagegen grok-generate \
+  --prompt "A cinematic product photo of a translucent orange cassette player on wet asphalt" \
+  --model grok-imagine-image \
+  --resolution 1K \
+  --aspect-ratio 1:1 \
+  --out outputs
+```
+
+```bash
+COMFY_ORG_API_KEY=... uv run comfy-imagegen grok-edit \
+  --input outputs/comfy-imagegen-generate-example.png \
+  --prompt "Keep the subject and composition, change the background to a clean moonlit studio" \
+  --resolution 1K \
+  --out outputs
+```
+
+Grok defaults are `model="grok-imagine-image"`, `resolution=1K`,
+`aspect_ratio=1:1`, `number_of_images=1`, and `seed=0`. Supported image models
+are `grok-imagine-image-pro`, `grok-imagine-image`, and
+`grok-imagine-image-beta`.
 
 ## Video Generation
 
