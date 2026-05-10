@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import math
+import sys
+import types
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -11,6 +13,7 @@ import torch
 from comfy_agent_tools.cli import videogen
 from comfy_agent_tools.videogen.artifacts import save_mp4_with_audio
 from comfy_agent_tools.videogen import ltx23
+from comfy_agent_tools.videogen.seedance2 import _disable_api_node_progress_display
 
 
 def _frames() -> list[Image.Image]:
@@ -19,6 +22,32 @@ def _frames() -> list[Image.Image]:
 
 def _result() -> dict[str, object]:
     return {"frames": _frames(), "audio": {"waveform": object(), "sample_rate": 44100}}
+
+
+def test_seedance2_disables_api_node_progress_in_upload_helpers(monkeypatch: MagicMock) -> None:
+    package = types.ModuleType("comfy_api_nodes")
+    util = types.ModuleType("comfy_api_nodes.util")
+    client = types.ModuleType("comfy_api_nodes.util.client")
+    upload_helpers = types.ModuleType("comfy_api_nodes.util.upload_helpers")
+
+    def noisy_progress(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("progress should be disabled")
+
+    client._display_time_progress = noisy_progress
+    upload_helpers._display_time_progress = noisy_progress
+    util.client = client
+    util.upload_helpers = upload_helpers
+    package.util = util
+
+    monkeypatch.setitem(sys.modules, "comfy_api_nodes", package)
+    monkeypatch.setitem(sys.modules, "comfy_api_nodes.util", util)
+    monkeypatch.setitem(sys.modules, "comfy_api_nodes.util.client", client)
+    monkeypatch.setitem(sys.modules, "comfy_api_nodes.util.upload_helpers", upload_helpers)
+
+    _disable_api_node_progress_display()
+
+    client._display_time_progress()
+    upload_helpers._display_time_progress()
 
 
 def test_parser_t2v_defaults() -> None:

@@ -224,12 +224,18 @@ def _install_comfyui_utils_package(comfyui_root: Path) -> None:
 
 def _disable_api_node_progress_display() -> None:
     """Disable ComfyUI server UI progress calls for headless CLI execution."""
-    try:
-        from comfy_api_nodes.util import client
+    def no_op_progress(*args: Any, **kwargs: Any) -> None:
+        return None
 
-        client._display_time_progress = lambda *args, **kwargs: None
-    except Exception:
-        pass
+    for module_name in ("client", "upload_helpers"):
+        try:
+            module = __import__(
+                f"comfy_api_nodes.util.{module_name}",
+                fromlist=["_display_time_progress"],
+            )
+            module._display_time_progress = no_op_progress
+        except Exception:
+            pass
 
 
 def _configure_node_auth(node: Any, api_key: str) -> None:

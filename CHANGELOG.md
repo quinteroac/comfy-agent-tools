@@ -9,6 +9,8 @@ and uses semantic versioning once releases are tagged.
 
 ### Fixed
 
+- Fix headless Comfy API node reference-image uploads by disabling progress UI
+  callbacks in both client and upload helper modules.
 - Fix Civitai authenticated downloads by passing CIVITAI_API_TOKEN as a query token across redirects.
 
 ### Added
