@@ -115,7 +115,7 @@ def test_comfy_model_onboarding_skill_frontmatter() -> None:
     assert "description:" in frontmatter
     assert ".comfy-agent-tools.json" in content
     assert "ltx23-10eros" in content
-    assert "anima-preview3-turbo" in content
+    assert "anima-base" in content
     assert "architecture" in content
     assert "validate-profile" in content
     assert "set-models-dir <models_dir>" in content

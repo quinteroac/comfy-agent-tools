@@ -38,7 +38,7 @@ change it.
 Only configure these architectures in v1:
 
 - `qwen-image-edit`: base profile `qwen-edit2511`, capabilities `imagegen.generate`, `imagegen.edit`.
-- `anima`: base profile `anima-preview3-turbo`, capability `imagegen.generate`.
+- `anima`: base profile `anima-base`, capability `imagegen.generate`.
 - `flux-klein`: base profile `flux-klein-9b-snofs`, capabilities `imagegen.generate`, `imagegen.edit`.
 - `upscale-model`: base profile `clear-reality`, capability `imagegen.upscale`.
 - `ltx23`: base profile `ltx23-10eros`, capabilities `videogen.t2v`, `videogen.i2v`, `videogen.flf2v`, `videogen.ia2av`.
@@ -99,7 +99,7 @@ Anima fine-tune or compatible LoRA:
 
 ```bash
 uv run comfy-models add-profile my-anima \
-  --extends anima-preview3-turbo \
+  --extends anima-base \
   --unet diffusion_models/my_anima.safetensors \
   --lora loras/my_anima_turbo_lora.safetensors
 

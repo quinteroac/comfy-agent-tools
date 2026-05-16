@@ -87,6 +87,7 @@ def test_generate_creates_seed_image_with_requested_dimensions() -> None:
 
 
 def test_generate_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    monkeypatch.chdir(tmp_path)
     produced = Image.new("RGB", (8, 8), "red")
     lora_path = tmp_path / "loras" / "anima" / "realism.safetensors"
     lora_path.parent.mkdir(parents=True)
@@ -132,13 +133,13 @@ def test_generate_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: M
     assert payload["steps"] == 8
     assert payload["cfg"] == 1.0
     assert payload["capability"] == "imagegen.generate"
-    assert payload["model_profile"] == "anima-preview3-turbo"
+    assert payload["model_profile"] == "anima-base"
     assert payload["architecture"] == "anima"
     assert payload["models_dir"] == str(tmp_path)
     assert payload["extra_loras"] == [
         {"path": str(lora_path), "strength_model": 0.8, "strength_clip": 0.0}
     ]
-    assert payload["resolved_models"]["unet"].endswith("diffusion_models/animaOfficial_preview3Base.safetensors")
+    assert payload["resolved_models"]["unet"].endswith("diffusion_models/anima-base-v1.0.safetensors")
     assert payload["resolved_models"]["lora"].endswith("loras/anima/anima-turbo-lora-v0.1.safetensors")
     assert payload["outputs"] == [{"width": 8, "height": 8, "mode": "RGB"}]
     assert len(payload["artifacts"]) == 1

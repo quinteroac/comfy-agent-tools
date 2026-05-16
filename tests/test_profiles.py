@@ -23,11 +23,12 @@ def test_builtin_profiles_separate_architecture_and_profile() -> None:
     assert "videogen.ia2av" in profile["supports"]
     assert "10Eros" in profile["label"]
 
-    anima = BUILTIN_PROFILES["anima-preview3-turbo"]
+    anima = BUILTIN_PROFILES["anima-base"]
     assert anima["architecture"] == "anima"
     assert anima["supports"] == ["imagegen.generate"]
     assert anima["defaults"]["steps"] == 8
     assert anima["defaults"]["cfg"] == 1.0
+    assert anima["models"]["unet"] == "diffusion_models/anima-base-v1.0.safetensors"
     assert anima["models"]["lora"] == "loras/anima/anima-turbo-lora-v0.1.safetensors"
 
     flux = BUILTIN_PROFILES["flux-klein-9b-snofs"]
@@ -55,7 +56,7 @@ def test_builtin_defaults_point_to_supported_profiles() -> None:
     config = default_config()
 
     validate_defaults(config)
-    assert BUILTIN_DEFAULTS["imagegen.generate"] == "anima-preview3-turbo"
+    assert BUILTIN_DEFAULTS["imagegen.generate"] == "anima-base"
     assert BUILTIN_DEFAULTS["imagegen.edit"] == "qwen-edit2511"
     assert BUILTIN_DEFAULTS["videogen.seedance2-t2v"] == "seedance2-api"
     assert BUILTIN_DEFAULTS["imagegen.grok-generate"] == "grok-imagine-api"

@@ -73,6 +73,29 @@ class DownloadItem:
 
 
 DOWNLOAD_REGISTRY: dict[str, dict[str, DownloadSource]] = {
+    "anima-base": {
+        "unet": DownloadSource(
+            kind="hf",
+            repo_id="circlestone-labs/Anima",
+            filename="split_files/diffusion_models/anima-base-v1.0.safetensors",
+        ),
+        "clip": DownloadSource(
+            kind="hf",
+            repo_id="circlestone-labs/Anima",
+            filename="split_files/text_encoders/qwen_3_06b_base.safetensors",
+        ),
+        "vae": DownloadSource(
+            kind="hf",
+            repo_id="circlestone-labs/Anima",
+            filename="split_files/vae/qwen_image_vae.safetensors",
+        ),
+        "lora": DownloadSource(
+            kind="http",
+            url="https://civitai.com/api/download/models/2877687?type=Model&format=SafeTensor",
+            token_env="CIVITAI_API_TOKEN",
+            sha256="68ed0aec6ff4ebc3add1180e191797adb5aa6b69dd8b0fc8aa9e680145f65aac",
+        ),
+    },
     "anima-preview3-turbo": {
         "unet": DownloadSource(
             kind="hf",

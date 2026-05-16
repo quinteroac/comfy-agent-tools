@@ -285,8 +285,9 @@ def _resolved_image_models(config: ImagegenConfig, *, upscaled: bool) -> dict[st
         "unet": config.resolve_model_path(config.unet),
         "clip": config.resolve_model_path(config.clip),
         "vae": config.resolve_model_path(config.vae),
-        "lora": config.resolve_model_path(config.lora),
     }
+    if config.lora is not None:
+        models["lora"] = config.resolve_model_path(config.lora)
     if upscaled:
         models["upscaler"] = config.resolve_model_path(config.upscaler)
     return {key: str(value) for key, value in models.items()}

@@ -30,6 +30,8 @@ and uses semantic versioning once releases are tagged.
 
 ### Changed
 
+- Switch the default Anima image generation profile to Anima Base v1.0 while
+  keeping the Anima turbo LoRA.
 - Switch the built-in LTX 2.3 motion-track IC-LoRA default to the Lightricks
   HDR IC-LoRA profile.
 - Document fork-based pull requests as the contribution flow.

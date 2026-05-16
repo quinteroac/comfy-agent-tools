@@ -1,6 +1,6 @@
 ---
 name: comfy-imagegen
-description: Generate, edit, or upscale raster images with comfy-diffusion, including local Anima Preview3, Qwen Image Edit 2511, FLUX.2 Klein 9B SNOFS, ClearReality, and remote Grok Imagine API nodes. Use when the user wants image generation or image editing from the current machine with outputs saved into the workspace. Do not use for hosted OpenAI image generation, vector/SVG work, video, music, voice, model downloads, custom node installation, or ComfyUI server workflows.
+description: Generate, edit, or upscale raster images with comfy-diffusion, including local Anima Base v1.0 with turbo LoRA, Qwen Image Edit 2511, FLUX.2 Klein 9B SNOFS, ClearReality, and remote Grok Imagine API nodes. Use when the user wants image generation or image editing from the current machine with outputs saved into the workspace. Do not use for hosted OpenAI image generation, vector/SVG work, video, music, voice, model downloads, custom node installation, or ComfyUI server workflows.
 ---
 
 # comfy-imagegen
@@ -40,7 +40,7 @@ chosen file with `--extra-lora`.
 
 ## Modes
 
-- `generate`: text prompt to image with Anima Preview3 + turbo LoRA. Use for
+- `generate`: text prompt to image with Anima Base v1.0 + turbo LoRA. Use for
   anime, illustration, and non-photorealistic art by default. When the active
   profile is `flux-klein-9b-snofs`, use FLUX.2 Klein 9B FP8 plus SNOFS.
 - `edit`: input image plus prompt to edited image with Qwen Image Edit 2511.
@@ -148,8 +148,8 @@ conditioning, `Flux2Scheduler`, `CFGGuider`, and `SamplerCustomAdvanced`.
 ## Defaults
 
 - Models directory: `/mnt/models/comfyui`
-- Generate profile: `anima-preview3-turbo`
-- Anima diffusion model: `diffusion_models/animaOfficial_preview3Base.safetensors`
+- Generate profile: `anima-base`
+- Anima diffusion model: `diffusion_models/anima-base-v1.0.safetensors`
 - Anima text encoder: `text_encoders/qwen_3_06b_base.safetensors`
 - VAE: `vae/qwen_image_vae.safetensors`
 - Anima turbo LoRA: `loras/anima/anima-turbo-lora-v0.1.safetensors`

@@ -1,4 +1,4 @@
-"""Anima Preview text-to-image execution helpers."""
+"""Anima text-to-image execution helpers."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ def run_anima_t2i(
     height: int,
     config: ImagegenConfig,
 ) -> list[Image.Image]:
-    """Run Anima Preview3 text-to-image with the configured local model paths."""
+    """Run Anima text-to-image with the configured local model paths."""
     if not prompt.strip():
         raise ValueError("prompt must not be empty")
 
@@ -26,7 +26,6 @@ def run_anima_t2i(
 
     from comfy_diffusion.conditioning import encode_prompt
     from comfy_diffusion.latent import empty_latent_image
-    from comfy_diffusion.lora import apply_lora
     from comfy_diffusion.models import ModelManager
     from comfy_diffusion.sampling import sample
     from comfy_diffusion.vae import vae_decode
@@ -37,13 +36,16 @@ def run_anima_t2i(
     clip = mm.load_clip(config.resolve_model_path(config.clip), clip_type="stable_diffusion")
     vae = mm.load_vae(config.resolve_model_path(config.vae))
 
-    model, _clip = apply_lora(
-        model,
-        clip,
-        config.resolve_model_path(config.lora),
-        _LORA_STRENGTH,
-        0.0,
-    )
+    if config.lora is not None:
+        from comfy_diffusion.lora import apply_lora
+
+        model, _clip = apply_lora(
+            model,
+            clip,
+            config.resolve_model_path(config.lora),
+            _LORA_STRENGTH,
+            0.0,
+        )
     model, clip = apply_extra_loras(model, clip, config.resolved_extra_loras)
 
     positive, negative = encode_prompt(clip, prompt, "")

@@ -34,7 +34,7 @@ class ImagegenConfig:
     unet: Path = DEFAULT_UNET
     clip: Path = DEFAULT_CLIP
     vae: Path = DEFAULT_VAE
-    lora: Path = DEFAULT_LORA
+    lora: Path | None = DEFAULT_LORA
     upscaler: Path = DEFAULT_UPSCALER
     steps: int = DEFAULT_STEPS
     cfg: float = DEFAULT_CFG

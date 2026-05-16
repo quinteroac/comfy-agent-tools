@@ -91,7 +91,7 @@ Current skills:
 The repo should not download models automatically. Built-in defaults include:
 
 - models dir fallback: `/mnt/models/comfyui`
-- image generation: Anima Preview3 turbo profile
+- image generation: Anima Base v1.0 turbo profile
 - image editing: Qwen Image Edit 2511
 - optional image generation/editing: FLUX.2 Klein 9B FP8 with SNOFS LoRA
 - video: LTX 2.3 10Eros profile

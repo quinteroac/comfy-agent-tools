@@ -168,7 +168,7 @@ def test_download_local_profile_reports_unsupported_source(tmp_path: Path) -> No
     config["models_dir"] = str(tmp_path)
     config["profiles"] = {
         "local-anima": {
-            "extends": "anima-preview3-turbo",
+            "extends": "anima-base",
             "architecture": "anima",
             "models": {"unet": "diffusion_models/local.safetensors"},
         }

@@ -19,7 +19,7 @@ def test_models_list_uses_builtin_fallback(monkeypatch: MagicMock, tmp_path: Pat
     assert "anima" in payload["architectures"]
     assert "flux-klein" in payload["architectures"]
     assert "ltx23" in payload["architectures"]
-    assert payload["profiles"]["anima-preview3-turbo"]["architecture"] == "anima"
+    assert payload["profiles"]["anima-base"]["architecture"] == "anima"
     assert payload["profiles"]["flux-klein-9b-snofs"]["supports"] == ["imagegen.generate", "imagegen.edit"]
     assert payload["profiles"]["ltx23-10eros"]["architecture"] == "ltx23"
     assert payload["profiles"]["ltx23-motion-track"]["supports"] == ["videogen.motion-track"]
@@ -41,7 +41,7 @@ def test_models_init_and_show(monkeypatch: MagicMock, tmp_path: Path, capsys: Ma
     payload = json.loads(capsys.readouterr().out)
     assert payload["config_source"] == "local"
     assert payload["models_dir"] == "/mnt/models/comfyui"
-    assert payload["resolved_defaults"]["imagegen.generate"]["profile"] == "anima-preview3-turbo"
+    assert payload["resolved_defaults"]["imagegen.generate"]["profile"] == "anima-base"
     assert payload["resolved_defaults"]["videogen.t2v"]["profile"] == "ltx23-10eros"
 
 

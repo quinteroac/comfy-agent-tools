@@ -127,7 +127,7 @@ Civitai direct download requires authentication.
 Built-in profiles assume these local files exist:
 
 ```text
-diffusion_models/animaOfficial_preview3Base.safetensors
+diffusion_models/anima-base-v1.0.safetensors
 text_encoders/qwen_3_06b_base.safetensors
 vae/qwen_image_vae.safetensors
 loras/anima/anima-turbo-lora-v0.1.safetensors
@@ -157,7 +157,7 @@ absent, the CLIs use built-in defaults:
 
 | Capability | Default profile | Architecture |
 | --- | --- | --- |
-| `imagegen.generate` | `anima-preview3-turbo` | `anima` |
+| `imagegen.generate` | `anima-base` | `anima` |
 | `imagegen.edit` | `qwen-edit2511` | `qwen-image-edit` |
 | `imagegen.upscale` | `clear-reality` | `upscale-model` |
 | `imagegen.grok-generate` | `grok-imagine-api` | `grok-imagine-api` |
@@ -214,7 +214,7 @@ Download missing files for the effective profile of a capability:
 ```bash
 uv run comfy-models download imagegen.generate --dry-run
 uv run comfy-models download imagegen.generate --yes
-uv run comfy-models download-profile anima-preview3-turbo --yes
+uv run comfy-models download-profile anima-base --yes
 uv run comfy-models download-profile flux-klein-9b-snofs --dry-run
 ```
 
@@ -274,7 +274,7 @@ approval.
 
 ## Image Generation
 
-`comfy-imagegen generate` defaults to Anima Preview3 with the Anima turbo LoRA.
+`comfy-imagegen generate` defaults to Anima Base v1.0 with the Anima turbo LoRA.
 It is designed for anime, illustration, game art, and stylized assets. It does
 not edit images.
 

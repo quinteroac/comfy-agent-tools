@@ -49,12 +49,12 @@ uv run comfy-models download imagegen.generate --yes
 5. Validate the profile, then return to the original generation skill:
 
 ```bash
-uv run comfy-models validate-profile anima-preview3-turbo
+uv run comfy-models validate-profile anima-base
 ```
 
 ## Supported Built-In Profiles
 
-- `anima-preview3-turbo`: Anima Preview3 image generation.
+- `anima-base`: Anima Base v1.0 image generation with the turbo LoRA.
 - `qwen-edit2511`: Qwen Image Edit 2511 generation/editing.
 - `flux-klein-9b-snofs`: FLUX.2 Klein 9B FP8 generation/editing with SNOFS.
 - `clear-reality`: ClearReality image upscaling.

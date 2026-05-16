@@ -12,7 +12,7 @@ CONFIG_FILENAME = ".comfy-agent-tools.json"
 BUILTIN_MODELS_DIR = Path("/mnt/models/comfyui")
 
 BUILTIN_DEFAULTS: dict[str, str] = {
-    "imagegen.generate": "anima-preview3-turbo",
+    "imagegen.generate": "anima-base",
     "imagegen.edit": "qwen-edit2511",
     "imagegen.upscale": "clear-reality",
     "videogen.t2v": "ltx23-10eros",
@@ -54,6 +54,25 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
             "upscaler": "upscale_models/4x-ClearRealityV1.pth",
         },
         "defaults": {},
+    },
+    "anima-base": {
+        "label": "Anima Base v1.0 + Turbo LoRA",
+        "architecture": "anima",
+        "supports": ["imagegen.generate"],
+        "models": {
+            "unet": "diffusion_models/anima-base-v1.0.safetensors",
+            "clip": "text_encoders/qwen_3_06b_base.safetensors",
+            "vae": "vae/qwen_image_vae.safetensors",
+            "lora": "loras/anima/anima-turbo-lora-v0.1.safetensors",
+        },
+        "defaults": {
+            "width": 1024,
+            "height": 1024,
+            "steps": 8,
+            "cfg": 1.0,
+            "sampler": "er_sde",
+            "scheduler": "normal",
+        },
     },
     "anima-preview3-turbo": {
         "label": "Anima Preview3 Base + Turbo LoRA",
