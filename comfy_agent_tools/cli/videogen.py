@@ -1,4 +1,4 @@
-"""CLI for local LTX 2.3 and remote Seedance 2.0 video generation."""
+"""CLI for local LTX 2.3, WAN 2.2, and remote Seedance 2.0 video generation."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from typing import Any
 
 from comfy_agent_tools.loras import extra_loras_json, parse_extra_lora
 from comfy_agent_tools.media import write_run_manifest
-from comfy_agent_tools.videogen.artifacts import frame_metadata, make_video_path, save_mp4_with_audio
+from comfy_agent_tools.videogen.artifacts import frame_metadata, make_video_path, save_mp4, save_mp4_with_audio
 from comfy_agent_tools.videogen.config import (
     DEFAULT_CFG,
     DEFAULT_AUDIO_START_TIME,
@@ -34,6 +34,23 @@ from comfy_agent_tools.videogen.config import (
     VideogenConfig,
 )
 from comfy_agent_tools.videogen.ltx23 import run_flf2v, run_i2v, run_ia2av, run_motion_track, run_t2v
+from comfy_agent_tools.videogen.wan22 import (
+    DEFAULT_WAN22_FLF2V_CFG,
+    DEFAULT_WAN22_FPS,
+    DEFAULT_WAN22_HEIGHT,
+    DEFAULT_WAN22_I2V_CFG,
+    DEFAULT_WAN22_LENGTH,
+    DEFAULT_WAN22_NEGATIVE_PROMPT,
+    DEFAULT_WAN22_STEPS,
+    DEFAULT_WAN22_TEXT_ENCODER,
+    DEFAULT_WAN22_UNET_HIGH,
+    DEFAULT_WAN22_UNET_LOW,
+    DEFAULT_WAN22_VAE,
+    DEFAULT_WAN22_WIDTH,
+    Wan22Config,
+    run_flf2v as run_wan22_flf2v,
+    run_i2v as run_wan22_i2v,
+)
 from comfy_agent_tools.videogen.seedance2 import (
     DEFAULT_SEEDANCE2_DURATION,
     DEFAULT_SEEDANCE2_GENERATE_AUDIO,
@@ -60,7 +77,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the comfy-videogen argument parser."""
     parser = argparse.ArgumentParser(
         prog="comfy-videogen",
-        description="Generate MP4 videos with local LTX 2.3 models or remote Seedance 2.0 API nodes.",
+        description="Generate MP4 videos with local LTX 2.3/WAN 2.2 models or remote Seedance 2.0 API nodes.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -137,6 +154,44 @@ def build_parser() -> argparse.ArgumentParser:
     motion_track.add_argument("--prompt", required=True)
     motion_track.add_argument("--attention-strength", type=float, default=None)
     motion_track.add_argument("--reference-downscale", type=float, default=None)
+
+    def add_wan22_common(subparser: argparse.ArgumentParser, *, default_cfg: float) -> None:
+        subparser.add_argument("--models-dir", type=_path, default=None)
+        subparser.add_argument("--out", type=_path, default=DEFAULT_OUT)
+        subparser.add_argument(
+            "--no-manifest",
+            action="store_true",
+            help="Do not write a comfy-media run manifest for this generation.",
+        )
+        subparser.add_argument("--unet-high", type=_path, default=None)
+        subparser.add_argument("--unet-low", type=_path, default=None)
+        subparser.add_argument("--text-encoder", type=_path, default=None)
+        subparser.add_argument("--vae", type=_path, default=None)
+        subparser.add_argument("--width", type=int, default=None)
+        subparser.add_argument("--height", type=int, default=None)
+        subparser.add_argument("--length", type=int, default=None)
+        subparser.add_argument("--fps", type=int, default=None)
+        subparser.add_argument("--steps", type=int, default=None)
+        subparser.add_argument("--cfg", type=float, default=None)
+        subparser.add_argument("--seed", type=int, default=DEFAULT_SEED)
+        subparser.add_argument("--negative-prompt", default=DEFAULT_WAN22_NEGATIVE_PROMPT)
+        subparser.set_defaults(default_cfg=default_cfg)
+        subparser.add_argument(
+            "--verbose",
+            action="store_true",
+            help="Show ComfyUI warnings and progress output while running.",
+        )
+
+    wan22_i2v = subparsers.add_parser("wan22-i2v", help="Animate an input image with WAN 2.2.")
+    add_wan22_common(wan22_i2v, default_cfg=DEFAULT_WAN22_I2V_CFG)
+    wan22_i2v.add_argument("--input", type=_path, required=True)
+    wan22_i2v.add_argument("--prompt", required=True)
+
+    wan22_flf2v = subparsers.add_parser("wan22-flf2v", help="Generate a WAN 2.2 first/last-frame video.")
+    add_wan22_common(wan22_flf2v, default_cfg=DEFAULT_WAN22_FLF2V_CFG)
+    wan22_flf2v.add_argument("--first", type=_path, required=True)
+    wan22_flf2v.add_argument("--last", type=_path, required=True)
+    wan22_flf2v.add_argument("--prompt", required=True)
 
     def add_seedance2_common(subparser: argparse.ArgumentParser) -> None:
         subparser.add_argument("--out", type=_path, default=DEFAULT_OUT)
@@ -230,6 +285,26 @@ def _seedance2_config(args: argparse.Namespace, profile: ResolvedProfile) -> See
         ),
         watermark=args.watermark if args.watermark is not None else bool(profile.defaults.get("watermark", DEFAULT_SEEDANCE2_WATERMARK)),
         seed=args.seed if args.seed is not None else int(profile.defaults.get("seed", DEFAULT_SEEDANCE2_SEED)),
+    )
+
+
+def _wan22_config(args: argparse.Namespace, profile: ResolvedProfile) -> Wan22Config:
+    command_default_cfg = DEFAULT_WAN22_FLF2V_CFG if args.command == "wan22-flf2v" else DEFAULT_WAN22_I2V_CFG
+    profile_cfg_key = "flf2v_cfg" if args.command == "wan22-flf2v" else "i2v_cfg"
+    return Wan22Config(
+        models_dir=args.models_dir if args.models_dir is not None else profile.models_dir,
+        unet_high=args.unet_high if args.unet_high is not None else profile.models.get("unet_high", DEFAULT_WAN22_UNET_HIGH),
+        unet_low=args.unet_low if args.unet_low is not None else profile.models.get("unet_low", DEFAULT_WAN22_UNET_LOW),
+        text_encoder=args.text_encoder if args.text_encoder is not None else profile.models.get("text_encoder", DEFAULT_WAN22_TEXT_ENCODER),
+        vae=args.vae if args.vae is not None else profile.models.get("vae", DEFAULT_WAN22_VAE),
+        width=args.width if args.width is not None else int(profile.defaults.get("width", DEFAULT_WAN22_WIDTH)),
+        height=args.height if args.height is not None else int(profile.defaults.get("height", DEFAULT_WAN22_HEIGHT)),
+        length=args.length if args.length is not None else int(profile.defaults.get("length", DEFAULT_WAN22_LENGTH)),
+        fps=args.fps if args.fps is not None else int(profile.defaults.get("fps", DEFAULT_WAN22_FPS)),
+        steps=args.steps if args.steps is not None else int(profile.defaults.get("steps", DEFAULT_WAN22_STEPS)),
+        cfg=args.cfg if args.cfg is not None else float(profile.defaults.get(profile_cfg_key, command_default_cfg)),
+        seed=args.seed,
+        negative_prompt=args.negative_prompt,
     )
 
 
@@ -341,6 +416,48 @@ def _seedance2_success(
     return payload
 
 
+def _wan22_success(
+    *,
+    mode: str,
+    artifact: Path,
+    config: Wan22Config,
+    frames: list[object],
+    profile: ResolvedProfile,
+    input_path: Path | None = None,
+    first_path: Path | None = None,
+    last_path: Path | None = None,
+) -> dict[str, Any]:
+    meta = frame_metadata(frames, config.fps)
+    payload: dict[str, Any] = {
+        "ok": True,
+        "kind": "video",
+        "mode": mode,
+        "artifacts": [str(artifact)],
+        "seed": config.seed,
+        "models_dir": str(config.models_dir),
+        "model": config.unet_high.name,
+        "width": meta["width"],
+        "height": meta["height"],
+        "frames": meta["frames"],
+        "fps": meta["fps"],
+        "duration_seconds": meta["duration_seconds"],
+        "steps": config.steps,
+        "cfg": config.cfg,
+        "audio_muxed": False,
+        "capability": profile.capability,
+        "model_profile": profile.name,
+        "architecture": profile.architecture,
+        "resolved_models": _resolved_wan22_models(config),
+    }
+    if input_path is not None:
+        payload["input"] = str(input_path)
+    if first_path is not None:
+        payload["first"] = str(first_path)
+    if last_path is not None:
+        payload["last"] = str(last_path)
+    return payload
+
+
 def _resolved_video_models(config: VideogenConfig) -> dict[str, str]:
     return {
         "checkpoint": str(config.resolve_model_path(config.checkpoint)),
@@ -349,6 +466,15 @@ def _resolved_video_models(config: VideogenConfig) -> dict[str, str]:
         "te_lora": str(config.resolve_model_path(config.te_lora)),
         "upscaler": str(config.resolve_model_path(config.upscaler)),
         "ic_lora": str(config.resolve_model_path(config.ic_lora)),
+    }
+
+
+def _resolved_wan22_models(config: Wan22Config) -> dict[str, str]:
+    return {
+        "unet_high": str(config.resolve_model_path(config.unet_high)),
+        "unet_low": str(config.resolve_model_path(config.unet_low)),
+        "text_encoder": str(config.resolve_model_path(config.text_encoder)),
+        "vae": str(config.resolve_model_path(config.vae)),
     }
 
 
@@ -397,6 +523,15 @@ def _write_result_video(result: dict[str, Any], out_dir: Path, *, prefix: str, f
     return path
 
 
+def _write_result_video_no_audio(result: dict[str, Any], out_dir: Path, *, prefix: str, fps: int) -> Path:
+    frames = result.get("frames")
+    if not isinstance(frames, list):
+        raise ValueError("pipeline result did not include a frames list")
+    path = make_video_path(out_dir, prefix=prefix)
+    save_mp4(frames, path, fps)
+    return path
+
+
 def run_command(args: argparse.Namespace) -> dict[str, Any]:
     """Run a parsed comfy-videogen command and return its JSON payload."""
     profile, _source = resolve_capability(_capability(args.command))
@@ -438,6 +573,41 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
             mode="seedance2-flf2v",
             artifact=result["artifact"],
             config=config,
+            profile=profile,
+            first_path=args.first,
+            last_path=args.last,
+        )
+
+    if args.command == "wan22-i2v":
+        if not args.input.is_file():
+            raise FileNotFoundError(f"input image not found: {args.input}")
+        config = _wan22_config(args, profile)
+        with _maybe_silence(not args.verbose):
+            result = run_wan22_i2v(image=args.input, prompt=args.prompt, config=config)
+            artifact = _write_result_video_no_audio(result, args.out, prefix="comfy-videogen-wan22-i2v", fps=config.fps)
+        return _wan22_success(
+            mode="wan22-i2v",
+            artifact=artifact,
+            config=config,
+            frames=result["frames"],
+            profile=profile,
+            input_path=args.input,
+        )
+
+    if args.command == "wan22-flf2v":
+        if not args.first.is_file():
+            raise FileNotFoundError(f"first image not found: {args.first}")
+        if not args.last.is_file():
+            raise FileNotFoundError(f"last image not found: {args.last}")
+        config = _wan22_config(args, profile)
+        with _maybe_silence(not args.verbose):
+            result = run_wan22_flf2v(first_image=args.first, last_image=args.last, prompt=args.prompt, config=config)
+            artifact = _write_result_video_no_audio(result, args.out, prefix="comfy-videogen-wan22-flf2v", fps=config.fps)
+        return _wan22_success(
+            mode="wan22-flf2v",
+            artifact=artifact,
+            config=config,
+            frames=result["frames"],
             profile=profile,
             first_path=args.first,
             last_path=args.last,

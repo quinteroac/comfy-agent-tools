@@ -76,6 +76,8 @@ def build_parser() -> argparse.ArgumentParser:
     add_profile.add_argument("--te-lora")
     add_profile.add_argument("--upscaler")
     add_profile.add_argument("--ic-lora")
+    add_profile.add_argument("--unet-high")
+    add_profile.add_argument("--unet-low")
 
     validate_profile = subparsers.add_parser("validate-profile", help="Validate one resolved profile and its files.")
     validate_profile.add_argument("profile")
@@ -263,6 +265,8 @@ def _models_from_args(args: argparse.Namespace) -> dict[str, str]:
         "te_lora": args.te_lora,
         "upscaler": args.upscaler,
         "ic_lora": args.ic_lora,
+        "unet_high": args.unet_high,
+        "unet_low": args.unet_low,
     }
     return {key: value for key, value in mapping.items() if value}
 

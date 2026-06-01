@@ -32,6 +32,39 @@ def frame_metadata(frames: list[Any], fps: int) -> dict[str, Any]:
     }
 
 
+def save_mp4(frames: list[Any], path: str | Path, fps: int) -> None:
+    """Save frames into an MP4 file using PyAV."""
+    if fps <= 0:
+        raise ValueError("fps must be greater than 0")
+    if not frames:
+        raise ValueError("no frames were produced")
+
+    import av
+    import numpy as np
+
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    first_width, first_height = frames[0].size
+
+    with av.open(str(output_path), mode="w") as container:
+        video_stream = container.add_stream("libx264", rate=fps)
+        video_stream.width = int(first_width)
+        video_stream.height = int(first_height)
+        video_stream.pix_fmt = "yuv420p"
+
+        for image in frames:
+            if image.size != (first_width, first_height):
+                raise ValueError("all frames must have identical width and height")
+            array = np.asarray(image.convert("RGB"))
+            video_frame = av.VideoFrame.from_ndarray(array, format="rgb24")
+            for packet in video_stream.encode(video_frame):
+                container.mux(packet)
+
+        for packet in video_stream.encode():
+            container.mux(packet)
+
+
 def save_mp4_with_audio(frames: list[Any], audio: dict[str, Any], path: str | Path, fps: int) -> None:
     """Save frames and generated audio into one MP4 file using PyAV."""
     if fps <= 0:
