@@ -167,6 +167,8 @@ absent, the CLIs use built-in defaults:
 | `videogen.flf2v` | `ltx23-10eros` | `ltx23` |
 | `videogen.ia2av` | `ltx23-10eros` | `ltx23` |
 | `videogen.motion-track` | `ltx23-motion-track` | `ltx23` |
+| `videogen.wan22-i2v` | `wan22-i2v` | `wan22` |
+| `videogen.wan22-flf2v` | `wan22-i2v` | `wan22` |
 | `videogen.seedance2-t2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-r2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-flf2v` | `seedance2-api` | `seedance2-api` |
@@ -174,6 +176,13 @@ absent, the CLIs use built-in defaults:
 
 `ltx23` is the architecture/adapter; `ltx23-10eros` is the built-in profile
 validated for that architecture.
+
+`wan22` is the local WAN 2.2 adapter. The default `wan22-i2v` profile uses the
+Comfy-Org FP8 I2V high/low UNets. The optional
+`wan22-dasiwa-tastysin-i2v` and `wan22-dasiwa-boundbite-i2v` point to local
+Dasiwa high/low UNets and use `steps=4`, `cfg=1.0`; the WAN 2.2 i2v wrapper
+samples the high-noise model in the first tranche and the low-noise model in
+the second.
 
 An optional built-in image profile, `flux-klein-9b-snofs`, supports both
 `imagegen.generate` and `imagegen.edit` with architecture `flux-klein`. It uses
@@ -355,11 +364,14 @@ are `grok-imagine-image-pro`, `grok-imagine-image`, and
 
 ## Video Generation
 
-`comfy-videogen` supports both local LTX 2.3 generation and remote Seedance 2.0
-API generation. It is quiet by default and prints final JSON only; pass
+`comfy-videogen` supports local LTX 2.3 generation, local WAN 2.2 image-driven
+generation, and remote Seedance 2.0 API generation. It is quiet by default and prints final JSON only; pass
 `--verbose` to show ComfyUI logs.
 
 Local LTX 2.3 uses the `ltx23-10eros` profile and writes MP4 files with audio.
+Local WAN 2.2 uses the `wan22-i2v` profile and writes silent MP4 files.
+For Dasiwa TastySin or BoundBite, set the matching Dasiwa profile as the default
+or pass its high/low UNet paths explicitly; use `--steps 4 --cfg 1.0`.
 
 Text to video:
 
@@ -399,6 +411,25 @@ uv run comfy-videogen flf2v \
   --prompt "a smooth transition between the two frames with subtle camera motion and ambient sound" \
   --width 540 \
   --height 360 \
+  --out outputs
+```
+
+WAN 2.2 image to video:
+
+```bash
+uv run comfy-videogen wan22-i2v \
+  --input outputs/comfy-imagegen-generate-example.png \
+  --prompt "the subject begins moving naturally, cinematic camera drift, detailed motion" \
+  --out outputs
+```
+
+WAN 2.2 first/last frame:
+
+```bash
+uv run comfy-videogen wan22-flf2v \
+  --first start.png \
+  --last end.png \
+  --prompt "a smooth cinematic transition between the two frames, coherent motion" \
   --out outputs
 ```
 

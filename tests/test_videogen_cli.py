@@ -11,7 +11,7 @@ from PIL import Image
 import torch
 
 from comfy_agent_tools.cli import videogen
-from comfy_agent_tools.videogen.artifacts import save_mp4_with_audio
+from comfy_agent_tools.videogen.artifacts import save_mp4, save_mp4_with_audio
 from comfy_agent_tools.videogen import ltx23
 from comfy_agent_tools.videogen.seedance2 import _disable_api_node_progress_display
 
@@ -205,6 +205,35 @@ def test_parser_seedance2_defaults(tmp_path: Path) -> None:
     assert t2v.watermark is False
     assert t2v.seed == 0
     assert r2v.input == tmp_path / "a.png"
+    assert flf2v.first == tmp_path / "a.png"
+    assert flf2v.last == tmp_path / "b.png"
+
+
+def test_parser_wan22_defaults(tmp_path: Path) -> None:
+    parser = videogen.build_parser()
+
+    i2v = parser.parse_args(["wan22-i2v", "--input", str(tmp_path / "a.png"), "--prompt", "hello"])
+    flf2v = parser.parse_args(
+        [
+            "wan22-flf2v",
+            "--first",
+            str(tmp_path / "a.png"),
+            "--last",
+            str(tmp_path / "b.png"),
+            "--prompt",
+            "hello",
+        ]
+    )
+
+    assert i2v.command == "wan22-i2v"
+    assert i2v.width is None
+    assert i2v.height is None
+    assert i2v.length is None
+    assert i2v.fps is None
+    assert i2v.steps is None
+    assert i2v.cfg is None
+    assert i2v.input == tmp_path / "a.png"
+    assert flf2v.command == "wan22-flf2v"
     assert flf2v.first == tmp_path / "a.png"
     assert flf2v.last == tmp_path / "b.png"
 
@@ -534,6 +563,115 @@ def test_seedance2_flf2v_success_json(monkeypatch: MagicMock, tmp_path: Path, ca
     assert payload["artifacts"] == [str(artifact)]
 
 
+def test_wan22_i2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    monkeypatch.chdir(tmp_path)
+    input_path = tmp_path / "input.png"
+    Image.new("RGB", (8, 8), "green").save(input_path)
+    seen: dict[str, object] = {}
+
+    def fake_run(*, image, prompt, config):
+        seen["image"] = image
+        seen["prompt"] = prompt
+        seen["steps"] = config.steps
+        seen["cfg"] = config.cfg
+        return {"frames": _frames()}
+
+    monkeypatch.setattr(videogen, "run_wan22_i2v", fake_run)
+    monkeypatch.setattr(videogen, "save_mp4", lambda frames, path, fps: Path(path).touch())
+
+    rc = videogen.main(["wan22-i2v", "--input", str(input_path), "--prompt", "move", "--out", str(tmp_path)])
+
+    assert rc == 0
+    assert seen["image"] == input_path
+    assert seen["prompt"] == "move"
+    assert seen["steps"] == 20
+    assert seen["cfg"] == 3.5
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "wan22-i2v"
+    assert payload["input"] == str(input_path)
+    assert payload["audio_muxed"] is False
+    assert payload["capability"] == "videogen.wan22-i2v"
+    assert payload["model_profile"] == "wan22-i2v"
+    assert payload["architecture"] == "wan22"
+    assert payload["fps"] == 16
+    assert payload["resolved_models"]["unet_high"].endswith(
+        "diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors"
+    )
+    assert Path(payload["artifacts"][0]).is_file()
+
+
+def test_wan22_flf2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    monkeypatch.chdir(tmp_path)
+    first = tmp_path / "first.png"
+    last = tmp_path / "last.png"
+    Image.new("RGB", (8, 8), "green").save(first)
+    Image.new("RGB", (8, 8), "blue").save(last)
+    seen: dict[str, object] = {}
+
+    def fake_run(*, first_image, last_image, prompt, config):
+        seen["first_image"] = first_image
+        seen["last_image"] = last_image
+        seen["cfg"] = config.cfg
+        return {"frames": _frames()}
+
+    monkeypatch.setattr(videogen, "run_wan22_flf2v", fake_run)
+    monkeypatch.setattr(videogen, "save_mp4", lambda frames, path, fps: Path(path).touch())
+
+    rc = videogen.main(["wan22-flf2v", "--first", str(first), "--last", str(last), "--prompt", "transition", "--out", str(tmp_path)])
+
+    assert rc == 0
+    assert seen["first_image"] == first
+    assert seen["last_image"] == last
+    assert seen["cfg"] == 4.0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "wan22-flf2v"
+    assert payload["first"] == str(first)
+    assert payload["last"] == str(last)
+    assert payload["audio_muxed"] is False
+    assert payload["capability"] == "videogen.wan22-flf2v"
+    assert payload["artifacts"]
+
+
+def test_wan22_dasiwa_profile_defaults(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    config_path = tmp_path / ".comfy-agent-tools.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "models_dir": str(tmp_path / "models"),
+                "defaults": {
+                    "videogen.wan22-i2v": "wan22-dasiwa-tastysin-i2v",
+                },
+                "profiles": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    input_path = tmp_path / "input.png"
+    Image.new("RGB", (8, 8), "green").save(input_path)
+    seen: dict[str, object] = {}
+
+    def fake_run(*, image, prompt, config):
+        seen["steps"] = config.steps
+        seen["cfg"] = config.cfg
+        seen["unet_high"] = config.unet_high
+        seen["unet_low"] = config.unet_low
+        return {"frames": _frames()}
+
+    monkeypatch.setattr(videogen, "run_wan22_i2v", fake_run)
+    monkeypatch.setattr(videogen, "save_mp4", lambda frames, path, fps: Path(path).touch())
+
+    rc = videogen.main(["wan22-i2v", "--input", str(input_path), "--prompt", "move", "--out", str(tmp_path)])
+
+    assert rc == 0
+    assert seen["steps"] == 4
+    assert seen["cfg"] == 1.0
+    assert seen["unet_high"] == Path("diffusion_models/DasiwaWAN22I2V14BV8V1_tastysinHighV81.safetensors")
+    assert seen["unet_low"] == Path("diffusion_models/DasiwaWAN22I2V14BV8V1_tastysinLowV81.safetensors")
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["model_profile"] == "wan22-dasiwa-tastysin-i2v"
+
+
 def test_i2v_missing_input_returns_json(tmp_path: Path, capsys: MagicMock) -> None:
     rc = videogen.main(["i2v", "--input", str(tmp_path / "missing.png"), "--prompt", "move"])
 
@@ -734,6 +872,16 @@ def test_save_mp4_with_stereo_audio(tmp_path: Path) -> None:
     assert output.stat().st_size > 0
 
 
+def test_save_mp4_without_audio(tmp_path: Path) -> None:
+    frames = [Image.new("RGB", (64, 36), "red"), Image.new("RGB", (64, 36), "blue")]
+    output = tmp_path / "silent.mp4"
+
+    save_mp4(frames, output, 16)
+
+    assert output.is_file()
+    assert output.stat().st_size > 0
+
+
 def test_flf2v_wrapper_uses_latent_upscaler() -> None:
     source = Path("comfy_agent_tools/videogen/ltx23.py").read_text(encoding="utf-8")
 
@@ -757,3 +905,15 @@ def test_motion_track_wrapper_uses_comfy_diffusion_v220_ic_lora_helpers() -> Non
     assert "apply_ic_lora_model_only" in source
     assert "ltx_add_video_ic_lora_guide" in source
     assert "latent_downscale_factor=latent_downscale_factor" in source
+
+
+def test_wan22_i2v_wrapper_samples_high_noise_then_low_noise() -> None:
+    source = Path("comfy_agent_tools/videogen/wan22.py").read_text(encoding="utf-8")
+
+    high_call = source.index("latent = sample_advanced(\n        model_high")
+    low_call = source.index("latent = sample_advanced(\n        model_low")
+    assert high_call < low_call
+    assert "start_at_step=0" in source
+    assert "end_at_step=split_step" in source
+    assert "start_at_step=split_step" in source
+    assert "end_at_step=config.steps" in source

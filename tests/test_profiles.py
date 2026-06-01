@@ -37,6 +37,30 @@ def test_builtin_profiles_separate_architecture_and_profile() -> None:
     assert flux["defaults"]["steps"] == 4
     assert flux["models"]["lora"] == "loras/flux-klein/klein_snofs_v1_1.safetensors"
 
+    wan22 = BUILTIN_PROFILES["wan22-i2v"]
+    assert wan22["architecture"] == "wan22"
+    assert wan22["supports"] == ["videogen.wan22-i2v", "videogen.wan22-flf2v"]
+    assert wan22["models"]["unet_high"] == "diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors"
+    assert wan22["defaults"]["fps"] == 16
+
+    dasiwa = BUILTIN_PROFILES["wan22-dasiwa-tastysin-i2v"]
+    assert dasiwa["architecture"] == "wan22"
+    assert dasiwa["supports"] == ["videogen.wan22-i2v", "videogen.wan22-flf2v"]
+    assert dasiwa["models"]["unet_high"] == "diffusion_models/DasiwaWAN22I2V14BV8V1_tastysinHighV81.safetensors"
+    assert dasiwa["models"]["unet_low"] == "diffusion_models/DasiwaWAN22I2V14BV8V1_tastysinLowV81.safetensors"
+    assert dasiwa["defaults"]["steps"] == 4
+    assert dasiwa["defaults"]["i2v_cfg"] == 1.0
+    assert dasiwa["defaults"]["flf2v_cfg"] == 1.0
+
+    boundbite = BUILTIN_PROFILES["wan22-dasiwa-boundbite-i2v"]
+    assert boundbite["architecture"] == "wan22"
+    assert boundbite["supports"] == ["videogen.wan22-i2v", "videogen.wan22-flf2v"]
+    assert boundbite["models"]["unet_high"] == "diffusion_models/DasiwaWAN22I2V14BLightspeed_boundbiteHighV10.safetensors"
+    assert boundbite["models"]["unet_low"] == "diffusion_models/DasiwaWAN22I2V14BLightspeed_boundbiteLowV10.safetensors"
+    assert boundbite["defaults"]["steps"] == 4
+    assert boundbite["defaults"]["i2v_cfg"] == 1.0
+    assert boundbite["defaults"]["flf2v_cfg"] == 1.0
+
     seedance = BUILTIN_PROFILES["seedance2-api"]
     assert seedance["architecture"] == "seedance2-api"
     assert seedance["models"] == {}
@@ -59,6 +83,7 @@ def test_builtin_defaults_point_to_supported_profiles() -> None:
     assert BUILTIN_DEFAULTS["imagegen.generate"] == "anima-base"
     assert BUILTIN_DEFAULTS["imagegen.edit"] == "qwen-edit2511"
     assert BUILTIN_DEFAULTS["videogen.seedance2-t2v"] == "seedance2-api"
+    assert BUILTIN_DEFAULTS["videogen.wan22-i2v"] == "wan22-i2v"
     assert BUILTIN_DEFAULTS["imagegen.grok-generate"] == "grok-imagine-api"
     assert BUILTIN_DEFAULTS["imagegen.grok-edit"] == "grok-imagine-api"
     for capability, profile_name in BUILTIN_DEFAULTS.items():

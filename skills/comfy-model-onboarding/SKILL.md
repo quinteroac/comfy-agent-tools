@@ -42,12 +42,13 @@ Only configure these architectures in v1:
 - `flux-klein`: base profile `flux-klein-9b-snofs`, capabilities `imagegen.generate`, `imagegen.edit`.
 - `upscale-model`: base profile `clear-reality`, capability `imagegen.upscale`.
 - `ltx23`: base profile `ltx23-10eros`, capabilities `videogen.t2v`, `videogen.i2v`, `videogen.flf2v`, `videogen.ia2av`.
+- `wan22`: base profile `wan22-i2v`, optional Dasiwa profiles `wan22-dasiwa-tastysin-i2v` and `wan22-dasiwa-boundbite-i2v`, capabilities `videogen.wan22-i2v`, `videogen.wan22-flf2v`.
 - `ace-step-1.5`: base profile `ace15-base`, capability `musicgen.generate`.
 - `seedance2-api`: remote profile `seedance2-api`, capabilities `videogen.seedance2-t2v`, `videogen.seedance2-r2v`, `videogen.seedance2-flf2v`.
 - `grok-imagine-api`: remote profile `grok-imagine-api`, capabilities `imagegen.grok-generate`, `imagegen.grok-edit`.
 
-If a model is SDXL, Wan, a new audio architecture, or any Flux variant other than
-the built-in `flux-klein` adapter, do not
+If a model is SDXL, a non-WAN-2.2 Wan variant, a new audio architecture, or any
+Flux variant other than the built-in `flux-klein` adapter, do not
 pretend it is supported. Explain that a new architecture adapter is required.
 
 Seedance 2.0 is not a local checkpoint or fine-tune architecture. Do not create

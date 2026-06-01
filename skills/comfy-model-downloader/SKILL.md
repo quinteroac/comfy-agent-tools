@@ -21,6 +21,8 @@ prefer `uv run comfy-models`; outside the repo, use the installed CLI.
 - Image to video: `videogen.i2v`
 - First/last frame video: `videogen.flf2v`
 - Image plus audio to video: `videogen.ia2av`
+- WAN 2.2 image to video: `videogen.wan22-i2v`
+- WAN 2.2 first/last frame video: `videogen.wan22-flf2v`
 - Music generation: `musicgen.generate`
 
 Do not map Seedance 2.0 API requests to downloads. `videogen.seedance2-t2v`,

@@ -1,18 +1,18 @@
 ---
 name: comfy-videogen
-description: Generate MP4 videos with comfy-diffusion using local LTX 2.3 10Eros or remote ByteDance Seedance 2.0 API nodes. Use when the user wants local GPU-backed text-to-video, image-to-video, image+audio-to-video, first/last-frame video generation, LTX motion-track IC-LoRA control, or Seedance 2.0 API text/reference/first-last-frame video saved into the workspace. Do not use for image-only generation, music-only generation, voice generation, model downloads, ComfyUI server workflows, UI work, custom node installation, or non-Seedance hosted video APIs.
+description: Generate MP4 videos with comfy-diffusion using local LTX 2.3 10Eros, local WAN 2.2, or remote ByteDance Seedance 2.0 API nodes. Use when the user wants local GPU-backed text-to-video, image-to-video, image+audio-to-video, first/last-frame video generation, WAN 2.2 image/first-last-frame video, LTX motion-track IC-LoRA control, or Seedance 2.0 API text/reference/first-last-frame video saved into the workspace. Do not use for image-only generation, music-only generation, voice generation, model downloads, ComfyUI server workflows, UI work, custom node installation, or non-Seedance hosted video APIs.
 ---
 
 # comfy-videogen
 
 Use this skill for video generation through the `comfy-videogen` CLI. Local LTX
-2.3 modes use model files under `/mnt/models/comfyui`. Remote Seedance 2.0 modes
-use ComfyUI API Nodes vendored by `comfy-diffusion` and require
+2.3 and WAN 2.2 modes use model files under `/mnt/models/comfyui`. Remote
+Seedance 2.0 modes use ComfyUI API Nodes vendored by `comfy-diffusion` and require
 `COMFY_ORG_API_KEY`.
 
-If a built-in LTX 2.3 profile is missing files, use `comfy-model-downloader` for
-the requested local `videogen.<mode>` capability before running inference. Do
-not use the downloader for Seedance 2.0; `seedance2-api` has no local model
+If a built-in local video profile is missing files, use `comfy-model-downloader`
+for the requested local `videogen.<mode>` capability before running inference.
+Do not use the downloader for Seedance 2.0; `seedance2-api` has no local model
 files.
 
 The CLI is quiet by default and prints only final JSON. Use `--verbose` only when
@@ -38,7 +38,8 @@ checkpoint/fine-tune/default such as an LTX 2.3 variant, use
 
 If model validation fails with `missing_model_file`, use `comfy-model-downloader`
 for the exact mode: `videogen.t2v`, `videogen.i2v`, `videogen.flf2v`,
-`videogen.ia2av`, or `videogen.motion-track`.
+`videogen.ia2av`, `videogen.wan22-i2v`, `videogen.wan22-flf2v`, or
+`videogen.motion-track`.
 
 If the user asks to use or organize a LoRA by name or purpose, use
 `comfy-lora-onboarding` to search `loras/ltx23/` first and pass the chosen file
@@ -54,6 +55,8 @@ with `--extra-lora` only to modes that support ad hoc LoRA insertion.
 - `flf2v`: first image plus last image plus prompt to MP4 with audio. This mode
   uses the experimental 10Eros first/last-frame adaptation with latent
   upscaling/refinement.
+- `wan22-i2v`: WAN 2.2 input image plus prompt to silent MP4.
+- `wan22-flf2v`: WAN 2.2 first image plus last image plus prompt to silent MP4.
 - `motion-track`: input image plus motion-track control video plus prompt to MP4
   with audio. Use `comfy-motion-track-control` for IC-LoRA setup and control
   video preparation.
@@ -103,6 +106,25 @@ uv run comfy-videogen flf2v \
   --width 540 \
   --height 360 \
   --extra-lora /mnt/models/comfyui/loras/ltx23/detailer.safetensors:0.7:0.0 \
+  --out outputs
+```
+
+WAN 2.2 image to video:
+
+```bash
+uv run comfy-videogen wan22-i2v \
+  --input path/to/image.png \
+  --prompt "the subject begins moving naturally, cinematic camera drift, detailed motion" \
+  --out outputs
+```
+
+WAN 2.2 first/last frame:
+
+```bash
+uv run comfy-videogen wan22-flf2v \
+  --first path/to/start.png \
+  --last path/to/end.png \
+  --prompt "a smooth cinematic transition between the two frames, coherent motion" \
   --out outputs
 ```
 
@@ -158,7 +180,7 @@ video duration is controlled by `--length / --fps`; long songs are trimmed to
 that window unless `--audio-start-time` or `--audio-duration` is passed.
 
 This sizing rule applies only to local LTX 2.3 modes. It does not apply to
-Seedance 2.0 remote API modes or other non-LTX pipelines. Local LTX 2.3 runs a
+WAN 2.2, Seedance 2.0 remote API modes, or other non-LTX pipelines. Local LTX 2.3 runs a
 two-step pipeline with latent x2 spatial upscaling/refinement, so treat
 `--width` and `--height` as the base generation size, not the desired final MP4
 size. When the user asks for a final resolution, pass half the requested
@@ -202,6 +224,17 @@ a safe insertion point.
   `ByteDance Seedance 2.0`. If missing, the CLI returns `missing_dependency`.
 - Do not use Seedance 1.x/1.5, OAuth, or token auth in this skill.
 
+### WAN 2.2 Local
+
+- Profile: `wan22-i2v`
+- Optional tuned profiles: `wan22-dasiwa-tastysin-i2v`, `wan22-dasiwa-boundbite-i2v`
+- Capabilities: `videogen.wan22-i2v`, `videogen.wan22-flf2v`
+- Models: high/low I2V UNets, `text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors`, `vae/wan_2.1_vae.safetensors`
+- Params: `width=640`, `height=640`, `length=81`, `fps=16`, `steps=20`, `i2v_cfg=3.5`, `flf2v_cfg=4.0`, `seed=0`
+- Dasiwa TastySin/BoundBite params: high UNet first, low UNet second, `steps=4`, `i2v_cfg=1.0`, `flf2v_cfg=1.0`
+- Output is silent MP4 (`audio_muxed=false`). Add audio later in a separate editing step if needed.
+- Use `comfy-model-downloader` for `videogen.wan22-i2v` or `videogen.wan22-flf2v` when files are missing.
+
 ## Output Handling
 
 The CLI prints JSON to stdout. On success, read `artifacts` for the saved MP4 path.
@@ -214,5 +247,6 @@ so the new artifact appears in Comfy Media:
 uv run comfy-media index --out outputs
 ```
 
-Audio is required in v1. If MP4 audio muxing fails, the command fails instead of
-silently saving a no-audio video.
+Audio is required for LTX 2.3 modes. If MP4 audio muxing fails, the command
+fails instead of silently saving a no-audio video. WAN 2.2 modes intentionally
+save silent MP4 and report `audio_muxed=false`.
