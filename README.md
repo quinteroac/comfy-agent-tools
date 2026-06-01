@@ -182,7 +182,9 @@ Comfy-Org FP8 I2V high/low UNets. The optional
 `wan22-dasiwa-tastysin-i2v` and `wan22-dasiwa-boundbite-i2v` point to local
 Dasiwa high/low UNets and use `steps=4`, `cfg=1.0`; the WAN 2.2 i2v wrapper
 samples the high-noise model in the first tranche and the low-noise model in
-the second.
+the second. The high-noise tranche controls broad motion, while the low-noise
+tranche controls detail/refinement. By default WAN splits steps 50/50; pass
+`--high-steps` and `--low-steps` to bias motion vs detail.
 
 An optional built-in image profile, `flux-klein-9b-snofs`, supports both
 `imagegen.generate` and `imagegen.edit` with architecture `flux-klein`. It uses
@@ -372,6 +374,10 @@ Local LTX 2.3 uses the `ltx23-10eros` profile and writes MP4 files with audio.
 Local WAN 2.2 uses the `wan22-i2v` profile and writes silent MP4 files.
 For Dasiwa TastySin or BoundBite, set the matching Dasiwa profile as the default
 or pass its high/low UNet paths explicitly; use `--steps 4 --cfg 1.0`.
+WAN high steps influence motion; WAN low steps influence detail. Omit
+`--high-steps`/`--low-steps` for the default 50/50 split, use
+`--high-steps 1 --low-steps 3` for restrained motion, or use
+`--high-steps 4 --low-steps 2` for more dynamic motion.
 
 Text to video:
 
@@ -420,6 +426,8 @@ WAN 2.2 image to video:
 uv run comfy-videogen wan22-i2v \
   --input outputs/comfy-imagegen-generate-example.png \
   --prompt "the subject begins moving naturally, cinematic camera drift, detailed motion" \
+  --high-steps 4 \
+  --low-steps 2 \
   --out outputs
 ```
 

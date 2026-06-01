@@ -172,6 +172,18 @@ def build_parser() -> argparse.ArgumentParser:
         subparser.add_argument("--length", type=int, default=None)
         subparser.add_argument("--fps", type=int, default=None)
         subparser.add_argument("--steps", type=int, default=None)
+        subparser.add_argument(
+            "--high-steps",
+            type=int,
+            default=None,
+            help="WAN 2.2 high-noise model steps. More high steps usually means more motion.",
+        )
+        subparser.add_argument(
+            "--low-steps",
+            type=int,
+            default=None,
+            help="WAN 2.2 low-noise model steps. More low steps usually means more detail/refinement.",
+        )
         subparser.add_argument("--cfg", type=float, default=None)
         subparser.add_argument("--seed", type=int, default=DEFAULT_SEED)
         subparser.add_argument("--negative-prompt", default=DEFAULT_WAN22_NEGATIVE_PROMPT)
@@ -291,6 +303,7 @@ def _seedance2_config(args: argparse.Namespace, profile: ResolvedProfile) -> See
 def _wan22_config(args: argparse.Namespace, profile: ResolvedProfile) -> Wan22Config:
     command_default_cfg = DEFAULT_WAN22_FLF2V_CFG if args.command == "wan22-flf2v" else DEFAULT_WAN22_I2V_CFG
     profile_cfg_key = "flf2v_cfg" if args.command == "wan22-flf2v" else "i2v_cfg"
+    steps, high_steps, low_steps = _wan22_step_counts(args, profile)
     return Wan22Config(
         models_dir=args.models_dir if args.models_dir is not None else profile.models_dir,
         unet_high=args.unet_high if args.unet_high is not None else profile.models.get("unet_high", DEFAULT_WAN22_UNET_HIGH),
@@ -301,11 +314,54 @@ def _wan22_config(args: argparse.Namespace, profile: ResolvedProfile) -> Wan22Co
         height=args.height if args.height is not None else int(profile.defaults.get("height", DEFAULT_WAN22_HEIGHT)),
         length=args.length if args.length is not None else int(profile.defaults.get("length", DEFAULT_WAN22_LENGTH)),
         fps=args.fps if args.fps is not None else int(profile.defaults.get("fps", DEFAULT_WAN22_FPS)),
-        steps=args.steps if args.steps is not None else int(profile.defaults.get("steps", DEFAULT_WAN22_STEPS)),
+        steps=steps,
+        high_steps=high_steps,
+        low_steps=low_steps,
         cfg=args.cfg if args.cfg is not None else float(profile.defaults.get(profile_cfg_key, command_default_cfg)),
         seed=args.seed,
         negative_prompt=args.negative_prompt,
     )
+
+
+def _wan22_step_counts(args: argparse.Namespace, profile: ResolvedProfile) -> tuple[int, int, int]:
+    profile_steps = int(profile.defaults.get("steps", DEFAULT_WAN22_STEPS))
+    total_steps = args.steps if args.steps is not None else profile_steps
+    default_high_steps = int(profile.defaults.get("high_steps", total_steps // 2))
+    default_low_steps = int(profile.defaults.get("low_steps", total_steps - default_high_steps))
+
+    high_steps = args.high_steps
+    low_steps = args.low_steps
+    if high_steps is None and low_steps is None:
+        if args.steps is None:
+            high_steps = default_high_steps
+            low_steps = default_low_steps
+            total_steps = high_steps + low_steps
+        else:
+            high_steps = total_steps // 2
+            low_steps = total_steps - high_steps
+    elif high_steps is None:
+        low_steps = int(low_steps)
+        high_steps = total_steps - low_steps
+    elif low_steps is None:
+        high_steps = int(high_steps)
+        low_steps = total_steps - high_steps
+    else:
+        high_steps = int(high_steps)
+        low_steps = int(low_steps)
+        if args.steps is None:
+            total_steps = high_steps + low_steps
+        elif high_steps + low_steps != total_steps:
+            raise ValueError("--steps must equal --high-steps + --low-steps when all three are provided")
+
+    if total_steps <= 0:
+        raise ValueError("steps must be greater than 0")
+    if high_steps <= 0:
+        raise ValueError("high_steps must be greater than 0")
+    if low_steps <= 0:
+        raise ValueError("low_steps must be greater than 0")
+    if high_steps + low_steps != total_steps:
+        raise ValueError("high_steps + low_steps must equal steps")
+    return total_steps, high_steps, low_steps
 
 
 @contextlib.contextmanager
@@ -442,6 +498,8 @@ def _wan22_success(
         "fps": meta["fps"],
         "duration_seconds": meta["duration_seconds"],
         "steps": config.steps,
+        "high_steps": config.high_steps,
+        "low_steps": config.low_steps,
         "cfg": config.cfg,
         "audio_muxed": False,
         "capability": profile.capability,

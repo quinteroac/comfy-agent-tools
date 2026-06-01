@@ -18,6 +18,8 @@ DEFAULT_WAN22_HEIGHT = 640
 DEFAULT_WAN22_LENGTH = 81
 DEFAULT_WAN22_FPS = 16
 DEFAULT_WAN22_STEPS = 20
+DEFAULT_WAN22_HIGH_STEPS = DEFAULT_WAN22_STEPS // 2
+DEFAULT_WAN22_LOW_STEPS = DEFAULT_WAN22_STEPS - DEFAULT_WAN22_HIGH_STEPS
 DEFAULT_WAN22_I2V_CFG = 3.5
 DEFAULT_WAN22_FLF2V_CFG = 4.0
 DEFAULT_WAN22_NEGATIVE_PROMPT = (
@@ -40,6 +42,8 @@ class Wan22Config:
     length: int = DEFAULT_WAN22_LENGTH
     fps: int = DEFAULT_WAN22_FPS
     steps: int = DEFAULT_WAN22_STEPS
+    high_steps: int = DEFAULT_WAN22_HIGH_STEPS
+    low_steps: int = DEFAULT_WAN22_LOW_STEPS
     cfg: float = DEFAULT_WAN22_I2V_CFG
     seed: int = 0
     negative_prompt: str = DEFAULT_WAN22_NEGATIVE_PROMPT
@@ -49,6 +53,11 @@ class Wan22Config:
         if path.is_absolute():
             return path
         return self.models_dir / path
+
+    @property
+    def split_step(self) -> int:
+        """Step index where sampling switches from high-noise to low-noise."""
+        return self.high_steps
 
 
 def run_i2v(*, image: Path, prompt: str, config: Wan22Config) -> dict[str, Any]:
@@ -93,7 +102,6 @@ def run_i2v(*, image: Path, prompt: str, config: Wan22Config) -> dict[str, Any]:
         start_image=start_image,
     )
 
-    split_step = config.steps // 2
     latent = sample_advanced(
         model_high,
         positive,
@@ -106,7 +114,7 @@ def run_i2v(*, image: Path, prompt: str, config: Wan22Config) -> dict[str, Any]:
         noise_seed=config.seed,
         add_noise=True,
         start_at_step=0,
-        end_at_step=split_step,
+        end_at_step=config.split_step,
         return_with_leftover_noise=True,
     )
     latent = sample_advanced(
@@ -120,7 +128,7 @@ def run_i2v(*, image: Path, prompt: str, config: Wan22Config) -> dict[str, Any]:
         scheduler="simple",
         noise_seed=config.seed,
         add_noise=False,
-        start_at_step=split_step,
+        start_at_step=config.split_step,
         end_at_step=config.steps,
         return_with_leftover_noise=False,
     )
@@ -137,24 +145,71 @@ def run_flf2v(*, first_image: Path, last_image: Path, prompt: str, config: Wan22
     if not prompt.strip():
         raise ValueError("prompt must not be empty")
 
-    from comfy_diffusion.pipelines.video.wan.wan22 import flf2v
+    from comfy_diffusion.conditioning import encode_prompt, wan_first_last_frame_to_video
+    from comfy_diffusion.image import image_to_tensor
+    from comfy_diffusion.models import ModelManager, model_sampling_sd3
+    from comfy_diffusion.runtime import check_runtime
+    from comfy_diffusion.sampling import sample_advanced
+    from comfy_diffusion.vae import vae_decode_batch
+
+    check_result = check_runtime()
+    if check_result.get("error"):
+        raise RuntimeError(f"ComfyUI runtime not available: {check_result['error']}")
+
+    mm = ModelManager(config.models_dir)
+    model_high = mm.load_unet(config.resolve_model_path(config.unet_high))
+    model_low = mm.load_unet(config.resolve_model_path(config.unet_low))
+    clip = mm.load_clip(config.resolve_model_path(config.text_encoder), clip_type="wan")
+    vae = mm.load_vae(config.resolve_model_path(config.vae))
+
+    model_high = model_sampling_sd3(model_high, shift=8.0)
+    model_low = model_sampling_sd3(model_low, shift=8.0)
+
+    positive, negative = encode_prompt(clip, prompt, config.negative_prompt)
 
     with Image.open(first_image) as first_loaded, Image.open(last_image) as last_loaded:
-        frames = flf2v.run(
-            first_loaded.convert("RGB"),
-            last_loaded.convert("RGB"),
-            prompt,
-            negative_prompt=config.negative_prompt,
-            width=config.width,
-            height=config.height,
-            length=config.length,
-            models_dir=config.models_dir,
-            seed=config.seed,
-            steps=config.steps,
-            cfg=config.cfg,
-            unet_high_filename=str(config.resolve_model_path(config.unet_high)),
-            unet_low_filename=str(config.resolve_model_path(config.unet_low)),
-            text_encoder_filename=str(config.resolve_model_path(config.text_encoder)),
-            vae_filename=str(config.resolve_model_path(config.vae)),
-        )
+        start_image = image_to_tensor(first_loaded.convert("RGB"))
+        end_image = image_to_tensor(last_loaded.convert("RGB"))
+
+    positive, negative, latent = wan_first_last_frame_to_video(
+        positive,
+        negative,
+        vae,
+        width=config.width,
+        height=config.height,
+        length=config.length,
+        start_image=start_image,
+        end_image=end_image,
+    )
+    latent = sample_advanced(
+        model_high,
+        positive,
+        negative,
+        latent,
+        steps=config.steps,
+        cfg=config.cfg,
+        sampler_name="euler",
+        scheduler="simple",
+        noise_seed=config.seed,
+        add_noise=True,
+        start_at_step=0,
+        end_at_step=config.split_step,
+        return_with_leftover_noise=True,
+    )
+    latent = sample_advanced(
+        model_low,
+        positive,
+        negative,
+        latent,
+        steps=config.steps,
+        cfg=config.cfg,
+        sampler_name="euler",
+        scheduler="simple",
+        noise_seed=config.seed,
+        add_noise=False,
+        start_at_step=config.split_step,
+        end_at_step=config.steps,
+        return_with_leftover_noise=False,
+    )
+    frames = vae_decode_batch(vae, latent)
     return {"frames": frames}

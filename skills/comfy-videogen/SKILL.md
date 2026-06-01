@@ -189,6 +189,14 @@ use `--width 540 --height 360`; for final `768x512`, use `--width 384 --height
 256`. Read `width` and `height` from the final JSON to confirm the actual saved
 MP4 size.
 
+For WAN 2.2, the high-noise UNet controls most of the broad motion and the
+low-noise UNet controls detail/refinement. The CLI accepts `--high-steps` and
+`--low-steps`; when neither is supplied, the default is a 50/50 split of
+`--steps`. For restrained motion, use a low high-step count and more low steps,
+for example `--high-steps 1 --low-steps 3`. For more dynamic motion, give the
+high-noise model more of the schedule, for example `--high-steps 4 --low-steps
+2`. If both are provided without `--steps`, total `steps` is their sum.
+
 ## Defaults
 
 ### LTX 2.3 Local
@@ -230,8 +238,8 @@ a safe insertion point.
 - Optional tuned profiles: `wan22-dasiwa-tastysin-i2v`, `wan22-dasiwa-boundbite-i2v`
 - Capabilities: `videogen.wan22-i2v`, `videogen.wan22-flf2v`
 - Models: high/low I2V UNets, `text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors`, `vae/wan_2.1_vae.safetensors`
-- Params: `width=640`, `height=640`, `length=81`, `fps=16`, `steps=20`, `i2v_cfg=3.5`, `flf2v_cfg=4.0`, `seed=0`
-- Dasiwa TastySin/BoundBite params: high UNet first, low UNet second, `steps=4`, `i2v_cfg=1.0`, `flf2v_cfg=1.0`
+- Params: `width=640`, `height=640`, `length=81`, `fps=16`, `steps=20`, `high_steps=10`, `low_steps=10`, `i2v_cfg=3.5`, `flf2v_cfg=4.0`, `seed=0`
+- Dasiwa TastySin/BoundBite params: high UNet first, low UNet second, `steps=4`, `high_steps=2`, `low_steps=2`, `i2v_cfg=1.0`, `flf2v_cfg=1.0`
 - Output is silent MP4 (`audio_muxed=false`). Add audio later in a separate editing step if needed.
 - Use `comfy-model-downloader` for `videogen.wan22-i2v` or `videogen.wan22-flf2v` when files are missing.
 
