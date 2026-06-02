@@ -573,6 +573,8 @@ def test_wan22_i2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: 
         seen["image"] = image
         seen["prompt"] = prompt
         seen["steps"] = config.steps
+        seen["high_steps"] = config.high_steps
+        seen["low_steps"] = config.low_steps
         seen["cfg"] = config.cfg
         return {"frames": _frames()}
 
@@ -585,6 +587,8 @@ def test_wan22_i2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: 
     assert seen["image"] == input_path
     assert seen["prompt"] == "move"
     assert seen["steps"] == 20
+    assert seen["high_steps"] == 10
+    assert seen["low_steps"] == 10
     assert seen["cfg"] == 3.5
     payload = json.loads(capsys.readouterr().out)
     assert payload["mode"] == "wan22-i2v"
@@ -594,10 +598,85 @@ def test_wan22_i2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: 
     assert payload["model_profile"] == "wan22-i2v"
     assert payload["architecture"] == "wan22"
     assert payload["fps"] == 16
+    assert payload["steps"] == 20
+    assert payload["high_steps"] == 10
+    assert payload["low_steps"] == 10
     assert payload["resolved_models"]["unet_high"].endswith(
         "diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors"
     )
     assert Path(payload["artifacts"][0]).is_file()
+
+
+def test_wan22_i2v_accepts_custom_high_low_steps(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    monkeypatch.chdir(tmp_path)
+    input_path = tmp_path / "input.png"
+    Image.new("RGB", (8, 8), "green").save(input_path)
+    seen: dict[str, object] = {}
+
+    def fake_run(*, image, prompt, config):
+        seen["steps"] = config.steps
+        seen["high_steps"] = config.high_steps
+        seen["low_steps"] = config.low_steps
+        seen["split_step"] = config.split_step
+        return {"frames": _frames()}
+
+    monkeypatch.setattr(videogen, "run_wan22_i2v", fake_run)
+    monkeypatch.setattr(videogen, "save_mp4", lambda frames, path, fps: Path(path).touch())
+
+    rc = videogen.main(
+        [
+            "wan22-i2v",
+            "--input",
+            str(input_path),
+            "--prompt",
+            "move",
+            "--high-steps",
+            "4",
+            "--low-steps",
+            "2",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    assert seen["steps"] == 6
+    assert seen["high_steps"] == 4
+    assert seen["low_steps"] == 2
+    assert seen["split_step"] == 4
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["steps"] == 6
+    assert payload["high_steps"] == 4
+    assert payload["low_steps"] == 2
+
+
+def test_wan22_rejects_inconsistent_step_split(tmp_path: Path, capsys: MagicMock) -> None:
+    input_path = tmp_path / "input.png"
+    Image.new("RGB", (8, 8), "green").save(input_path)
+
+    rc = videogen.main(
+        [
+            "wan22-i2v",
+            "--input",
+            str(input_path),
+            "--prompt",
+            "move",
+            "--steps",
+            "10",
+            "--high-steps",
+            "4",
+            "--low-steps",
+            "4",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["error_type"] == "error"
+    assert "--steps must equal --high-steps + --low-steps" in payload["error"]
 
 
 def test_wan22_flf2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
@@ -653,6 +732,8 @@ def test_wan22_dasiwa_profile_defaults(monkeypatch: MagicMock, tmp_path: Path, c
 
     def fake_run(*, image, prompt, config):
         seen["steps"] = config.steps
+        seen["high_steps"] = config.high_steps
+        seen["low_steps"] = config.low_steps
         seen["cfg"] = config.cfg
         seen["unet_high"] = config.unet_high
         seen["unet_low"] = config.unet_low
@@ -665,6 +746,8 @@ def test_wan22_dasiwa_profile_defaults(monkeypatch: MagicMock, tmp_path: Path, c
 
     assert rc == 0
     assert seen["steps"] == 4
+    assert seen["high_steps"] == 2
+    assert seen["low_steps"] == 2
     assert seen["cfg"] == 1.0
     assert seen["unet_high"] == Path("diffusion_models/DasiwaWAN22I2V14BV8V1_tastysinHighV81.safetensors")
     assert seen["unet_low"] == Path("diffusion_models/DasiwaWAN22I2V14BV8V1_tastysinLowV81.safetensors")
@@ -914,6 +997,6 @@ def test_wan22_i2v_wrapper_samples_high_noise_then_low_noise() -> None:
     low_call = source.index("latent = sample_advanced(\n        model_low")
     assert high_call < low_call
     assert "start_at_step=0" in source
-    assert "end_at_step=split_step" in source
-    assert "start_at_step=split_step" in source
+    assert "end_at_step=config.split_step" in source
+    assert "start_at_step=config.split_step" in source
     assert "end_at_step=config.steps" in source
