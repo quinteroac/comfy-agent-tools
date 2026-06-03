@@ -72,6 +72,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_profile.add_argument("--vae")
     add_profile.add_argument("--lora")
     add_profile.add_argument("--text-encoder")
+    add_profile.add_argument("--audio-encoder")
     add_profile.add_argument("--distilled-lora")
     add_profile.add_argument("--te-lora")
     add_profile.add_argument("--upscaler")
@@ -261,6 +262,7 @@ def _models_from_args(args: argparse.Namespace) -> dict[str, str]:
         "vae": args.vae,
         "lora": args.lora,
         "text_encoder": args.text_encoder,
+        "audio_encoder": args.audio_encoder,
         "distilled_lora": args.distilled_lora,
         "te_lora": args.te_lora,
         "upscaler": args.upscaler,

@@ -45,7 +45,7 @@ Python CLIs on demand, initialize local config if needed, and validate models.
 ## What You Get
 
 - `comfy-imagegen`: image generation, image editing, upscaling, and remote Grok Imagine.
-- `comfy-videogen`: local LTX 2.3 video plus remote Seedance 2.0 API video.
+- `comfy-videogen`: local LTX 2.3/WAN 2.2 video plus remote Seedance 2.0 API video.
 - `comfy-motion-track-control`: LTX 2.3 HDR IC-LoRA guidance.
 - `comfy-musicgen`: ACE-Step 1.5 music generation to WAV.
 - `comfy-media`: local media gallery, indexing, and HyperFrames review-reel export.
@@ -144,6 +144,14 @@ loras/ltx23/gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors
 loras/ltx23/ltx-2.3-22b-ic-lora-hdr-0.9.safetensors
 latent_upscale_models/ltx-2.3-spatial-upscaler-x2-1.1.safetensors
 
+diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors
+diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors
+diffusion_models/wan2.2_s2v_14B_fp8_scaled.safetensors
+diffusion_models/DasiwaWan2214BS2V_littledemonV2.safetensors
+text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors
+audio_encoders/wav2vec2_large_english_fp16.safetensors
+vae/wan_2.1_vae.safetensors
+
 diffusion_models/acestep_v1.5_base.safetensors
 text_encoders/qwen_0.6b_ace15.safetensors
 text_encoders/qwen_1.7b_ace15.safetensors
@@ -169,6 +177,7 @@ absent, the CLIs use built-in defaults:
 | `videogen.motion-track` | `ltx23-motion-track` | `ltx23` |
 | `videogen.wan22-i2v` | `wan22-i2v` | `wan22` |
 | `videogen.wan22-flf2v` | `wan22-i2v` | `wan22` |
+| `videogen.wan22-s2v` | `wan22-s2v` | `wan22` |
 | `videogen.seedance2-t2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-r2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-flf2v` | `seedance2-api` | `seedance2-api` |
@@ -185,6 +194,16 @@ samples the high-noise model in the first tranche and the low-noise model in
 the second. The high-noise tranche controls broad motion, while the low-noise
 tranche controls detail/refinement. By default WAN splits steps 50/50; pass
 `--high-steps` and `--low-steps` to bias motion vs detail.
+
+The `wan22-s2v` profile uses the Wan 2.2 S2V FP8 model plus wav2vec2 audio
+encoder for reference-image and input-audio driven video. Defaults mirror the
+native ComfyUI workflow: `length=77`, `fps=16`, `steps=20`, `cfg=6.0`,
+`sampler=uni_pc`, `scheduler=simple`, and `shift=8.0`.
+
+The optional `wan22-dasiwa-littledemon-v2-s2v` profile points to Dasiwa
+LittleDemon v2 S2V. Its fast distillation is baked into the checkpoint, so the
+profile uses `steps=4`, `cfg=1.0`, `sampler=euler`, `scheduler=simple`, and
+`shift=10.0`; do not add extra Lightning/speed-up LoRAs on top of it.
 
 An optional built-in image profile, `flux-klein-9b-snofs`, supports both
 `imagegen.generate` and `imagegen.edit` with architecture `flux-klein`. It uses
@@ -367,13 +386,16 @@ are `grok-imagine-image-pro`, `grok-imagine-image`, and
 ## Video Generation
 
 `comfy-videogen` supports local LTX 2.3 generation, local WAN 2.2 image-driven
-generation, and remote Seedance 2.0 API generation. It is quiet by default and prints final JSON only; pass
+and sound-driven generation, and remote Seedance 2.0 API generation. It is quiet by default and prints final JSON only; pass
 `--verbose` to show ComfyUI logs.
 
 Local LTX 2.3 uses the `ltx23-10eros` profile and writes MP4 files with audio.
 Local WAN 2.2 uses the `wan22-i2v` profile and writes silent MP4 files.
 For Dasiwa TastySin or BoundBite, set the matching Dasiwa profile as the default
 or pass its high/low UNet paths explicitly; use `--steps 4 --cfg 1.0`.
+For Dasiwa LittleDemon S2V, set `wan22-dasiwa-littledemon-v2-s2v` as the
+`videogen.wan22-s2v` default or pass its checkpoint with `--unet`; use the
+profile defaults for 4-step generation.
 WAN high steps influence motion; WAN low steps influence detail. Omit
 `--high-steps`/`--low-steps` for the default 50/50 split, use
 `--high-steps 1 --low-steps 3` for restrained motion, or use
@@ -441,6 +463,16 @@ uv run comfy-videogen wan22-flf2v \
   --out outputs
 ```
 
+WAN 2.2 sound to video:
+
+```bash
+uv run comfy-videogen wan22-s2v \
+  --input portrait.png \
+  --audio speech-or-song.wav \
+  --prompt "the subject speaks naturally with expressive face motion, subtle body movement, cinematic camera drift" \
+  --out outputs
+```
+
 HDR IC-LoRA from an input image plus prepared trajectory control video:
 
 ```bash
@@ -466,13 +498,14 @@ size. If the desired final output is `1080x720`, run with `--width 540 --height
 `2160x1440`, which can cause OOM and is not the requested output. Read the JSON
 metadata for actual `width` and `height`.
 
-For `ia2av`, `--length` and `--fps` control video duration. Long audio files,
-including 120s WAVs from `comfy-musicgen`, are trimmed to `length / fps` by
-default; use `--audio-start-time` and `--audio-duration` to pick a specific
-window.
+For `ia2av` and `wan22-s2v`, `--length` and `--fps` control video duration.
+Long audio files, including 120s WAVs from `comfy-musicgen`, are trimmed to
+`length / fps` by default; use `--audio-start-time` and `--audio-duration` to
+pick a specific window.
 
-Audio muxing is required. If audio cannot be written into the MP4, the command
-returns `ok:false` instead of saving a silent video.
+Audio muxing is required for LTX audiovisual modes and WAN 2.2 S2V. If audio
+cannot be written into the MP4, the command returns `ok:false` instead of saving
+a silent video. WAN 2.2 I2V/FLF2V intentionally save silent MP4 files.
 
 ### Seedance 2.0 API Video
 

@@ -224,6 +224,17 @@ def test_parser_wan22_defaults(tmp_path: Path) -> None:
             "hello",
         ]
     )
+    s2v = parser.parse_args(
+        [
+            "wan22-s2v",
+            "--input",
+            str(tmp_path / "a.png"),
+            "--audio",
+            str(tmp_path / "a.wav"),
+            "--prompt",
+            "hello",
+        ]
+    )
 
     assert i2v.command == "wan22-i2v"
     assert i2v.width is None
@@ -236,6 +247,15 @@ def test_parser_wan22_defaults(tmp_path: Path) -> None:
     assert flf2v.command == "wan22-flf2v"
     assert flf2v.first == tmp_path / "a.png"
     assert flf2v.last == tmp_path / "b.png"
+    assert s2v.command == "wan22-s2v"
+    assert s2v.input == tmp_path / "a.png"
+    assert s2v.audio == tmp_path / "a.wav"
+    assert s2v.length is None
+    assert s2v.chunk_length is None
+    assert s2v.steps is None
+    assert s2v.cfg is None
+    assert s2v.audio_start_time == 0.0
+    assert s2v.audio_duration is None
 
 
 def test_parser_seedance2_accepts_verbose_and_no_audio() -> None:
@@ -711,6 +731,82 @@ def test_wan22_flf2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys
     assert payload["artifacts"]
 
 
+def test_wan22_s2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    monkeypatch.chdir(tmp_path)
+    input_path = tmp_path / "input.png"
+    audio_path = tmp_path / "speech.wav"
+    Image.new("RGB", (8, 8), "green").save(input_path)
+    audio_path.write_bytes(b"fake audio")
+    seen: dict[str, object] = {}
+
+    def fake_run(*, image, audio, prompt, config):
+        seen["image"] = image
+        seen["audio"] = audio
+        seen["prompt"] = prompt
+        seen["length"] = config.length
+        seen["chunk_length"] = config.chunk_length
+        seen["steps"] = config.steps
+        seen["cfg"] = config.cfg
+        seen["sampler"] = config.sampler
+        seen["scheduler"] = config.scheduler
+        seen["shift"] = config.shift
+        seen["audio_start_time"] = config.audio_start_time
+        seen["audio_duration"] = config.audio_duration
+        return _result()
+
+    monkeypatch.setattr(videogen, "run_wan22_s2v", fake_run)
+    monkeypatch.setattr(videogen, "save_mp4_with_audio", lambda frames, audio, path, fps: Path(path).touch())
+
+    rc = videogen.main(
+        [
+            "wan22-s2v",
+            "--input",
+            str(input_path),
+            "--audio",
+            str(audio_path),
+            "--prompt",
+            "speak",
+            "--audio-start-time",
+            "0.5",
+            "--audio-duration",
+            "3.0",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    assert seen["image"] == input_path
+    assert seen["audio"] == audio_path
+    assert seen["prompt"] == "speak"
+    assert seen["length"] == 77
+    assert seen["chunk_length"] == 77
+    assert seen["steps"] == 20
+    assert seen["cfg"] == 6.0
+    assert seen["sampler"] == "uni_pc"
+    assert seen["scheduler"] == "simple"
+    assert seen["shift"] == 8.0
+    assert seen["audio_start_time"] == 0.5
+    assert seen["audio_duration"] == 3.0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "wan22-s2v"
+    assert payload["input"] == str(input_path)
+    assert payload["audio_input"] == str(audio_path)
+    assert payload["audio_muxed"] is True
+    assert payload["audio_conditioned"] is True
+    assert payload["audio_duration_seconds"] == 3.0
+    assert payload["capability"] == "videogen.wan22-s2v"
+    assert payload["model_profile"] == "wan22-s2v"
+    assert payload["architecture"] == "wan22"
+    assert payload["resolved_models"]["unet"].endswith(
+        "diffusion_models/wan2.2_s2v_14B_fp8_scaled.safetensors"
+    )
+    assert payload["resolved_models"]["audio_encoder"].endswith(
+        "audio_encoders/wav2vec2_large_english_fp16.safetensors"
+    )
+    assert Path(payload["artifacts"][0]).is_file()
+
+
 def test_wan22_dasiwa_profile_defaults(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
     config_path = tmp_path / ".comfy-agent-tools.json"
     config_path.write_text(
@@ -833,6 +929,31 @@ def test_ia2av_missing_audio_returns_json(tmp_path: Path, capsys: MagicMock) -> 
     assert payload["ok"] is False
     assert payload["kind"] == "video"
     assert payload["mode"] == "ia2av"
+    assert payload["error_type"] == "not_found"
+    assert "input audio not found" in payload["error"]
+
+
+def test_wan22_s2v_missing_audio_returns_json(tmp_path: Path, capsys: MagicMock) -> None:
+    input_path = tmp_path / "input.png"
+    Image.new("RGB", (8, 8), "green").save(input_path)
+
+    rc = videogen.main(
+        [
+            "wan22-s2v",
+            "--input",
+            str(input_path),
+            "--audio",
+            str(tmp_path / "missing.wav"),
+            "--prompt",
+            "speak",
+        ]
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["kind"] == "video"
+    assert payload["mode"] == "wan22-s2v"
     assert payload["error_type"] == "not_found"
     assert "input audio not found" in payload["error"]
 
@@ -1000,3 +1121,13 @@ def test_wan22_i2v_wrapper_samples_high_noise_then_low_noise() -> None:
     assert "end_at_step=config.split_step" in source
     assert "start_at_step=config.split_step" in source
     assert "end_at_step=config.steps" in source
+
+
+def test_wan22_s2v_wrapper_uses_audio_conditioning_and_extend() -> None:
+    source = Path("comfy_agent_tools/videogen/wan22.py").read_text(encoding="utf-8")
+
+    assert "wan_sound_image_to_video" in source
+    assert "wan_sound_image_to_video_extend" in source
+    assert "audio_encoder_encode" in source
+    assert "latent_concat" in source
+    assert "sample(" in source

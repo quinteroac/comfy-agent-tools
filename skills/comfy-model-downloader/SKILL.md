@@ -23,6 +23,7 @@ prefer `uv run comfy-models`; outside the repo, use the installed CLI.
 - Image plus audio to video: `videogen.ia2av`
 - WAN 2.2 image to video: `videogen.wan22-i2v`
 - WAN 2.2 first/last frame video: `videogen.wan22-flf2v`
+- WAN 2.2 sound to video: `videogen.wan22-s2v`
 - Music generation: `musicgen.generate`
 
 Do not map Seedance 2.0 API requests to downloads. `videogen.seedance2-t2v`,
@@ -61,6 +62,9 @@ uv run comfy-models validate-profile anima-base
 - `flux-klein-9b-snofs`: FLUX.2 Klein 9B FP8 generation/editing with SNOFS.
 - `clear-reality`: ClearReality image upscaling.
 - `ltx23-10eros`: LTX 2.3 video and IA2AV.
+- `wan22-i2v`: WAN 2.2 image and first/last-frame video.
+- `wan22-s2v`: WAN 2.2 sound-to-video with wav2vec2 audio encoder.
+- `wan22-dasiwa-littledemon-v2-s2v`: Dasiwa LittleDemon v2 S2V, 4-step profile.
 - `ace15-base`: ACE-Step 1.5 music generation.
 
 `seedance2-api` is intentionally excluded: it is a remote Comfy API profile, not

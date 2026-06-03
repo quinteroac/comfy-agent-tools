@@ -39,6 +39,10 @@ def test_comfy_videogen_skill_frontmatter() -> None:
     assert "ia2av" in content
     assert "seedance2-t2v" in content
     assert "Seedance 2.0" in content
+    assert "wan22-s2v" in content
+    assert "wav2vec2_large_english_fp16.safetensors" in content
+    assert "wan22-dasiwa-littledemon-v2-s2v" in content
+    assert "DasiwaWan2214BS2V_littledemonV2.safetensors" in content
     assert "COMFY_ORG_API_KEY" in content
     assert "missing_dependency" in content
     assert "--extra-lora" in content

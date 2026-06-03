@@ -35,12 +35,21 @@ from comfy_agent_tools.videogen.config import (
 )
 from comfy_agent_tools.videogen.ltx23 import run_flf2v, run_i2v, run_ia2av, run_motion_track, run_t2v
 from comfy_agent_tools.videogen.wan22 import (
+    DEFAULT_WAN22_AUDIO_ENCODER,
     DEFAULT_WAN22_FLF2V_CFG,
     DEFAULT_WAN22_FPS,
     DEFAULT_WAN22_HEIGHT,
     DEFAULT_WAN22_I2V_CFG,
     DEFAULT_WAN22_LENGTH,
     DEFAULT_WAN22_NEGATIVE_PROMPT,
+    DEFAULT_WAN22_S2V_CFG,
+    DEFAULT_WAN22_S2V_CHUNK_LENGTH,
+    DEFAULT_WAN22_S2V_LENGTH,
+    DEFAULT_WAN22_S2V_LORA_STRENGTH,
+    DEFAULT_WAN22_S2V_SAMPLER,
+    DEFAULT_WAN22_S2V_SCHEDULER,
+    DEFAULT_WAN22_S2V_SHIFT,
+    DEFAULT_WAN22_S2V_UNET,
     DEFAULT_WAN22_STEPS,
     DEFAULT_WAN22_TEXT_ENCODER,
     DEFAULT_WAN22_UNET_HIGH,
@@ -48,8 +57,10 @@ from comfy_agent_tools.videogen.wan22 import (
     DEFAULT_WAN22_VAE,
     DEFAULT_WAN22_WIDTH,
     Wan22Config,
+    Wan22S2VConfig,
     run_flf2v as run_wan22_flf2v,
     run_i2v as run_wan22_i2v,
+    run_s2v as run_wan22_s2v,
 )
 from comfy_agent_tools.videogen.seedance2 import (
     DEFAULT_SEEDANCE2_DURATION,
@@ -205,6 +216,43 @@ def build_parser() -> argparse.ArgumentParser:
     wan22_flf2v.add_argument("--last", type=_path, required=True)
     wan22_flf2v.add_argument("--prompt", required=True)
 
+    wan22_s2v = subparsers.add_parser("wan22-s2v", help="Generate a WAN 2.2 sound-to-video clip from image and audio.")
+    wan22_s2v.add_argument("--models-dir", type=_path, default=None)
+    wan22_s2v.add_argument("--out", type=_path, default=DEFAULT_OUT)
+    wan22_s2v.add_argument(
+        "--no-manifest",
+        action="store_true",
+        help="Do not write a comfy-media run manifest for this generation.",
+    )
+    wan22_s2v.add_argument("--unet", type=_path, default=None)
+    wan22_s2v.add_argument("--text-encoder", type=_path, default=None)
+    wan22_s2v.add_argument("--audio-encoder", type=_path, default=None)
+    wan22_s2v.add_argument("--vae", type=_path, default=None)
+    wan22_s2v.add_argument("--lora", type=_path, default=None, help="Optional model-only S2V LoRA path.")
+    wan22_s2v.add_argument("--lora-strength", type=float, default=None)
+    wan22_s2v.add_argument("--width", type=int, default=None)
+    wan22_s2v.add_argument("--height", type=int, default=None)
+    wan22_s2v.add_argument("--length", type=int, default=None)
+    wan22_s2v.add_argument("--chunk-length", type=int, default=None)
+    wan22_s2v.add_argument("--fps", type=int, default=None)
+    wan22_s2v.add_argument("--steps", type=int, default=None)
+    wan22_s2v.add_argument("--cfg", type=float, default=None)
+    wan22_s2v.add_argument("--sampler", default=None)
+    wan22_s2v.add_argument("--scheduler", default=None)
+    wan22_s2v.add_argument("--shift", type=float, default=None)
+    wan22_s2v.add_argument("--seed", type=int, default=DEFAULT_SEED)
+    wan22_s2v.add_argument("--negative-prompt", default=DEFAULT_WAN22_NEGATIVE_PROMPT)
+    wan22_s2v.add_argument("--audio-start-time", type=float, default=DEFAULT_AUDIO_START_TIME)
+    wan22_s2v.add_argument("--audio-duration", type=float, default=None)
+    wan22_s2v.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show ComfyUI warnings and progress output while running.",
+    )
+    wan22_s2v.add_argument("--input", type=_path, required=True)
+    wan22_s2v.add_argument("--audio", type=_path, required=True)
+    wan22_s2v.add_argument("--prompt", required=True)
+
     def add_seedance2_common(subparser: argparse.ArgumentParser) -> None:
         subparser.add_argument("--out", type=_path, default=DEFAULT_OUT)
         subparser.add_argument(
@@ -320,6 +368,40 @@ def _wan22_config(args: argparse.Namespace, profile: ResolvedProfile) -> Wan22Co
         cfg=args.cfg if args.cfg is not None else float(profile.defaults.get(profile_cfg_key, command_default_cfg)),
         seed=args.seed,
         negative_prompt=args.negative_prompt,
+    )
+
+
+def _wan22_s2v_config(args: argparse.Namespace, profile: ResolvedProfile) -> Wan22S2VConfig:
+    return Wan22S2VConfig(
+        models_dir=args.models_dir if args.models_dir is not None else profile.models_dir,
+        unet=args.unet if args.unet is not None else profile.models.get("unet", DEFAULT_WAN22_S2V_UNET),
+        text_encoder=args.text_encoder if args.text_encoder is not None else profile.models.get("text_encoder", DEFAULT_WAN22_TEXT_ENCODER),
+        audio_encoder=args.audio_encoder if args.audio_encoder is not None else profile.models.get("audio_encoder", DEFAULT_WAN22_AUDIO_ENCODER),
+        vae=args.vae if args.vae is not None else profile.models.get("vae", DEFAULT_WAN22_VAE),
+        lora=args.lora if args.lora is not None else profile.models.get("lora"),
+        width=args.width if args.width is not None else int(profile.defaults.get("width", DEFAULT_WAN22_WIDTH)),
+        height=args.height if args.height is not None else int(profile.defaults.get("height", DEFAULT_WAN22_HEIGHT)),
+        length=args.length if args.length is not None else int(profile.defaults.get("length", DEFAULT_WAN22_S2V_LENGTH)),
+        chunk_length=(
+            args.chunk_length
+            if args.chunk_length is not None
+            else int(profile.defaults.get("chunk_length", DEFAULT_WAN22_S2V_CHUNK_LENGTH))
+        ),
+        fps=args.fps if args.fps is not None else int(profile.defaults.get("fps", DEFAULT_WAN22_FPS)),
+        steps=args.steps if args.steps is not None else int(profile.defaults.get("steps", DEFAULT_WAN22_STEPS)),
+        cfg=args.cfg if args.cfg is not None else float(profile.defaults.get("cfg", DEFAULT_WAN22_S2V_CFG)),
+        seed=args.seed,
+        negative_prompt=args.negative_prompt,
+        sampler=args.sampler if args.sampler is not None else str(profile.defaults.get("sampler", DEFAULT_WAN22_S2V_SAMPLER)),
+        scheduler=args.scheduler if args.scheduler is not None else str(profile.defaults.get("scheduler", DEFAULT_WAN22_S2V_SCHEDULER)),
+        shift=args.shift if args.shift is not None else float(profile.defaults.get("shift", DEFAULT_WAN22_S2V_SHIFT)),
+        lora_strength=(
+            args.lora_strength
+            if args.lora_strength is not None
+            else float(profile.defaults.get("lora_strength", DEFAULT_WAN22_S2V_LORA_STRENGTH))
+        ),
+        audio_start_time=args.audio_start_time,
+        audio_duration=args.audio_duration,
     )
 
 
@@ -516,6 +598,55 @@ def _wan22_success(
     return payload
 
 
+def _wan22_s2v_success(
+    *,
+    mode: str,
+    artifact: Path,
+    config: Wan22S2VConfig,
+    frames: list[object],
+    profile: ResolvedProfile,
+    input_path: Path,
+    audio_path: Path,
+) -> dict[str, Any]:
+    meta = frame_metadata(frames, config.fps)
+    payload: dict[str, Any] = {
+        "ok": True,
+        "kind": "video",
+        "mode": mode,
+        "artifacts": [str(artifact)],
+        "seed": config.seed,
+        "models_dir": str(config.models_dir),
+        "model": config.unet.name,
+        "width": meta["width"],
+        "height": meta["height"],
+        "frames": meta["frames"],
+        "fps": meta["fps"],
+        "duration_seconds": meta["duration_seconds"],
+        "steps": config.steps,
+        "cfg": config.cfg,
+        "chunk_length": config.chunk_length,
+        "sampler": config.sampler,
+        "scheduler": config.scheduler,
+        "shift": config.shift,
+        "audio_muxed": True,
+        "audio_conditioned": True,
+        "input": str(input_path),
+        "audio_input": str(audio_path),
+        "audio_start_time": config.audio_start_time,
+        "audio_duration_seconds": (
+            config.audio_duration if config.audio_duration is not None else meta["duration_seconds"]
+        ),
+        "capability": profile.capability,
+        "model_profile": profile.name,
+        "architecture": profile.architecture,
+        "resolved_models": _resolved_wan22_s2v_models(config),
+    }
+    if config.lora is not None:
+        payload["lora"] = str(config.resolve_model_path(config.lora))
+        payload["lora_strength"] = config.lora_strength
+    return payload
+
+
 def _resolved_video_models(config: VideogenConfig) -> dict[str, str]:
     return {
         "checkpoint": str(config.resolve_model_path(config.checkpoint)),
@@ -534,6 +665,18 @@ def _resolved_wan22_models(config: Wan22Config) -> dict[str, str]:
         "text_encoder": str(config.resolve_model_path(config.text_encoder)),
         "vae": str(config.resolve_model_path(config.vae)),
     }
+
+
+def _resolved_wan22_s2v_models(config: Wan22S2VConfig) -> dict[str, str]:
+    models = {
+        "unet": str(config.resolve_model_path(config.unet)),
+        "text_encoder": str(config.resolve_model_path(config.text_encoder)),
+        "audio_encoder": str(config.resolve_model_path(config.audio_encoder)),
+        "vae": str(config.resolve_model_path(config.vae)),
+    }
+    if config.lora is not None:
+        models["lora"] = str(config.resolve_model_path(config.lora))
+    return models
 
 
 def _error(*, mode: str, error: Exception) -> dict[str, Any]:
@@ -669,6 +812,25 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
             profile=profile,
             first_path=args.first,
             last_path=args.last,
+        )
+
+    if args.command == "wan22-s2v":
+        if not args.input.is_file():
+            raise FileNotFoundError(f"input image not found: {args.input}")
+        if not args.audio.is_file():
+            raise FileNotFoundError(f"input audio not found: {args.audio}")
+        config = _wan22_s2v_config(args, profile)
+        with _maybe_silence(not args.verbose):
+            result = run_wan22_s2v(image=args.input, audio=args.audio, prompt=args.prompt, config=config)
+            artifact = _write_result_video(result, args.out, prefix="comfy-videogen-wan22-s2v", fps=config.fps)
+        return _wan22_s2v_success(
+            mode="wan22-s2v",
+            artifact=artifact,
+            config=config,
+            frames=result["frames"],
+            profile=profile,
+            input_path=args.input,
+            audio_path=args.audio,
         )
 
     config = _config(args, profile)
