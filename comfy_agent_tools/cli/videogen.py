@@ -55,12 +55,23 @@ from comfy_agent_tools.videogen.wan22 import (
     DEFAULT_WAN22_UNET_HIGH,
     DEFAULT_WAN22_UNET_LOW,
     DEFAULT_WAN22_VAE,
+    DEFAULT_WAN22_VIDEO_AUDIO_CHUNK_OVERLAP,
+    DEFAULT_WAN22_VIDEO_AUDIO_DENOISE,
+    DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_DENOISE,
+    DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_PROMPT,
+    DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_SECOND_DENOISE,
+    DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_SECOND_STEPS,
+    DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_STEPS,
+    DEFAULT_WAN22_VIDEO_AUDIO_PROMPT,
+    DEFAULT_WAN22_VIDEO_AUDIO_STEPS,
     DEFAULT_WAN22_WIDTH,
     Wan22Config,
     Wan22S2VConfig,
+    Wan22VideoAudioConfig,
     run_flf2v as run_wan22_flf2v,
     run_i2v as run_wan22_i2v,
     run_s2v as run_wan22_s2v,
+    run_video_audio as run_wan22_video_audio,
 )
 from comfy_agent_tools.videogen.seedance2 import (
     DEFAULT_SEEDANCE2_DURATION,
@@ -253,6 +264,44 @@ def build_parser() -> argparse.ArgumentParser:
     wan22_s2v.add_argument("--audio", type=_path, required=True)
     wan22_s2v.add_argument("--prompt", required=True)
 
+    wan22_video_audio = subparsers.add_parser(
+        "wan22-video-audio",
+        help="Process an input video with audio using WAN 2.2 S2V video-to-video presets.",
+    )
+    wan22_video_audio.add_argument("--models-dir", type=_path, default=None)
+    wan22_video_audio.add_argument("--out", type=_path, default=DEFAULT_OUT)
+    wan22_video_audio.add_argument(
+        "--no-manifest",
+        action="store_true",
+        help="Do not write a comfy-media run manifest for this generation.",
+    )
+    wan22_video_audio.add_argument("--mode", required=True, choices=["audio-driven", "lipsync"])
+    wan22_video_audio.add_argument("--input-video", type=_path, required=True)
+    wan22_video_audio.add_argument("--audio", type=_path, required=True)
+    wan22_video_audio.add_argument("--mask-video", type=_path, default=None)
+    wan22_video_audio.add_argument("--mask-image", type=_path, default=None)
+    wan22_video_audio.add_argument("--prompt", default=None)
+    wan22_video_audio.add_argument("--unet", type=_path, default=None)
+    wan22_video_audio.add_argument("--text-encoder", type=_path, default=None)
+    wan22_video_audio.add_argument("--audio-encoder", type=_path, default=None)
+    wan22_video_audio.add_argument("--vae", type=_path, default=None)
+    wan22_video_audio.add_argument("--chunk-length", type=int, default=None)
+    wan22_video_audio.add_argument("--chunk-overlap", type=int, default=None)
+    wan22_video_audio.add_argument("--steps", type=int, default=None)
+    wan22_video_audio.add_argument("--denoise", type=float, default=None)
+    wan22_video_audio.add_argument("--cfg", type=float, default=None)
+    wan22_video_audio.add_argument("--sampler", default=None)
+    wan22_video_audio.add_argument("--scheduler", default=None)
+    wan22_video_audio.add_argument("--shift", type=float, default=None)
+    wan22_video_audio.add_argument("--seed", type=int, default=DEFAULT_SEED)
+    wan22_video_audio.add_argument("--negative-prompt", default=None)
+    wan22_video_audio.add_argument("--audio-start-time", type=float, default=DEFAULT_AUDIO_START_TIME)
+    wan22_video_audio.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show ComfyUI warnings and progress output while running.",
+    )
+
     def add_seedance2_common(subparser: argparse.ArgumentParser) -> None:
         subparser.add_argument("--out", type=_path, default=DEFAULT_OUT)
         subparser.add_argument(
@@ -403,6 +452,78 @@ def _wan22_s2v_config(args: argparse.Namespace, profile: ResolvedProfile) -> Wan
         audio_start_time=args.audio_start_time,
         audio_duration=args.audio_duration,
     )
+
+
+def _wan22_video_audio_config(args: argparse.Namespace, profile: ResolvedProfile) -> Wan22VideoAudioConfig:
+    steps_key = "lipsync_steps" if args.mode == "lipsync" else "steps"
+    denoise_key = "lipsync_denoise" if args.mode == "lipsync" else "denoise"
+    primary_steps_default = (
+        DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_STEPS
+        if args.mode == "lipsync"
+        else DEFAULT_WAN22_VIDEO_AUDIO_STEPS
+    )
+    primary_denoise_default = (
+        DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_DENOISE
+        if args.mode == "lipsync"
+        else DEFAULT_WAN22_VIDEO_AUDIO_DENOISE
+    )
+    steps = args.steps if args.steps is not None else int(profile.defaults.get(steps_key, primary_steps_default))
+    denoise = (
+        args.denoise
+        if args.denoise is not None
+        else float(profile.defaults.get(denoise_key, primary_denoise_default))
+    )
+    return Wan22VideoAudioConfig(
+        models_dir=args.models_dir if args.models_dir is not None else profile.models_dir,
+        unet=args.unet if args.unet is not None else profile.models.get("unet", DEFAULT_WAN22_S2V_UNET),
+        text_encoder=args.text_encoder if args.text_encoder is not None else profile.models.get("text_encoder", DEFAULT_WAN22_TEXT_ENCODER),
+        audio_encoder=args.audio_encoder if args.audio_encoder is not None else profile.models.get("audio_encoder", DEFAULT_WAN22_AUDIO_ENCODER),
+        vae=args.vae if args.vae is not None else profile.models.get("vae", DEFAULT_WAN22_VAE),
+        chunk_length=(
+            args.chunk_length
+            if args.chunk_length is not None
+            else int(profile.defaults.get("chunk_length", DEFAULT_WAN22_S2V_CHUNK_LENGTH))
+        ),
+        chunk_overlap=(
+            args.chunk_overlap
+            if args.chunk_overlap is not None
+            else int(profile.defaults.get("chunk_overlap", DEFAULT_WAN22_VIDEO_AUDIO_CHUNK_OVERLAP))
+        ),
+        fps=int(profile.defaults.get("fps", DEFAULT_WAN22_FPS)),
+        steps=steps,
+        denoise=denoise,
+        lipsync_steps=steps if args.mode == "lipsync" else int(profile.defaults.get("lipsync_steps", DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_STEPS)),
+        lipsync_denoise=(
+            denoise
+            if args.mode == "lipsync"
+            else float(profile.defaults.get("lipsync_denoise", DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_DENOISE))
+        ),
+        lipsync_second_steps=int(
+            profile.defaults.get("lipsync_second_steps", DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_SECOND_STEPS)
+        ),
+        lipsync_second_denoise=float(
+            profile.defaults.get("lipsync_second_denoise", DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_SECOND_DENOISE)
+        ),
+        cfg=args.cfg if args.cfg is not None else float(profile.defaults.get("cfg", 1.0)),
+        seed=args.seed,
+        sampler=args.sampler if args.sampler is not None else str(profile.defaults.get("sampler", "euler")),
+        scheduler=args.scheduler if args.scheduler is not None else str(profile.defaults.get("scheduler", "simple")),
+        shift=args.shift if args.shift is not None else float(profile.defaults.get("shift", 10.0)),
+        negative_prompt=(
+            args.negative_prompt
+            if args.negative_prompt is not None
+            else str(profile.defaults.get("negative_prompt", ""))
+        ),
+        audio_start_time=args.audio_start_time,
+    )
+
+
+def _wan22_video_audio_prompt(args: argparse.Namespace, profile: ResolvedProfile) -> str:
+    if args.prompt is not None:
+        return args.prompt
+    default_key = "lipsync_prompt" if args.mode == "lipsync" else "audio_driven_prompt"
+    fallback = DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_PROMPT if args.mode == "lipsync" else DEFAULT_WAN22_VIDEO_AUDIO_PROMPT
+    return str(profile.defaults.get(default_key, fallback))
 
 
 def _wan22_step_counts(args: argparse.Namespace, profile: ResolvedProfile) -> tuple[int, int, int]:
@@ -647,6 +768,66 @@ def _wan22_s2v_success(
     return payload
 
 
+def _wan22_video_audio_success(
+    *,
+    artifact: Path,
+    config: Wan22VideoAudioConfig,
+    frames: list[object],
+    profile: ResolvedProfile,
+    video_audio_mode: str,
+    input_video: Path,
+    audio_path: Path,
+    chunks: list[dict[str, Any]],
+    mask_video: Path | None = None,
+    mask_image: Path | None = None,
+) -> dict[str, Any]:
+    meta = frame_metadata(frames, config.fps)
+    payload: dict[str, Any] = {
+        "ok": True,
+        "kind": "video",
+        "mode": "wan22-video-audio",
+        "video_audio_mode": video_audio_mode,
+        "artifacts": [str(artifact)],
+        "seed": config.seed,
+        "models_dir": str(config.models_dir),
+        "model": config.unet.name,
+        "width": meta["width"],
+        "height": meta["height"],
+        "frames": meta["frames"],
+        "fps": meta["fps"],
+        "duration_seconds": meta["duration_seconds"],
+        "chunk_length": config.chunk_length,
+        "chunk_overlap": config.chunk_overlap,
+        "chunks": chunks,
+        "cfg": config.cfg,
+        "sampler": config.sampler,
+        "scheduler": config.scheduler,
+        "shift": config.shift,
+        "steps": config.lipsync_steps if video_audio_mode == "lipsync" else config.steps,
+        "denoise": config.lipsync_denoise if video_audio_mode == "lipsync" else config.denoise,
+        "audio_muxed": True,
+        "audio_conditioned": True,
+        "input_video": str(input_video),
+        "audio_input": str(audio_path),
+        "audio_start_time": config.audio_start_time,
+        "audio_duration_seconds": meta["duration_seconds"],
+        "capability": profile.capability,
+        "model_profile": profile.name,
+        "architecture": profile.architecture,
+        "resolved_models": _resolved_wan22_video_audio_models(config),
+    }
+    if video_audio_mode == "lipsync":
+        payload["lipsync_second_steps"] = config.lipsync_second_steps
+        payload["lipsync_second_denoise"] = config.lipsync_second_denoise
+    if mask_video is not None:
+        payload["mask_input"] = str(mask_video)
+        payload["mask_kind"] = "video"
+    if mask_image is not None:
+        payload["mask_input"] = str(mask_image)
+        payload["mask_kind"] = "image"
+    return payload
+
+
 def _resolved_video_models(config: VideogenConfig) -> dict[str, str]:
     return {
         "checkpoint": str(config.resolve_model_path(config.checkpoint)),
@@ -679,6 +860,15 @@ def _resolved_wan22_s2v_models(config: Wan22S2VConfig) -> dict[str, str]:
     return models
 
 
+def _resolved_wan22_video_audio_models(config: Wan22VideoAudioConfig) -> dict[str, str]:
+    return {
+        "unet": str(config.resolve_model_path(config.unet)),
+        "text_encoder": str(config.resolve_model_path(config.text_encoder)),
+        "audio_encoder": str(config.resolve_model_path(config.audio_encoder)),
+        "vae": str(config.resolve_model_path(config.vae)),
+    }
+
+
 def _error(*, mode: str, error: Exception) -> dict[str, Any]:
     return {
         "ok": False,
@@ -701,7 +891,7 @@ def _classify_error(error: Exception) -> str:
         return "runtime"
     if "ic-lora" in message and "helper" in message:
         return "missing_dependency"
-    if "audio" in message or "mux" in message or "aac" in message:
+    if "mux" in message or "aac" in message or "audio with waveform" in message:
         return "audio_mux"
     if isinstance(error, ProfileError):
         return error.error_type
@@ -831,6 +1021,44 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
             profile=profile,
             input_path=args.input,
             audio_path=args.audio,
+        )
+
+    if args.command == "wan22-video-audio":
+        if not args.input_video.is_file():
+            raise FileNotFoundError(f"input video not found: {args.input_video}")
+        if not args.audio.is_file():
+            raise FileNotFoundError(f"input audio not found: {args.audio}")
+        if args.mode == "lipsync":
+            if args.mask_video is None and args.mask_image is None:
+                raise ValueError("lipsync mode requires --mask-video or --mask-image")
+            if args.mask_video is not None and not args.mask_video.is_file():
+                raise FileNotFoundError(f"mask video not found: {args.mask_video}")
+            if args.mask_image is not None and not args.mask_image.is_file():
+                raise FileNotFoundError(f"mask image not found: {args.mask_image}")
+        config = _wan22_video_audio_config(args, profile)
+        prompt = _wan22_video_audio_prompt(args, profile)
+        with _maybe_silence(not args.verbose):
+            result = run_wan22_video_audio(
+                video=args.input_video,
+                audio=args.audio,
+                mode=args.mode,
+                prompt=prompt,
+                config=config,
+                mask_video=args.mask_video,
+                mask_image=args.mask_image,
+            )
+            artifact = _write_result_video(result, args.out, prefix="comfy-videogen-wan22-video-audio", fps=config.fps)
+        return _wan22_video_audio_success(
+            artifact=artifact,
+            config=config,
+            frames=result["frames"],
+            profile=profile,
+            video_audio_mode=args.mode,
+            input_video=args.input_video,
+            audio_path=args.audio,
+            chunks=list(result.get("chunks", [])),
+            mask_video=args.mask_video,
+            mask_image=args.mask_image,
         )
 
     config = _config(args, profile)

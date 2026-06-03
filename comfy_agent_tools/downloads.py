@@ -349,6 +349,31 @@ DOWNLOAD_REGISTRY: dict[str, dict[str, DownloadSource]] = {
             filename="split_files/vae/wan_2.1_vae.safetensors",
         ),
     },
+    "wan22-dasiwa-littledemon-v2-video-audio": {
+        "unet": DownloadSource(
+            kind="http",
+            url="https://civitai.com/api/download/models/2511306?type=Model&format=SafeTensor",
+            token_env="CIVITAI_API_TOKEN",
+            sha256="11D0D759FD396AE4DA0F5782F67325946BE4929A21E1EAA22DD96395D5998299",
+            size_bytes=18_541_525_169,
+        ),
+        "text_encoder": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+            filename="split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+        ),
+        "audio_encoder": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+            filename="split_files/audio_encoders/wav2vec2_large_english_fp16.safetensors",
+            size_bytes=631_000_000,
+        ),
+        "vae": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+            filename="split_files/vae/wan_2.1_vae.safetensors",
+        ),
+    },
     "ace15-base": {
         "unet": DownloadSource(
             kind="hf",

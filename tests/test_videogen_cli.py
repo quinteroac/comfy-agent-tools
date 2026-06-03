@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 from PIL import Image
+import pytest
 import torch
 
 from comfy_agent_tools.cli import videogen
@@ -256,6 +257,59 @@ def test_parser_wan22_defaults(tmp_path: Path) -> None:
     assert s2v.cfg is None
     assert s2v.audio_start_time == 0.0
     assert s2v.audio_duration is None
+
+    video_audio = parser.parse_args(
+        [
+            "wan22-video-audio",
+            "--mode",
+            "audio-driven",
+            "--input-video",
+            str(tmp_path / "input.mp4"),
+            "--audio",
+            str(tmp_path / "a.wav"),
+        ]
+    )
+    lipsync = parser.parse_args(
+        [
+            "wan22-video-audio",
+            "--mode",
+            "lipsync",
+            "--input-video",
+            str(tmp_path / "input.mp4"),
+            "--audio",
+            str(tmp_path / "a.wav"),
+            "--mask-video",
+            str(tmp_path / "mask.mp4"),
+        ]
+    )
+
+    assert video_audio.command == "wan22-video-audio"
+    assert video_audio.mode == "audio-driven"
+    assert video_audio.input_video == tmp_path / "input.mp4"
+    assert video_audio.audio == tmp_path / "a.wav"
+    assert video_audio.mask_video is None
+    assert video_audio.prompt is None
+    assert video_audio.chunk_length is None
+    assert video_audio.chunk_overlap is None
+    assert video_audio.steps is None
+    assert video_audio.denoise is None
+    assert lipsync.mode == "lipsync"
+    assert lipsync.mask_video == tmp_path / "mask.mp4"
+
+
+def test_parser_rejects_unknown_wan22_video_audio_mode(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit):
+        videogen.build_parser().parse_args(
+            [
+                "wan22-video-audio",
+                "--mode",
+                "bad-mode",
+                "--input-video",
+                str(tmp_path / "input.mp4"),
+                "--audio",
+                str(tmp_path / "a.wav"),
+            ]
+        )
 
 
 def test_parser_seedance2_accepts_verbose_and_no_audio() -> None:
@@ -805,6 +859,192 @@ def test_wan22_s2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: 
         "audio_encoders/wav2vec2_large_english_fp16.safetensors"
     )
     assert Path(payload["artifacts"][0]).is_file()
+
+
+def test_wan22_video_audio_audio_driven_success_json(
+    monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    video_path = tmp_path / "input.mp4"
+    audio_path = tmp_path / "speech.wav"
+    video_path.write_bytes(b"fake video")
+    audio_path.write_bytes(b"fake audio")
+    seen: dict[str, object] = {}
+
+    def fake_run(*, video, audio, mode, prompt, config, mask_video, mask_image):
+        seen["video"] = video
+        seen["audio"] = audio
+        seen["mode"] = mode
+        seen["prompt"] = prompt
+        seen["unet"] = config.unet
+        seen["chunk_length"] = config.chunk_length
+        seen["chunk_overlap"] = config.chunk_overlap
+        seen["steps"] = config.steps
+        seen["denoise"] = config.denoise
+        seen["mask_video"] = mask_video
+        seen["mask_image"] = mask_image
+        return {"frames": _frames(), "audio": {"waveform": object(), "sample_rate": 44100}, "chunks": [{"index": 0}]}
+
+    monkeypatch.setattr(videogen, "run_wan22_video_audio", fake_run)
+    monkeypatch.setattr(videogen, "save_mp4_with_audio", lambda frames, audio, path, fps: Path(path).touch())
+
+    rc = videogen.main(
+        [
+            "wan22-video-audio",
+            "--mode",
+            "audio-driven",
+            "--input-video",
+            str(video_path),
+            "--audio",
+            str(audio_path),
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    assert seen["video"] == video_path
+    assert seen["audio"] == audio_path
+    assert seen["mode"] == "audio-driven"
+    assert seen["prompt"] == "Audio-reactive motion, expressive movement, coherent video."
+    assert seen["unet"] == Path("diffusion_models/DasiwaWan2214BS2V_littledemonV2.safetensors")
+    assert seen["chunk_length"] == 77
+    assert seen["chunk_overlap"] == 4
+    assert seen["steps"] == 4
+    assert seen["denoise"] == 0.35
+    assert seen["mask_video"] is None
+    assert seen["mask_image"] is None
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "wan22-video-audio"
+    assert payload["video_audio_mode"] == "audio-driven"
+    assert payload["input_video"] == str(video_path)
+    assert payload["audio_input"] == str(audio_path)
+    assert payload["chunks"] == [{"index": 0}]
+    assert payload["audio_muxed"] is True
+    assert payload["capability"] == "videogen.wan22-video-audio"
+    assert payload["model_profile"] == "wan22-dasiwa-littledemon-v2-video-audio"
+    assert payload["resolved_models"]["unet"].endswith(
+        "diffusion_models/DasiwaWan2214BS2V_littledemonV2.safetensors"
+    )
+    assert Path(payload["artifacts"][0]).is_file()
+
+
+def test_wan22_video_audio_lipsync_success_json(
+    monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    video_path = tmp_path / "input.mp4"
+    audio_path = tmp_path / "speech.wav"
+    mask_path = tmp_path / "mask.png"
+    video_path.write_bytes(b"fake video")
+    audio_path.write_bytes(b"fake audio")
+    Image.new("L", (8, 8), "white").save(mask_path)
+    seen: dict[str, object] = {}
+
+    def fake_run(*, video, audio, mode, prompt, config, mask_video, mask_image):
+        seen["mode"] = mode
+        seen["prompt"] = prompt
+        seen["lipsync_steps"] = config.lipsync_steps
+        seen["lipsync_denoise"] = config.lipsync_denoise
+        seen["lipsync_second_steps"] = config.lipsync_second_steps
+        seen["lipsync_second_denoise"] = config.lipsync_second_denoise
+        seen["mask_video"] = mask_video
+        seen["mask_image"] = mask_image
+        return {"frames": _frames(), "audio": {"waveform": object(), "sample_rate": 44100}, "chunks": [{"index": 0}]}
+
+    monkeypatch.setattr(videogen, "run_wan22_video_audio", fake_run)
+    monkeypatch.setattr(videogen, "save_mp4_with_audio", lambda frames, audio, path, fps: Path(path).touch())
+
+    rc = videogen.main(
+        [
+            "wan22-video-audio",
+            "--mode",
+            "lipsync",
+            "--input-video",
+            str(video_path),
+            "--audio",
+            str(audio_path),
+            "--mask-image",
+            str(mask_path),
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    assert seen["mode"] == "lipsync"
+    assert seen["prompt"] == "Speaking. Talking. Expressive lip movement."
+    assert seen["lipsync_steps"] == 4
+    assert seen["lipsync_denoise"] == 0.45
+    assert seen["lipsync_second_steps"] == 2
+    assert seen["lipsync_second_denoise"] == 0.25
+    assert seen["mask_video"] is None
+    assert seen["mask_image"] == mask_path
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["video_audio_mode"] == "lipsync"
+    assert payload["mask_input"] == str(mask_path)
+    assert payload["mask_kind"] == "image"
+    assert payload["lipsync_second_steps"] == 2
+    assert payload["lipsync_second_denoise"] == 0.25
+
+
+def test_wan22_video_audio_lipsync_requires_mask(tmp_path: Path, capsys: MagicMock) -> None:
+    video_path = tmp_path / "input.mp4"
+    audio_path = tmp_path / "speech.wav"
+    video_path.write_bytes(b"fake video")
+    audio_path.write_bytes(b"fake audio")
+
+    rc = videogen.main(
+        [
+            "wan22-video-audio",
+            "--mode",
+            "lipsync",
+            "--input-video",
+            str(video_path),
+            "--audio",
+            str(audio_path),
+        ]
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["mode"] == "wan22-video-audio"
+    assert payload["error_type"] == "error"
+    assert "requires --mask-video or --mask-image" in payload["error"]
+
+
+def test_wan22_video_audio_non_16_fps_returns_json(
+    monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock
+) -> None:
+    video_path = tmp_path / "input.mp4"
+    audio_path = tmp_path / "speech.wav"
+    video_path.write_bytes(b"fake video")
+    audio_path.write_bytes(b"fake audio")
+
+    def fail(*_args, **_kwargs):
+        raise ValueError("Wan 2.2 video+audio v1 supports only 16 fps input video")
+
+    monkeypatch.setattr(videogen, "run_wan22_video_audio", fail)
+
+    rc = videogen.main(
+        [
+            "wan22-video-audio",
+            "--mode",
+            "audio-driven",
+            "--input-video",
+            str(video_path),
+            "--audio",
+            str(audio_path),
+        ]
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["mode"] == "wan22-video-audio"
+    assert payload["error_type"] == "error"
+    assert "16 fps" in payload["error"]
 
 
 def test_wan22_dasiwa_profile_defaults(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:

@@ -7,7 +7,7 @@ import math
 from pathlib import Path
 from typing import Any
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 
 DEFAULT_WAN22_UNET_HIGH = Path("diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors")
@@ -32,6 +32,15 @@ DEFAULT_WAN22_S2V_SAMPLER = "uni_pc"
 DEFAULT_WAN22_S2V_SCHEDULER = "simple"
 DEFAULT_WAN22_S2V_SHIFT = 8.0
 DEFAULT_WAN22_S2V_LORA_STRENGTH = 1.0
+DEFAULT_WAN22_VIDEO_AUDIO_CHUNK_OVERLAP = 4
+DEFAULT_WAN22_VIDEO_AUDIO_PROMPT = "Audio-reactive motion, expressive movement, coherent video."
+DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_PROMPT = "Speaking. Talking. Expressive lip movement."
+DEFAULT_WAN22_VIDEO_AUDIO_STEPS = 4
+DEFAULT_WAN22_VIDEO_AUDIO_DENOISE = 0.35
+DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_STEPS = 4
+DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_DENOISE = 0.45
+DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_SECOND_STEPS = 2
+DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_SECOND_DENOISE = 0.25
 DEFAULT_WAN22_NEGATIVE_PROMPT = (
     "overexposed, static, blurry details, subtitles, watermark, low quality, jpeg artifacts, "
     "bad anatomy, malformed hands, malformed face, distorted limbs, messy background"
@@ -120,6 +129,61 @@ class Wan22S2VConfig:
             raise ValueError("audio_start_time must be greater than or equal to 0")
         if self.audio_duration is not None and self.audio_duration <= 0:
             raise ValueError("audio_duration must be greater than 0")
+
+
+@dataclass(frozen=True)
+class Wan22VideoAudioConfig:
+    """Runtime configuration for WAN 2.2 video+audio commands."""
+
+    models_dir: Path
+    unet: Path = DEFAULT_WAN22_S2V_UNET
+    text_encoder: Path = DEFAULT_WAN22_TEXT_ENCODER
+    audio_encoder: Path = DEFAULT_WAN22_AUDIO_ENCODER
+    vae: Path = DEFAULT_WAN22_VAE
+    chunk_length: int = DEFAULT_WAN22_S2V_CHUNK_LENGTH
+    chunk_overlap: int = DEFAULT_WAN22_VIDEO_AUDIO_CHUNK_OVERLAP
+    fps: int = DEFAULT_WAN22_FPS
+    steps: int = DEFAULT_WAN22_VIDEO_AUDIO_STEPS
+    denoise: float = DEFAULT_WAN22_VIDEO_AUDIO_DENOISE
+    lipsync_steps: int = DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_STEPS
+    lipsync_denoise: float = DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_DENOISE
+    lipsync_second_steps: int = DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_SECOND_STEPS
+    lipsync_second_denoise: float = DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_SECOND_DENOISE
+    cfg: float = 1.0
+    seed: int = 0
+    sampler: str = "euler"
+    scheduler: str = "simple"
+    shift: float = 10.0
+    negative_prompt: str = ""
+    audio_start_time: float = 0.0
+
+    def resolve_model_path(self, path: Path) -> Path:
+        """Resolve a model path relative to models_dir when needed."""
+        if path.is_absolute():
+            return path
+        return self.models_dir / path
+
+    def validate(self) -> None:
+        """Validate video+audio runtime settings before loading large models."""
+        if self.fps != DEFAULT_WAN22_FPS:
+            raise ValueError("Wan 2.2 video+audio v1 supports only 16 fps")
+        if self.chunk_length < 73:
+            raise ValueError("Wan 2.2 video+audio chunk_length must be at least 73 frames")
+        if self.chunk_overlap < 0:
+            raise ValueError("chunk_overlap must be greater than or equal to 0")
+        if self.chunk_overlap >= self.chunk_length:
+            raise ValueError("chunk_overlap must be smaller than chunk_length")
+        for field_name in ("steps", "lipsync_steps", "lipsync_second_steps"):
+            if getattr(self, field_name) <= 0:
+                raise ValueError(f"{field_name} must be greater than 0")
+        for field_name in ("denoise", "lipsync_denoise", "lipsync_second_denoise"):
+            value = getattr(self, field_name)
+            if value <= 0 or value > 1:
+                raise ValueError(f"{field_name} must be greater than 0 and less than or equal to 1")
+        if self.cfg <= 0:
+            raise ValueError("cfg must be greater than 0")
+        if self.audio_start_time < 0:
+            raise ValueError("audio_start_time must be greater than or equal to 0")
 
 
 def run_i2v(*, image: Path, prompt: str, config: Wan22Config) -> dict[str, Any]:
@@ -286,6 +350,418 @@ def run_s2v(*, image: Path, audio: Path, prompt: str, config: Wan22S2VConfig) ->
 
     frames = vae_decode_batch(vae, sampled_latent)
     return {"frames": frames[: config.length], "audio": audio_payload}
+
+
+def run_video_audio(
+    *,
+    video: Path,
+    audio: Path,
+    mode: str,
+    prompt: str,
+    config: Wan22VideoAudioConfig,
+    mask_video: Path | None = None,
+    mask_image: Path | None = None,
+) -> dict[str, Any]:
+    """Run WAN 2.2 audio-conditioned video-to-video or masked lipsync."""
+    if not video.is_file():
+        raise FileNotFoundError(f"input video not found: {video}")
+    if not audio.is_file():
+        raise FileNotFoundError(f"input audio not found: {audio}")
+    if mode not in {"audio-driven", "lipsync"}:
+        raise ValueError("mode must be one of: audio-driven, lipsync")
+    if mode == "lipsync":
+        if mask_video is None and mask_image is None:
+            raise ValueError("lipsync mode requires --mask-video or --mask-image")
+        if mask_video is not None and mask_image is not None:
+            raise ValueError("pass only one of --mask-video or --mask-image")
+        if mask_video is not None and not mask_video.is_file():
+            raise FileNotFoundError(f"mask video not found: {mask_video}")
+        if mask_image is not None and not mask_image.is_file():
+            raise FileNotFoundError(f"mask image not found: {mask_image}")
+    if not prompt.strip():
+        raise ValueError("prompt must not be empty")
+    config.validate()
+
+    from comfy_diffusion.audio import audio_encoder_encode, load_audio
+    from comfy_diffusion.conditioning import conditioning_zero_out, encode_prompt, wan_sound_image_to_video
+    from comfy_diffusion.image import image_to_tensor
+    from comfy_diffusion.models import ModelManager, model_sampling_sd3
+    from comfy_diffusion.runtime import check_runtime
+    from comfy_diffusion.sampling import sample
+    from comfy_diffusion.vae import vae_decode_batch, vae_encode_tensor
+    from comfy_diffusion.video import get_video_metadata, load_video
+
+    check_result = check_runtime()
+    if check_result.get("error"):
+        raise RuntimeError(f"ComfyUI runtime not available: {check_result['error']}")
+
+    metadata = get_video_metadata(video)
+    video_fps = float(metadata.get("fps", 0.0))
+    if abs(video_fps - config.fps) > 0.01:
+        raise ValueError("Wan 2.2 video+audio v1 supports only 16 fps input video")
+
+    source_frames = load_video(video)
+    total_frames = _frame_count(source_frames)
+    if total_frames <= 0:
+        raise ValueError("input video contains no frames")
+
+    source_pil_frames = _frames_to_pil_list(source_frames)
+    if len(source_pil_frames) != total_frames:
+        raise ValueError("loaded video frame count is inconsistent")
+
+    mask_frames = (
+        _load_mask_frames(mask_video=mask_video, mask_image=mask_image, length=total_frames)
+        if mode == "lipsync"
+        else None
+    )
+
+    mm = ModelManager(config.models_dir)
+    model = mm.load_unet(config.resolve_model_path(config.unet))
+    clip = mm.load_clip(config.resolve_model_path(config.text_encoder), clip_type="wan")
+    audio_encoder = mm.load_audio_encoder(config.resolve_model_path(config.audio_encoder))
+    vae = mm.load_vae(config.resolve_model_path(config.vae))
+    model = model_sampling_sd3(model, shift=config.shift)
+
+    base_positive, base_negative = encode_prompt(clip, prompt, config.negative_prompt)
+    if not config.negative_prompt.strip():
+        base_negative = conditioning_zero_out(base_positive)
+
+    output_frames: list[Image.Image] = []
+    chunks: list[dict[str, int | float]] = []
+    final_audio = load_audio(
+        audio,
+        start_time=config.audio_start_time,
+        duration=total_frames / config.fps,
+    )
+
+    for chunk_index, start_frame, actual_length in _chunk_ranges(
+        total_frames,
+        chunk_length=config.chunk_length,
+        chunk_overlap=config.chunk_overlap,
+    ):
+        chunk_tensor = _slice_frame_batch(source_frames, start_frame, actual_length, config.chunk_length)
+        chunk_source_pil = _pad_pil_frames(
+            source_pil_frames[start_frame : start_frame + actual_length],
+            config.chunk_length,
+        )
+        chunk_audio = load_audio(
+            audio,
+            start_time=config.audio_start_time + start_frame / config.fps,
+            duration=config.chunk_length / config.fps,
+        )
+        audio_encoder_output = audio_encoder_encode(audio_encoder, chunk_audio)
+
+        if mode == "audio-driven":
+            generated = _run_video_audio_pass(
+                model=model,
+                vae=vae,
+                positive=base_positive,
+                negative=base_negative,
+                source_tensor=chunk_tensor,
+                ref_image=image_to_tensor(chunk_source_pil[0].convert("RGB")),
+                audio_encoder_output=audio_encoder_output,
+                width=chunk_source_pil[0].width,
+                height=chunk_source_pil[0].height,
+                length=config.chunk_length,
+                steps=config.steps,
+                cfg=config.cfg,
+                sampler=config.sampler,
+                scheduler=config.scheduler,
+                seed=config.seed + chunk_index,
+                denoise=config.denoise,
+                wan_sound_image_to_video=wan_sound_image_to_video,
+                vae_encode_tensor=vae_encode_tensor,
+                sample=sample,
+                vae_decode_batch=vae_decode_batch,
+            )
+            chunk_output = generated[:actual_length]
+            chunks.append(
+                {
+                    "index": chunk_index,
+                    "start_frame": start_frame,
+                    "frames": actual_length,
+                    "steps": config.steps,
+                    "denoise": config.denoise,
+                }
+            )
+        else:
+            assert mask_frames is not None
+            chunk_masks = _pad_pil_frames(
+                mask_frames[start_frame : start_frame + actual_length],
+                config.chunk_length,
+            )
+            first_pass = _run_video_audio_pass(
+                model=model,
+                vae=vae,
+                positive=base_positive,
+                negative=base_negative,
+                source_tensor=chunk_tensor,
+                ref_image=image_to_tensor(chunk_source_pil[0].convert("RGB")),
+                audio_encoder_output=audio_encoder_output,
+                width=chunk_source_pil[0].width,
+                height=chunk_source_pil[0].height,
+                length=config.chunk_length,
+                steps=config.lipsync_steps,
+                cfg=config.cfg,
+                sampler=config.sampler,
+                scheduler=config.scheduler,
+                seed=config.seed + chunk_index,
+                denoise=config.lipsync_denoise,
+                wan_sound_image_to_video=wan_sound_image_to_video,
+                vae_encode_tensor=vae_encode_tensor,
+                sample=sample,
+                vae_decode_batch=vae_decode_batch,
+            )
+            composited = _composite_with_masks(chunk_source_pil, first_pass, chunk_masks)
+            second_source_tensor = _pil_frames_to_tensor(composited)
+            second_pass = _run_video_audio_pass(
+                model=model,
+                vae=vae,
+                positive=base_positive,
+                negative=base_negative,
+                source_tensor=second_source_tensor,
+                ref_image=image_to_tensor(composited[0].convert("RGB")),
+                audio_encoder_output=audio_encoder_output,
+                width=composited[0].width,
+                height=composited[0].height,
+                length=config.chunk_length,
+                steps=config.lipsync_second_steps,
+                cfg=config.cfg,
+                sampler=config.sampler,
+                scheduler=config.scheduler,
+                seed=config.seed + chunk_index + 10_000,
+                denoise=config.lipsync_second_denoise,
+                wan_sound_image_to_video=wan_sound_image_to_video,
+                vae_encode_tensor=vae_encode_tensor,
+                sample=sample,
+                vae_decode_batch=vae_decode_batch,
+            )
+            chunk_output = _composite_with_masks(chunk_source_pil, second_pass, chunk_masks)[:actual_length]
+            chunks.append(
+                {
+                    "index": chunk_index,
+                    "start_frame": start_frame,
+                    "frames": actual_length,
+                    "steps": config.lipsync_steps,
+                    "denoise": config.lipsync_denoise,
+                    "second_steps": config.lipsync_second_steps,
+                    "second_denoise": config.lipsync_second_denoise,
+                }
+            )
+
+        output_frames = _merge_chunk_frames(output_frames, chunk_output, config.chunk_overlap)
+
+    return {
+        "frames": output_frames[:total_frames],
+        "audio": final_audio,
+        "chunks": chunks,
+        "source_fps": video_fps,
+    }
+
+
+def _run_video_audio_pass(
+    *,
+    model: Any,
+    vae: Any,
+    positive: Any,
+    negative: Any,
+    source_tensor: Any,
+    ref_image: Any,
+    audio_encoder_output: Any,
+    width: int,
+    height: int,
+    length: int,
+    steps: int,
+    cfg: float,
+    sampler: str,
+    scheduler: str,
+    seed: int,
+    denoise: float,
+    wan_sound_image_to_video: Any,
+    vae_encode_tensor: Any,
+    sample: Any,
+    vae_decode_batch: Any,
+) -> list[Image.Image]:
+    pass_positive, pass_negative, _latent = wan_sound_image_to_video(
+        positive,
+        negative,
+        vae,
+        width=width,
+        height=height,
+        length=length,
+        batch_size=1,
+        audio_encoder_output=audio_encoder_output,
+        ref_image=ref_image,
+    )
+    source_latent = vae_encode_tensor(vae, source_tensor)
+    sampled = sample(
+        model,
+        pass_positive,
+        pass_negative,
+        source_latent,
+        steps=steps,
+        cfg=cfg,
+        sampler_name=sampler,
+        scheduler=scheduler,
+        seed=seed,
+        denoise=denoise,
+    )
+    return vae_decode_batch(vae, sampled)
+
+
+def _chunk_ranges(
+    total_frames: int,
+    *,
+    chunk_length: int,
+    chunk_overlap: int,
+) -> list[tuple[int, int, int]]:
+    stride = chunk_length - chunk_overlap
+    chunks: list[tuple[int, int, int]] = []
+    start = 0
+    index = 0
+    while start < total_frames:
+        actual_length = min(chunk_length, total_frames - start)
+        chunks.append((index, start, actual_length))
+        if start + actual_length >= total_frames:
+            break
+        start += stride
+        index += 1
+    return chunks
+
+
+def _frame_count(frames: Any) -> int:
+    shape = getattr(frames, "shape", None)
+    if shape is not None and len(shape) >= 1:
+        return int(shape[0])
+    return len(frames)
+
+
+def _slice_frame_batch(frames: Any, start: int, actual_length: int, target_length: int) -> Any:
+    sliced = frames[start : start + actual_length]
+    if actual_length >= target_length:
+        return sliced
+    missing = target_length - actual_length
+    if hasattr(sliced, "detach") and hasattr(sliced, "shape"):
+        import torch
+
+        if sliced.shape[0] == 0:
+            raise ValueError("cannot pad empty frame chunk")
+        padding = sliced[-1:].repeat((missing, 1, 1, 1))
+        return torch.cat([sliced, padding], dim=0)
+    padded = list(sliced)
+    if not padded:
+        raise ValueError("cannot pad empty frame chunk")
+    padded.extend([padded[-1]] * missing)
+    return _pil_frames_to_tensor(_frames_to_pil_list(padded))
+
+
+def _frames_to_pil_list(frames: Any) -> list[Image.Image]:
+    if isinstance(frames, list):
+        result = []
+        for frame in frames:
+            if isinstance(frame, Image.Image):
+                result.append(frame.convert("RGB"))
+            else:
+                result.append(_array_to_pil(frame))
+        return result
+    if hasattr(frames, "detach"):
+        frames = frames.detach().cpu().numpy()
+    return [_array_to_pil(frame) for frame in frames]
+
+
+def _array_to_pil(frame: Any) -> Image.Image:
+    import numpy as np
+
+    array = np.asarray(frame)
+    if array.ndim == 2:
+        array = np.repeat(array[..., None], 3, axis=2)
+    if array.ndim != 3:
+        raise ValueError("frames must be HWC images")
+    if array.shape[2] == 1:
+        array = np.repeat(array, 3, axis=2)
+    elif array.shape[2] == 4:
+        array = array[:, :, :3]
+    if np.issubdtype(array.dtype, np.floating):
+        max_value = float(array.max()) if array.size else 0.0
+        if max_value <= 1.0:
+            array = array * 255.0
+        array = np.clip(array, 0, 255).astype(np.uint8)
+    elif array.dtype != np.uint8:
+        array = np.clip(array, 0, 255).astype(np.uint8)
+    return Image.fromarray(array, mode="RGB")
+
+
+def _pil_frames_to_tensor(frames: list[Image.Image]) -> Any:
+    import numpy as np
+    import torch
+
+    arrays = [np.asarray(frame.convert("RGB"), dtype=np.float32) / 255.0 for frame in frames]
+    return torch.from_numpy(np.stack(arrays, axis=0))
+
+
+def _pad_pil_frames(frames: list[Image.Image], target_length: int) -> list[Image.Image]:
+    if not frames:
+        raise ValueError("cannot pad an empty frame list")
+    if len(frames) >= target_length:
+        return frames[:target_length]
+    return [*frames, *([frames[-1]] * (target_length - len(frames)))]
+
+
+def _load_mask_frames(
+    *,
+    mask_video: Path | None,
+    mask_image: Path | None,
+    length: int,
+) -> list[Image.Image]:
+    if mask_image is not None:
+        with Image.open(mask_image) as loaded:
+            mask = ImageOps.grayscale(loaded)
+        return [mask.copy() for _ in range(length)]
+    if mask_video is None:
+        raise ValueError("mask_video or mask_image is required")
+    from comfy_diffusion.video import load_video
+
+    masks = [ImageOps.grayscale(frame) for frame in _frames_to_pil_list(load_video(mask_video))]
+    if not masks:
+        raise ValueError("mask video contains no frames")
+    if len(masks) < length:
+        masks.extend([masks[-1]] * (length - len(masks)))
+    return masks[:length]
+
+
+def _composite_with_masks(
+    base_frames: list[Image.Image],
+    generated_frames: list[Image.Image],
+    mask_frames: list[Image.Image],
+) -> list[Image.Image]:
+    result: list[Image.Image] = []
+    count = min(len(base_frames), len(generated_frames), len(mask_frames))
+    for index in range(count):
+        base = base_frames[index].convert("RGB")
+        generated = generated_frames[index].convert("RGB")
+        if generated.size != base.size:
+            generated = generated.resize(base.size, Image.Resampling.LANCZOS)
+        mask = ImageOps.grayscale(mask_frames[index])
+        if mask.size != base.size:
+            mask = mask.resize(base.size, Image.Resampling.BILINEAR)
+        result.append(Image.composite(generated, base, mask))
+    return result
+
+
+def _merge_chunk_frames(
+    existing: list[Image.Image],
+    new_frames: list[Image.Image],
+    chunk_overlap: int,
+) -> list[Image.Image]:
+    if not existing or chunk_overlap <= 0:
+        return [*existing, *new_frames]
+    overlap = min(chunk_overlap, len(existing), len(new_frames))
+    merged = existing[:-overlap]
+    for index in range(overlap):
+        alpha = (index + 1) / (overlap + 1)
+        merged.append(Image.blend(existing[-overlap + index], new_frames[index], alpha))
+    merged.extend(new_frames[overlap:])
+    return merged
 
 
 def run_flf2v(*, first_image: Path, last_image: Path, prompt: str, config: Wan22Config) -> dict[str, Any]:
