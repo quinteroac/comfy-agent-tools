@@ -43,6 +43,23 @@ def test_builtin_profiles_separate_architecture_and_profile() -> None:
     assert wan22["models"]["unet_high"] == "diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors"
     assert wan22["defaults"]["fps"] == 16
 
+    wan22_s2v = BUILTIN_PROFILES["wan22-s2v"]
+    assert wan22_s2v["architecture"] == "wan22"
+    assert wan22_s2v["supports"] == ["videogen.wan22-s2v"]
+    assert wan22_s2v["models"]["unet"] == "diffusion_models/wan2.2_s2v_14B_fp8_scaled.safetensors"
+    assert wan22_s2v["models"]["audio_encoder"] == "audio_encoders/wav2vec2_large_english_fp16.safetensors"
+    assert wan22_s2v["defaults"]["length"] == 77
+    assert wan22_s2v["defaults"]["cfg"] == 6.0
+
+    dasiwa_s2v = BUILTIN_PROFILES["wan22-dasiwa-littledemon-v2-s2v"]
+    assert dasiwa_s2v["architecture"] == "wan22"
+    assert dasiwa_s2v["supports"] == ["videogen.wan22-s2v"]
+    assert dasiwa_s2v["models"]["unet"] == "diffusion_models/DasiwaWan2214BS2V_littledemonV2.safetensors"
+    assert dasiwa_s2v["defaults"]["steps"] == 4
+    assert dasiwa_s2v["defaults"]["cfg"] == 1.0
+    assert dasiwa_s2v["defaults"]["sampler"] == "euler"
+    assert dasiwa_s2v["defaults"]["shift"] == 10.0
+
     dasiwa = BUILTIN_PROFILES["wan22-dasiwa-tastysin-i2v"]
     assert dasiwa["architecture"] == "wan22"
     assert dasiwa["supports"] == ["videogen.wan22-i2v", "videogen.wan22-flf2v"]
@@ -84,6 +101,7 @@ def test_builtin_defaults_point_to_supported_profiles() -> None:
     assert BUILTIN_DEFAULTS["imagegen.edit"] == "qwen-edit2511"
     assert BUILTIN_DEFAULTS["videogen.seedance2-t2v"] == "seedance2-api"
     assert BUILTIN_DEFAULTS["videogen.wan22-i2v"] == "wan22-i2v"
+    assert BUILTIN_DEFAULTS["videogen.wan22-s2v"] == "wan22-s2v"
     assert BUILTIN_DEFAULTS["imagegen.grok-generate"] == "grok-imagine-api"
     assert BUILTIN_DEFAULTS["imagegen.grok-edit"] == "grok-imagine-api"
     for capability, profile_name in BUILTIN_DEFAULTS.items():

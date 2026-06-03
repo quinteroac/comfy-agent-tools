@@ -97,6 +97,47 @@ def test_models_download_wan22_i2v_dry_run_includes_dual_unets(
     assert not (tmp_path / "models").exists()
 
 
+def test_models_download_wan22_s2v_dry_run_includes_audio_encoder(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: MagicMock
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    models.main(["set-models-dir", str(tmp_path / "models")])
+    capsys.readouterr()
+
+    rc = models.main(["download", "videogen.wan22-s2v", "--dry-run"])
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["dry_run"] is True
+    assert payload["model_profile"] == "wan22-s2v"
+    assert str(tmp_path / "models/diffusion_models/wan2.2_s2v_14B_fp8_scaled.safetensors") in payload["planned"]
+    assert str(tmp_path / "models/audio_encoders/wav2vec2_large_english_fp16.safetensors") in payload["planned"]
+    assert str(tmp_path / "models/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors") in payload["planned"]
+    assert str(tmp_path / "models/vae/wan_2.1_vae.safetensors") in payload["planned"]
+    assert not (tmp_path / "models").exists()
+
+
+def test_models_download_dasiwa_wan22_s2v_dry_run_includes_civitai_model(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: MagicMock
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    models.main(["set-models-dir", str(tmp_path / "models")])
+    capsys.readouterr()
+
+    rc = models.main(["download-profile", "wan22-dasiwa-littledemon-v2-s2v", "--dry-run"])
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["dry_run"] is True
+    assert payload["model_profile"] == "wan22-dasiwa-littledemon-v2-s2v"
+    assert str(tmp_path / "models/diffusion_models/DasiwaWan2214BS2V_littledemonV2.safetensors") in payload["planned"]
+    assert str(tmp_path / "models/audio_encoders/wav2vec2_large_english_fp16.safetensors") in payload["planned"]
+    assert {"civitai", "huggingface"} == set(payload["sources"])
+    assert not (tmp_path / "models").exists()
+
+
 def test_models_download_flux_klein_snofs_dry_run_includes_lora(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: MagicMock
 ) -> None:
