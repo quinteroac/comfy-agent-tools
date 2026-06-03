@@ -138,6 +138,28 @@ def test_models_download_dasiwa_wan22_s2v_dry_run_includes_civitai_model(
     assert not (tmp_path / "models").exists()
 
 
+def test_models_download_wan22_video_audio_dry_run_includes_dasiwa_models(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: MagicMock
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    models.main(["set-models-dir", str(tmp_path / "models")])
+    capsys.readouterr()
+
+    rc = models.main(["download", "videogen.wan22-video-audio", "--dry-run"])
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["dry_run"] is True
+    assert payload["model_profile"] == "wan22-dasiwa-littledemon-v2-video-audio"
+    assert str(tmp_path / "models/diffusion_models/DasiwaWan2214BS2V_littledemonV2.safetensors") in payload["planned"]
+    assert str(tmp_path / "models/audio_encoders/wav2vec2_large_english_fp16.safetensors") in payload["planned"]
+    assert str(tmp_path / "models/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors") in payload["planned"]
+    assert str(tmp_path / "models/vae/wan_2.1_vae.safetensors") in payload["planned"]
+    assert {"civitai", "huggingface"} == set(payload["sources"])
+    assert not (tmp_path / "models").exists()
+
+
 def test_models_download_flux_klein_snofs_dry_run_includes_lora(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: MagicMock
 ) -> None:

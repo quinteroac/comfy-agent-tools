@@ -29,6 +29,9 @@ def test_models_list_uses_builtin_fallback(monkeypatch: MagicMock, tmp_path: Pat
     assert payload["profiles"]["wan22-dasiwa-tastysin-i2v"]["architecture"] == "wan22"
     assert payload["profiles"]["wan22-dasiwa-boundbite-i2v"]["architecture"] == "wan22"
     assert payload["profiles"]["wan22-dasiwa-littledemon-v2-s2v"]["architecture"] == "wan22"
+    assert payload["profiles"]["wan22-dasiwa-littledemon-v2-video-audio"]["supports"] == [
+        "videogen.wan22-video-audio"
+    ]
 
 
 def test_models_init_and_show(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
@@ -51,6 +54,9 @@ def test_models_init_and_show(monkeypatch: MagicMock, tmp_path: Path, capsys: Ma
     assert payload["resolved_defaults"]["videogen.t2v"]["profile"] == "ltx23-10eros"
     assert payload["resolved_defaults"]["videogen.wan22-i2v"]["profile"] == "wan22-i2v"
     assert payload["resolved_defaults"]["videogen.wan22-s2v"]["profile"] == "wan22-s2v"
+    assert payload["resolved_defaults"]["videogen.wan22-video-audio"]["profile"] == (
+        "wan22-dasiwa-littledemon-v2-video-audio"
+    )
 
 
 def test_models_set_models_dir(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:

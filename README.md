@@ -178,6 +178,7 @@ absent, the CLIs use built-in defaults:
 | `videogen.wan22-i2v` | `wan22-i2v` | `wan22` |
 | `videogen.wan22-flf2v` | `wan22-i2v` | `wan22` |
 | `videogen.wan22-s2v` | `wan22-s2v` | `wan22` |
+| `videogen.wan22-video-audio` | `wan22-dasiwa-littledemon-v2-video-audio` | `wan22` |
 | `videogen.seedance2-t2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-r2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-flf2v` | `seedance2-api` | `seedance2-api` |
@@ -204,6 +205,9 @@ The optional `wan22-dasiwa-littledemon-v2-s2v` profile points to Dasiwa
 LittleDemon v2 S2V. Its fast distillation is baked into the checkpoint, so the
 profile uses `steps=4`, `cfg=1.0`, `sampler=euler`, `scheduler=simple`, and
 `shift=10.0`; do not add extra Lightning/speed-up LoRAs on top of it.
+The `wan22-dasiwa-littledemon-v2-video-audio` profile is the default for
+`videogen.wan22-video-audio`; it reuses the Dasiwa S2V model for 16 fps
+video+audio processing with 77-frame chunks and 4-frame crossfade overlap.
 
 An optional built-in image profile, `flux-klein-9b-snofs`, supports both
 `imagegen.generate` and `imagegen.edit` with architecture `flux-klein`. It uses
@@ -390,12 +394,16 @@ and sound-driven generation, and remote Seedance 2.0 API generation. It is quiet
 `--verbose` to show ComfyUI logs.
 
 Local LTX 2.3 uses the `ltx23-10eros` profile and writes MP4 files with audio.
-Local WAN 2.2 uses the `wan22-i2v` profile and writes silent MP4 files.
+Local WAN 2.2 I2V/FLF2V uses the `wan22-i2v` profile and writes silent MP4
+files. WAN 2.2 S2V and video+audio modes mux the input audio into the output.
 For Dasiwa TastySin or BoundBite, set the matching Dasiwa profile as the default
 or pass its high/low UNet paths explicitly; use `--steps 4 --cfg 1.0`.
 For Dasiwa LittleDemon S2V, set `wan22-dasiwa-littledemon-v2-s2v` as the
 `videogen.wan22-s2v` default or pass its checkpoint with `--unet`; use the
 profile defaults for 4-step generation.
+The `wan22-video-audio` command uses Dasiwa LittleDemon by default and accepts
+two presets: `audio-driven` for full-frame audio-reactive V2V, and `lipsync` for
+external-mask mouth recomposition. V1 requires a 16 fps input video.
 WAN high steps influence motion; WAN low steps influence detail. Omit
 `--high-steps`/`--low-steps` for the default 50/50 split, use
 `--high-steps 1 --low-steps 3` for restrained motion, or use
@@ -473,6 +481,27 @@ uv run comfy-videogen wan22-s2v \
   --out outputs
 ```
 
+WAN 2.2 video plus audio, full-frame audio-driven V2V:
+
+```bash
+uv run comfy-videogen wan22-video-audio \
+  --mode audio-driven \
+  --input-video input.mp4 \
+  --audio speech-or-music.wav \
+  --out outputs
+```
+
+WAN 2.2 video plus audio lipsync with an external mask:
+
+```bash
+uv run comfy-videogen wan22-video-audio \
+  --mode lipsync \
+  --input-video input.mp4 \
+  --audio speech.wav \
+  --mask-video mouth-mask.mp4 \
+  --out outputs
+```
+
 HDR IC-LoRA from an input image plus prepared trajectory control video:
 
 ```bash
@@ -501,11 +530,14 @@ metadata for actual `width` and `height`.
 For `ia2av` and `wan22-s2v`, `--length` and `--fps` control video duration.
 Long audio files, including 120s WAVs from `comfy-musicgen`, are trimmed to
 `length / fps` by default; use `--audio-start-time` and `--audio-duration` to
-pick a specific window.
+pick a specific window. `wan22-video-audio` processes the whole input video in
+chunks; the input video must already be 16 fps, and `lipsync` requires
+`--mask-video` or `--mask-image`.
 
-Audio muxing is required for LTX audiovisual modes and WAN 2.2 S2V. If audio
-cannot be written into the MP4, the command returns `ok:false` instead of saving
-a silent video. WAN 2.2 I2V/FLF2V intentionally save silent MP4 files.
+Audio muxing is required for LTX audiovisual modes, WAN 2.2 S2V, and WAN 2.2
+video+audio. If audio cannot be written into the MP4, the command returns
+`ok:false` instead of saving a silent video. WAN 2.2 I2V/FLF2V intentionally
+save silent MP4 files.
 
 ### Seedance 2.0 API Video
 
