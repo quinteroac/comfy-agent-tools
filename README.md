@@ -138,6 +138,7 @@ loras/qwen-image-edit/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensor
 upscale_models/4x-ClearRealityV1.pth
 
 checkpoints/10Eros_v1-fp8mixed_learned.safetensors
+checkpoints/DasiwaLTX23_goldenLaceV3.safetensors
 text_encoders/gemma_3_12B_it_fp4_mixed.safetensors
 loras/ltx23/ltx-2.3-22b-distilled-lora-384.safetensors
 loras/ltx23/gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors
@@ -184,8 +185,11 @@ absent, the CLIs use built-in defaults:
 | `videogen.seedance2-flf2v` | `seedance2-api` | `seedance2-api` |
 | `musicgen.generate` | `ace15-base` | `ace-step-1.5` |
 
-`ltx23` is the architecture/adapter; `ltx23-10eros` is the built-in profile
-validated for that architecture.
+`ltx23` is the architecture/adapter; `ltx23-10eros` is the default built-in
+profile validated for that architecture. The optional
+`ltx23-dasiwa-golden-lace-v3` profile points to Dasiwa LTX 2.3 Golden Lace v3
+and reuses the same LTX 2.3 text encoder, distilled LoRA, text-encoder LoRA, and
+latent upscaler files as the 10Eros profile.
 
 `wan22` is the local WAN 2.2 adapter. The default `wan22-i2v` profile uses the
 Comfy-Org FP8 I2V high/low UNets. The optional
@@ -249,6 +253,7 @@ Download missing files for the effective profile of a capability:
 uv run comfy-models download imagegen.generate --dry-run
 uv run comfy-models download imagegen.generate --yes
 uv run comfy-models download-profile anima-base --yes
+uv run comfy-models download-profile ltx23-dasiwa-golden-lace-v3 --dry-run
 uv run comfy-models download-profile flux-klein-9b-snofs --dry-run
 ```
 
@@ -393,7 +398,10 @@ are `grok-imagine-image-pro`, `grok-imagine-image`, and
 and sound-driven generation, and remote Seedance 2.0 API generation. It is quiet by default and prints final JSON only; pass
 `--verbose` to show ComfyUI logs.
 
-Local LTX 2.3 uses the `ltx23-10eros` profile and writes MP4 files with audio.
+Local LTX 2.3 uses the `ltx23-10eros` profile by default and writes MP4 files
+with audio. To use Dasiwa LTX 2.3 Golden Lace v3, set
+`ltx23-dasiwa-golden-lace-v3` as the default for the desired LTX capabilities
+(`videogen.t2v`, `videogen.i2v`, `videogen.flf2v`, or `videogen.ia2av`).
 Local WAN 2.2 I2V/FLF2V uses the `wan22-i2v` profile and writes silent MP4
 files. WAN 2.2 S2V and video+audio modes mux the input audio into the output.
 For Dasiwa TastySin or BoundBite, set the matching Dasiwa profile as the default

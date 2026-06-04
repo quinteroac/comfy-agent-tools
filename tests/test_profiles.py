@@ -23,6 +23,12 @@ def test_builtin_profiles_separate_architecture_and_profile() -> None:
     assert "videogen.ia2av" in profile["supports"]
     assert "10Eros" in profile["label"]
 
+    dasiwa_ltx = BUILTIN_PROFILES["ltx23-dasiwa-golden-lace-v3"]
+    assert dasiwa_ltx["architecture"] == "ltx23"
+    assert dasiwa_ltx["supports"] == ["videogen.t2v", "videogen.i2v", "videogen.flf2v", "videogen.ia2av"]
+    assert dasiwa_ltx["models"]["checkpoint"] == "checkpoints/DasiwaLTX23_goldenLaceV3.safetensors"
+    assert dasiwa_ltx["defaults"]["cfg"] == 1.0
+
     anima = BUILTIN_PROFILES["anima-base"]
     assert anima["architecture"] == "anima"
     assert anima["supports"] == ["imagegen.generate"]

@@ -35,6 +35,8 @@ def test_comfy_videogen_skill_frontmatter() -> None:
     assert "name: comfy-videogen" in frontmatter
     assert "description:" in frontmatter
     assert "10Eros_v1-fp8mixed_learned.safetensors" in content
+    assert "ltx23-dasiwa-golden-lace-v3" in content
+    assert "DasiwaLTX23_goldenLaceV3.safetensors" in content
     assert "ltx-2.3-spatial-upscaler-x2-1.1.safetensors" in content
     assert "ia2av" in content
     assert "seedance2-t2v" in content
@@ -121,6 +123,7 @@ def test_comfy_model_onboarding_skill_frontmatter() -> None:
     assert "description:" in frontmatter
     assert ".comfy-agent-tools.json" in content
     assert "ltx23-10eros" in content
+    assert "ltx23-dasiwa-golden-lace-v3" in content
     assert "anima-base" in content
     assert "architecture" in content
     assert "validate-profile" in content
@@ -148,6 +151,7 @@ def test_comfy_model_downloader_skill_frontmatter() -> None:
     assert "CIVITAI_API_TOKEN" in content
     assert "flux-klein-9b-snofs" in content
     assert "SNOFS" in content
+    assert "ltx23-dasiwa-golden-lace-v3" in content
     assert "seedance2-api" in content
     assert "COMFY_ORG_API_KEY" in content
     assert "Do not download every model" in content

@@ -135,6 +135,25 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
             "cfg": 1.0,
         },
     },
+    "ltx23-dasiwa-golden-lace-v3": {
+        "label": "Dasiwa LTX 2.3 Golden Lace v3",
+        "architecture": "ltx23",
+        "supports": ["videogen.t2v", "videogen.i2v", "videogen.flf2v", "videogen.ia2av"],
+        "models": {
+            "checkpoint": "checkpoints/DasiwaLTX23_goldenLaceV3.safetensors",
+            "text_encoder": "text_encoders/gemma_3_12B_it_fp4_mixed.safetensors",
+            "distilled_lora": "loras/ltx23/ltx-2.3-22b-distilled-lora-384.safetensors",
+            "te_lora": "loras/ltx23/gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors",
+            "upscaler": "latent_upscale_models/ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
+        },
+        "defaults": {
+            "width": 512,
+            "height": 320,
+            "length": 49,
+            "fps": 24,
+            "cfg": 1.0,
+        },
+    },
     "ltx23-motion-track": {
         "label": "10Eros LTX 2.3 HDR IC-LoRA",
         "architecture": "ltx23",

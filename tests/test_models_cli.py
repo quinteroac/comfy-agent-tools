@@ -23,6 +23,7 @@ def test_models_list_uses_builtin_fallback(monkeypatch: MagicMock, tmp_path: Pat
     assert payload["profiles"]["anima-base"]["architecture"] == "anima"
     assert payload["profiles"]["flux-klein-9b-snofs"]["supports"] == ["imagegen.generate", "imagegen.edit"]
     assert payload["profiles"]["ltx23-10eros"]["architecture"] == "ltx23"
+    assert payload["profiles"]["ltx23-dasiwa-golden-lace-v3"]["architecture"] == "ltx23"
     assert payload["profiles"]["ltx23-motion-track"]["supports"] == ["videogen.motion-track"]
     assert payload["profiles"]["wan22-i2v"]["supports"] == ["videogen.wan22-i2v", "videogen.wan22-flf2v"]
     assert payload["profiles"]["wan22-s2v"]["supports"] == ["videogen.wan22-s2v"]
