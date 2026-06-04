@@ -15,6 +15,8 @@ and uses semantic versioning once releases are tagged.
 
 ### Added
 
+- Add optional Dasiwa LTX 2.3 Golden Lace v3 built-in video profile and
+  downloader entry.
 - Add remote Grok Imagine API image generation and editing commands to
   `comfy-imagegen`.
 - Add remote Seedance 2.0 API video commands to comfy-videogen.

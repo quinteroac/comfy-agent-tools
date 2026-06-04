@@ -1,6 +1,6 @@
 ---
 name: comfy-videogen
-description: Generate MP4 videos with comfy-diffusion using local LTX 2.3 10Eros, local WAN 2.2, or remote ByteDance Seedance 2.0 API nodes. Use when the user wants local GPU-backed text-to-video, image-to-video, image+audio-to-video, video+audio processing, first/last-frame video generation, WAN 2.2 image/first-last-frame/sound-to-video/video+audio, LTX motion-track IC-LoRA control, or Seedance 2.0 API text/reference/first-last-frame video saved into the workspace. Do not use for image-only generation, music-only generation, voice generation, model downloads, ComfyUI server workflows, UI work, custom node installation, or non-Seedance hosted video APIs.
+description: Generate MP4 videos with comfy-diffusion using local LTX 2.3, local WAN 2.2, or remote ByteDance Seedance 2.0 API nodes. Use when the user wants local GPU-backed text-to-video, image-to-video, image+audio-to-video, video+audio processing, first/last-frame video generation, WAN 2.2 image/first-last-frame/sound-to-video/video+audio, LTX motion-track IC-LoRA control, or Seedance 2.0 API text/reference/first-last-frame video saved into the workspace. Do not use for image-only generation, music-only generation, voice generation, model downloads, ComfyUI server workflows, UI work, custom node installation, or non-Seedance hosted video APIs.
 ---
 
 # comfy-videogen
@@ -243,6 +243,8 @@ high-noise model more of the schedule, for example `--high-steps 4 --low-steps
 
 - Models directory: `/mnt/models/comfyui`
 - Checkpoint: `checkpoints/10Eros_v1-fp8mixed_learned.safetensors`
+- Optional Dasiwa profile: `ltx23-dasiwa-golden-lace-v3`
+- Dasiwa checkpoint: `checkpoints/DasiwaLTX23_goldenLaceV3.safetensors`
 - Text encoder: `text_encoders/gemma_3_12B_it_fp4_mixed.safetensors`
 - Distilled LoRA: `loras/ltx23/ltx-2.3-22b-distilled-lora-384.safetensors`
 - Text-encoder LoRA: `loras/ltx23/gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors`
@@ -252,6 +254,10 @@ high-noise model more of the schedule, for example `--high-steps 4 --low-steps
 - Motion-track params: `attention_strength=1.0`, `reference_downscale=1.0`
 - IA2AV audio params: `audio_start_time=0.0`, `audio_duration=length/fps` by default
 - Dependency: `comfy-diffusion[comfyui,video,audio]` v2.2.0 or newer for HDR IC-LoRA
+
+To use Dasiwa Golden Lace v3 for standard LTX modes, set
+`ltx23-dasiwa-golden-lace-v3` as the default for one or more of
+`videogen.t2v`, `videogen.i2v`, `videogen.flf2v`, or `videogen.ia2av`.
 
 Extra LoRAs are optional and ad hoc. Use repeatable
 `--extra-lora PATH[:MODEL_STRENGTH[:CLIP_STRENGTH]]` after resolving the file

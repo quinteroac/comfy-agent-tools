@@ -41,7 +41,7 @@ Only configure these architectures in v1:
 - `anima`: base profile `anima-base`, capability `imagegen.generate`.
 - `flux-klein`: base profile `flux-klein-9b-snofs`, capabilities `imagegen.generate`, `imagegen.edit`.
 - `upscale-model`: base profile `clear-reality`, capability `imagegen.upscale`.
-- `ltx23`: base profile `ltx23-10eros`, capabilities `videogen.t2v`, `videogen.i2v`, `videogen.flf2v`, `videogen.ia2av`.
+- `ltx23`: base profile `ltx23-10eros`, optional Dasiwa profile `ltx23-dasiwa-golden-lace-v3`, capabilities `videogen.t2v`, `videogen.i2v`, `videogen.flf2v`, `videogen.ia2av`.
 - `wan22`: base profiles `wan22-i2v` and `wan22-s2v`, optional Dasiwa profiles `wan22-dasiwa-tastysin-i2v`, `wan22-dasiwa-boundbite-i2v`, `wan22-dasiwa-littledemon-v2-s2v`, and `wan22-dasiwa-littledemon-v2-video-audio`, capabilities `videogen.wan22-i2v`, `videogen.wan22-flf2v`, `videogen.wan22-s2v`, `videogen.wan22-video-audio`.
 - `ace-step-1.5`: base profile `ace15-base`, capability `musicgen.generate`.
 - `seedance2-api`: remote profile `seedance2-api`, capabilities `videogen.seedance2-t2v`, `videogen.seedance2-r2v`, `videogen.seedance2-flf2v`.
@@ -82,6 +82,14 @@ uv run comfy-models add-profile my-ltx23-finetune \
 
 uv run comfy-models validate-profile my-ltx23-finetune
 uv run comfy-models set-default videogen.t2v my-ltx23-finetune
+```
+
+Dasiwa LTX 2.3 Golden Lace v3:
+
+```bash
+uv run comfy-models download-profile ltx23-dasiwa-golden-lace-v3 --dry-run
+uv run comfy-models validate-profile ltx23-dasiwa-golden-lace-v3
+uv run comfy-models set-default videogen.i2v ltx23-dasiwa-golden-lace-v3
 ```
 
 Qwen Image Edit fine-tune:

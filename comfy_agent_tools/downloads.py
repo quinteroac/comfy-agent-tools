@@ -209,6 +209,41 @@ DOWNLOAD_REGISTRY: dict[str, dict[str, DownloadSource]] = {
             size_bytes=996_000_000,
         ),
     },
+    "ltx23-dasiwa-golden-lace-v3": {
+        "checkpoint": DownloadSource(
+            kind="http",
+            url="https://civitai.com/api/download/models/2967331?type=Model&format=SafeTensor&size=full&fp=fp8",
+            token_env="CIVITAI_API_TOKEN",
+            sha256="86E14FD4EAF24AE39D3BB2497E9A86C723888A9172CFFECA31C9730DC2C126E2",
+            size_bytes=29_161_931_478,
+        ),
+        "text_encoder": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/ltx-2",
+            filename="split_files/text_encoders/gemma_3_12B_it_fp4_mixed.safetensors",
+            sha256="aaca463d11e6d8d2a4bdb0d6299214c15ef78a3f73e0ef8113d5a9d0219b3f6d",
+            size_bytes=9_447_702_218,
+        ),
+        "distilled_lora": DownloadSource(
+            kind="hf",
+            repo_id="Lightricks/LTX-2.3",
+            filename="ltx-2.3-22b-distilled-lora-384.safetensors",
+        ),
+        "te_lora": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/ltx-2",
+            filename="split_files/loras/gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors",
+            sha256="87bcabeac9bec9f374232b5122d6511c2b2112d479e50176149e944b3712eb4a",
+            size_bytes=628_203_616,
+        ),
+        "upscaler": DownloadSource(
+            kind="hf",
+            repo_id="Lightricks/LTX-2.3",
+            filename="ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
+            sha256="5f416311fa8172b65af67530758964708d29a317b830d689a51143b7f91913ed",
+            size_bytes=996_000_000,
+        ),
+    },
     "ltx23-motion-track": {
         "checkpoint": DownloadSource(
             kind="hf",
