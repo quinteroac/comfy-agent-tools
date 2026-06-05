@@ -9,6 +9,8 @@ from typing import Any
 
 from PIL import Image, ImageOps
 
+from comfy_agent_tools.loras import ExtraLora, apply_extra_loras, apply_extra_loras_to_models
+
 
 DEFAULT_WAN22_UNET_HIGH = Path("diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors")
 DEFAULT_WAN22_UNET_LOW = Path("diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors")
@@ -66,6 +68,9 @@ class Wan22Config:
     cfg: float = DEFAULT_WAN22_I2V_CFG
     seed: int = 0
     negative_prompt: str = DEFAULT_WAN22_NEGATIVE_PROMPT
+    extra_loras: list[ExtraLora] | None = None
+    extra_loras_high: list[ExtraLora] | None = None
+    extra_loras_low: list[ExtraLora] | None = None
 
     def resolve_model_path(self, path: Path) -> Path:
         """Resolve a model path relative to models_dir when needed."""
@@ -77,6 +82,33 @@ class Wan22Config:
     def split_step(self) -> int:
         """Step index where sampling switches from high-noise to low-noise."""
         return self.high_steps
+
+    @property
+    def resolved_extra_loras(self) -> list[ExtraLora]:
+        """Return validated extra LoRAs applied to both UNets, or an empty list."""
+        from comfy_agent_tools.loras import resolve_extra_loras
+
+        return resolve_extra_loras(self.models_dir, self.extra_loras or [])
+
+    @property
+    def resolved_extra_loras_high(self) -> list[ExtraLora]:
+        """Return validated extra LoRAs applied only to the high-noise UNet."""
+        from comfy_agent_tools.loras import resolve_extra_loras
+
+        return resolve_extra_loras(self.models_dir, self.extra_loras_high or [])
+
+    @property
+    def resolved_extra_loras_low(self) -> list[ExtraLora]:
+        """Return validated extra LoRAs applied only to the low-noise UNet."""
+        from comfy_agent_tools.loras import resolve_extra_loras
+
+        return resolve_extra_loras(self.models_dir, self.extra_loras_low or [])
+
+    def validate_extra_loras(self) -> None:
+        """Validate all configured extra LoRA groups."""
+        _ = self.resolved_extra_loras
+        _ = self.resolved_extra_loras_high
+        _ = self.resolved_extra_loras_low
 
 
 @dataclass(frozen=True)
@@ -210,6 +242,7 @@ def run_i2v(*, image: Path, prompt: str, config: Wan22Config) -> dict[str, Any]:
     clip = mm.load_clip(config.resolve_model_path(config.text_encoder), clip_type="wan")
     vae = mm.load_vae(config.resolve_model_path(config.vae))
 
+    model_high, model_low, clip = _apply_extra_loras(model_high, model_low, clip, config)
     model_high = model_sampling_sd3(model_high, shift=5.0)
     model_low = model_sampling_sd3(model_low, shift=5.0)
 
@@ -790,6 +823,7 @@ def run_flf2v(*, first_image: Path, last_image: Path, prompt: str, config: Wan22
     clip = mm.load_clip(config.resolve_model_path(config.text_encoder), clip_type="wan")
     vae = mm.load_vae(config.resolve_model_path(config.vae))
 
+    model_high, model_low, clip = _apply_extra_loras(model_high, model_low, clip, config)
     model_high = model_sampling_sd3(model_high, shift=8.0)
     model_low = model_sampling_sd3(model_low, shift=8.0)
 
@@ -841,3 +875,15 @@ def run_flf2v(*, first_image: Path, last_image: Path, prompt: str, config: Wan22
     )
     frames = vae_decode_batch(vae, latent)
     return {"frames": frames}
+
+
+def _apply_extra_loras(model_high: Any, model_low: Any, clip: Any, config: Wan22Config) -> tuple[Any, Any, Any]:
+    """Apply WAN I2V/FLF2V LoRAs to both, high-only, and low-only targets."""
+    (model_high, model_low), clip = apply_extra_loras_to_models(
+        [model_high, model_low],
+        clip,
+        config.resolved_extra_loras,
+    )
+    model_high, clip = apply_extra_loras(model_high, clip, config.resolved_extra_loras_high)
+    model_low, clip = apply_extra_loras(model_low, clip, config.resolved_extra_loras_low)
+    return model_high, model_low, clip

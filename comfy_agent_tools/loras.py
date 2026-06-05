@@ -74,3 +74,30 @@ def apply_extra_loras(model: Any, clip: Any, loras: list[ExtraLora]) -> tuple[An
             lora.strength_clip,
         )
     return model, clip
+
+
+def apply_extra_loras_to_models(models: list[Any], clip: Any, loras: list[ExtraLora]) -> tuple[list[Any], Any]:
+    """Apply extra LoRAs to multiple models, patching the shared clip once."""
+    from comfy_diffusion.lora import apply_lora
+
+    patched_models = list(models)
+    if not patched_models:
+        return patched_models, clip
+
+    for lora in loras:
+        patched_models[0], clip = apply_lora(
+            patched_models[0],
+            clip,
+            lora.path,
+            lora.strength_model,
+            lora.strength_clip,
+        )
+        for index in range(1, len(patched_models)):
+            patched_models[index], _ = apply_lora(
+                patched_models[index],
+                None,
+                lora.path,
+                lora.strength_model,
+                0.0,
+            )
+    return patched_models, clip

@@ -281,6 +281,9 @@ loras/
   ltx23/
     camera-static.safetensors
     detailer.safetensors
+  wan22/
+    cinematic-motion.safetensors
+    low-noise-detail.safetensors
   ace-step-1.5/
     vocal-polish.safetensors
 ```
@@ -297,6 +300,11 @@ CLIs accept repeatable LoRA flags:
 
 Defaults are `MODEL_STRENGTH=1.0` and `CLIP_STRENGTH=0.0`. Paths may be absolute
 or relative to `models_dir`.
+
+For local WAN 2.2 I2V/FLF2V, `--extra-lora` applies the LoRA to both high-noise
+and low-noise UNets. Use `--extra-lora-high` or `--extra-lora-low` when the LoRA
+should affect only one pass. WAN uses a shared text encoder, so any nonzero
+`CLIP_STRENGTH` patches that shared text encoder once for the given LoRA flag.
 
 Example:
 
@@ -403,7 +411,10 @@ with audio. To use Dasiwa LTX 2.3 Golden Lace v3, set
 `ltx23-dasiwa-golden-lace-v3` as the default for the desired LTX capabilities
 (`videogen.t2v`, `videogen.i2v`, `videogen.flf2v`, or `videogen.ia2av`).
 Local WAN 2.2 I2V/FLF2V uses the `wan22-i2v` profile and writes silent MP4
-files. WAN 2.2 S2V and video+audio modes mux the input audio into the output.
+files. These modes accept ad hoc LoRAs with `--extra-lora` for both UNets,
+`--extra-lora-high` for the high-noise pass, and `--extra-lora-low` for the
+low-noise pass. WAN 2.2 S2V and video+audio modes mux the input audio into the
+output.
 For Dasiwa TastySin or BoundBite, set the matching Dasiwa profile as the default
 or pass its high/low UNet paths explicitly; use `--steps 4 --cfg 1.0`.
 For Dasiwa LittleDemon S2V, set `wan22-dasiwa-littledemon-v2-s2v` as the
@@ -466,6 +477,7 @@ uv run comfy-videogen wan22-i2v \
   --prompt "the subject begins moving naturally, cinematic camera drift, detailed motion" \
   --high-steps 4 \
   --low-steps 2 \
+  --extra-lora-high /mnt/models/comfyui/loras/wan22/cinematic-motion.safetensors:0.7 \
   --out outputs
 ```
 
@@ -476,6 +488,7 @@ uv run comfy-videogen wan22-flf2v \
   --first start.png \
   --last end.png \
   --prompt "a smooth cinematic transition between the two frames, coherent motion" \
+  --extra-lora-low /mnt/models/comfyui/loras/wan22/low-noise-detail.safetensors:0.6 \
   --out outputs
 ```
 
