@@ -43,8 +43,9 @@ for the exact mode: `videogen.t2v`, `videogen.i2v`, `videogen.flf2v`,
 `videogen.motion-track`.
 
 If the user asks to use or organize a LoRA by name or purpose, use
-`comfy-lora-onboarding` to search `loras/ltx23/` first and pass the chosen file
-with `--extra-lora` only to modes that support ad hoc LoRA insertion.
+`comfy-lora-onboarding` to search the architecture folder first, such as
+`loras/ltx23/` for LTX or `loras/wan22/` for WAN I2V/FLF2V. Pass the chosen
+file only to modes that support ad hoc LoRA insertion.
 
 ## Modes
 
@@ -121,6 +122,7 @@ WAN 2.2 image to video:
 uv run comfy-videogen wan22-i2v \
   --input path/to/image.png \
   --prompt "the subject begins moving naturally, cinematic camera drift, detailed motion" \
+  --extra-lora-high /mnt/models/comfyui/loras/wan22/cinematic-motion.safetensors:0.7 \
   --out outputs
 ```
 
@@ -131,6 +133,7 @@ uv run comfy-videogen wan22-flf2v \
   --first path/to/start.png \
   --last path/to/end.png \
   --prompt "a smooth cinematic transition between the two frames, coherent motion" \
+  --extra-lora-low /mnt/models/comfyui/loras/wan22/low-noise-detail.safetensors:0.6 \
   --out outputs
 ```
 
@@ -261,10 +264,16 @@ To use Dasiwa Golden Lace v3 for standard LTX modes, set
 
 Extra LoRAs are optional and ad hoc. Use repeatable
 `--extra-lora PATH[:MODEL_STRENGTH[:CLIP_STRENGTH]]` after resolving the file
-through `loras/ltx23/` or the loose `loras/` fallback. In this cut, extra LoRAs
-are supported for `flf2v`; `t2v`, `i2v`, and `ia2av` return clean JSON errors if
-an extra LoRA is supplied because those modes still use upstream wrappers without
-a safe insertion point.
+through the matching architecture folder or the loose `loras/` fallback. For
+LTX, extra LoRAs are supported for `flf2v`; `t2v`, `i2v`, and `ia2av` return
+clean JSON errors if an extra LoRA is supplied because those modes still use
+upstream wrappers without a safe insertion point.
+
+For WAN 2.2 I2V/FLF2V, `--extra-lora` applies the LoRA to both high-noise and
+low-noise UNets. Use `--extra-lora-high` to target only the high-noise pass, or
+`--extra-lora-low` to target only the low-noise pass. WAN uses a shared text
+encoder, so any nonzero `CLIP_STRENGTH` patches that shared text encoder once
+for the given LoRA flag. WAN S2V uses its separate model-only `--lora` flag.
 
 ### Seedance 2.0 Remote API
 
@@ -290,6 +299,7 @@ a safe insertion point.
 - S2V models: `diffusion_models/wan2.2_s2v_14B_fp8_scaled.safetensors`, `audio_encoders/wav2vec2_large_english_fp16.safetensors`, the same UMT5 text encoder, and the same VAE
 - Dasiwa S2V model: `diffusion_models/DasiwaWan2214BS2V_littledemonV2.safetensors`
 - Params: `width=640`, `height=640`, `length=81`, `fps=16`, `steps=20`, `high_steps=10`, `low_steps=10`, `i2v_cfg=3.5`, `flf2v_cfg=4.0`, `seed=0`
+- I2V/FLF2V LoRAs: use `--extra-lora` for both UNets, `--extra-lora-high` for high-noise only, or `--extra-lora-low` for low-noise only.
 - S2V params: `width=640`, `height=640`, `length=77`, `chunk_length=77`, `fps=16`, `steps=20`, `cfg=6.0`, `sampler=uni_pc`, `scheduler=simple`, `shift=8.0`, `seed=0`
 - Dasiwa TastySin/BoundBite params: high UNet first, low UNet second, `steps=4`, `high_steps=2`, `low_steps=2`, `i2v_cfg=1.0`, `flf2v_cfg=1.0`
 - Dasiwa LittleDemon S2V params: baked fast distillation, `steps=4`, `cfg=1.0`, `sampler=euler`, `scheduler=simple`, `shift=10.0`; do not add extra Lightning/speed-up LoRAs.

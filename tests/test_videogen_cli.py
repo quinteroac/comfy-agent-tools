@@ -13,7 +13,8 @@ import torch
 
 from comfy_agent_tools.cli import videogen
 from comfy_agent_tools.videogen.artifacts import save_mp4, save_mp4_with_audio
-from comfy_agent_tools.videogen import ltx23
+from comfy_agent_tools.loras import ExtraLora
+from comfy_agent_tools.videogen import ltx23, wan22
 from comfy_agent_tools.videogen.seedance2 import _disable_api_node_progress_display
 
 
@@ -244,8 +245,14 @@ def test_parser_wan22_defaults(tmp_path: Path) -> None:
     assert i2v.fps is None
     assert i2v.steps is None
     assert i2v.cfg is None
+    assert i2v.extra_lora == []
+    assert i2v.extra_lora_high == []
+    assert i2v.extra_lora_low == []
     assert i2v.input == tmp_path / "a.png"
     assert flf2v.command == "wan22-flf2v"
+    assert flf2v.extra_lora == []
+    assert flf2v.extra_lora_high == []
+    assert flf2v.extra_lora_low == []
     assert flf2v.first == tmp_path / "a.png"
     assert flf2v.last == tmp_path / "b.png"
     assert s2v.command == "wan22-s2v"
@@ -681,6 +688,67 @@ def test_wan22_i2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: 
     assert Path(payload["artifacts"][0]).is_file()
 
 
+def test_wan22_i2v_accepts_targeted_extra_loras(
+    monkeypatch: MagicMock,
+    tmp_path: Path,
+    capsys: MagicMock,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    input_path = tmp_path / "input.png"
+    both_lora = tmp_path / "loras" / "wan22" / "both.safetensors"
+    high_lora = tmp_path / "loras" / "wan22" / "high.safetensors"
+    low_lora = tmp_path / "loras" / "wan22" / "low.safetensors"
+    both_lora.parent.mkdir(parents=True)
+    for path in (both_lora, high_lora, low_lora):
+        path.write_bytes(b"fake")
+    Image.new("RGB", (8, 8), "green").save(input_path)
+    seen: dict[str, object] = {}
+
+    def fake_run(*, image, prompt, config):
+        seen["extra_loras"] = config.extra_loras
+        seen["extra_loras_high"] = config.extra_loras_high
+        seen["extra_loras_low"] = config.extra_loras_low
+        return {"frames": _frames()}
+
+    monkeypatch.setattr(videogen, "run_wan22_i2v", fake_run)
+    monkeypatch.setattr(videogen, "save_mp4", lambda frames, path, fps: Path(path).touch())
+
+    rc = videogen.main(
+        [
+            "wan22-i2v",
+            "--input",
+            str(input_path),
+            "--prompt",
+            "move",
+            "--models-dir",
+            str(tmp_path),
+            "--extra-lora",
+            "loras/wan22/both.safetensors:0.6:0.1",
+            "--extra-lora-high",
+            "loras/wan22/high.safetensors:0.7",
+            "--extra-lora-low",
+            "loras/wan22/low.safetensors:0.8",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    assert seen["extra_loras"][0].path == Path("loras/wan22/both.safetensors")
+    assert seen["extra_loras_high"][0].path == Path("loras/wan22/high.safetensors")
+    assert seen["extra_loras_low"][0].path == Path("loras/wan22/low.safetensors")
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["extra_loras"] == [
+        {"path": str(both_lora), "strength_model": 0.6, "strength_clip": 0.1}
+    ]
+    assert payload["extra_loras_high"] == [
+        {"path": str(high_lora), "strength_model": 0.7, "strength_clip": 0.0}
+    ]
+    assert payload["extra_loras_low"] == [
+        {"path": str(low_lora), "strength_model": 0.8, "strength_clip": 0.0}
+    ]
+
+
 def test_wan22_i2v_accepts_custom_high_low_steps(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
     monkeypatch.chdir(tmp_path)
     input_path = tmp_path / "input.png"
@@ -783,6 +851,61 @@ def test_wan22_flf2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys
     assert payload["audio_muxed"] is False
     assert payload["capability"] == "videogen.wan22-flf2v"
     assert payload["artifacts"]
+
+
+def test_wan22_flf2v_accepts_low_only_extra_lora(
+    monkeypatch: MagicMock,
+    tmp_path: Path,
+    capsys: MagicMock,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    first = tmp_path / "first.png"
+    last = tmp_path / "last.png"
+    lora_path = tmp_path / "loras" / "wan22" / "low-detail.safetensors"
+    lora_path.parent.mkdir(parents=True)
+    lora_path.write_bytes(b"fake")
+    Image.new("RGB", (8, 8), "green").save(first)
+    Image.new("RGB", (8, 8), "blue").save(last)
+    seen: dict[str, object] = {}
+
+    def fake_run(*, first_image, last_image, prompt, config):
+        seen["extra_loras"] = config.extra_loras
+        seen["extra_loras_high"] = config.extra_loras_high
+        seen["extra_loras_low"] = config.extra_loras_low
+        return {"frames": _frames()}
+
+    monkeypatch.setattr(videogen, "run_wan22_flf2v", fake_run)
+    monkeypatch.setattr(videogen, "save_mp4", lambda frames, path, fps: Path(path).touch())
+
+    rc = videogen.main(
+        [
+            "wan22-flf2v",
+            "--first",
+            str(first),
+            "--last",
+            str(last),
+            "--prompt",
+            "transition",
+            "--models-dir",
+            str(tmp_path),
+            "--extra-lora-low",
+            "loras/wan22/low-detail.safetensors:0.65",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    assert seen["extra_loras"] == []
+    assert seen["extra_loras_high"] == []
+    assert seen["extra_loras_low"][0].path == Path("loras/wan22/low-detail.safetensors")
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "wan22-flf2v"
+    assert payload["extra_loras"] == []
+    assert payload["extra_loras_high"] == []
+    assert payload["extra_loras_low"] == [
+        {"path": str(lora_path), "strength_model": 0.65, "strength_clip": 0.0}
+    ]
 
 
 def test_wan22_s2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
@@ -1361,6 +1484,42 @@ def test_wan22_i2v_wrapper_samples_high_noise_then_low_noise() -> None:
     assert "end_at_step=config.split_step" in source
     assert "start_at_step=config.split_step" in source
     assert "end_at_step=config.steps" in source
+
+
+def test_wan22_extra_loras_apply_to_selected_unets(monkeypatch: MagicMock, tmp_path: Path) -> None:
+    for name in ("both.safetensors", "high.safetensors", "low.safetensors"):
+        (tmp_path / name).write_bytes(b"fake")
+    calls: dict[str, object] = {}
+
+    def fake_both(models, clip, loras):
+        calls["both"] = (models, clip, loras)
+        return [f"{models[0]}+both", f"{models[1]}+both"], "clip+both"
+
+    def fake_single(model, clip, loras):
+        calls.setdefault("single", []).append((model, clip, loras))
+        return f"{model}+single", f"{clip}+single"
+
+    monkeypatch.setattr(wan22, "apply_extra_loras_to_models", fake_both)
+    monkeypatch.setattr(wan22, "apply_extra_loras", fake_single)
+
+    config = wan22.Wan22Config(
+        models_dir=tmp_path,
+        extra_loras=[ExtraLora(Path("both.safetensors"))],
+        extra_loras_high=[ExtraLora(Path("high.safetensors"))],
+        extra_loras_low=[ExtraLora(Path("low.safetensors"))],
+    )
+
+    model_high, model_low, clip = wan22._apply_extra_loras("high", "low", "clip", config)
+
+    assert calls["both"][0] == ["high", "low"]
+    assert [lora.path.name for lora in calls["both"][2]] == ["both.safetensors"]
+    assert calls["single"][0][0] == "high+both"
+    assert [lora.path.name for lora in calls["single"][0][2]] == ["high.safetensors"]
+    assert calls["single"][1][0] == "low+both"
+    assert [lora.path.name for lora in calls["single"][1][2]] == ["low.safetensors"]
+    assert model_high == "high+both+single"
+    assert model_low == "low+both+single"
+    assert clip == "clip+both+single+single"
 
 
 def test_wan22_s2v_wrapper_uses_audio_conditioning_and_extend() -> None:

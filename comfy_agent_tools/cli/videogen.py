@@ -209,6 +209,27 @@ def build_parser() -> argparse.ArgumentParser:
         subparser.add_argument("--cfg", type=float, default=None)
         subparser.add_argument("--seed", type=int, default=DEFAULT_SEED)
         subparser.add_argument("--negative-prompt", default=DEFAULT_WAN22_NEGATIVE_PROMPT)
+        subparser.add_argument(
+            "--extra-lora",
+            action="append",
+            type=parse_extra_lora,
+            default=[],
+            help="Apply an extra WAN LoRA to both high/low UNets as PATH[:MODEL_STRENGTH[:CLIP_STRENGTH]]. Repeatable.",
+        )
+        subparser.add_argument(
+            "--extra-lora-high",
+            action="append",
+            type=parse_extra_lora,
+            default=[],
+            help="Apply an extra WAN LoRA only to the high-noise UNet. Repeatable.",
+        )
+        subparser.add_argument(
+            "--extra-lora-low",
+            action="append",
+            type=parse_extra_lora,
+            default=[],
+            help="Apply an extra WAN LoRA only to the low-noise UNet. Repeatable.",
+        )
         subparser.set_defaults(default_cfg=default_cfg)
         subparser.add_argument(
             "--verbose",
@@ -417,6 +438,9 @@ def _wan22_config(args: argparse.Namespace, profile: ResolvedProfile) -> Wan22Co
         cfg=args.cfg if args.cfg is not None else float(profile.defaults.get(profile_cfg_key, command_default_cfg)),
         seed=args.seed,
         negative_prompt=args.negative_prompt,
+        extra_loras=list(getattr(args, "extra_lora", []) or []),
+        extra_loras_high=list(getattr(args, "extra_lora_high", []) or []),
+        extra_loras_low=list(getattr(args, "extra_lora_low", []) or []),
     )
 
 
@@ -709,6 +733,9 @@ def _wan22_success(
         "model_profile": profile.name,
         "architecture": profile.architecture,
         "resolved_models": _resolved_wan22_models(config),
+        "extra_loras": extra_loras_json(config.models_dir, config.extra_loras or []),
+        "extra_loras_high": extra_loras_json(config.models_dir, config.extra_loras_high or []),
+        "extra_loras_low": extra_loras_json(config.models_dir, config.extra_loras_low or []),
     }
     if input_path is not None:
         payload["input"] = str(input_path)
@@ -973,6 +1000,7 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
         if not args.input.is_file():
             raise FileNotFoundError(f"input image not found: {args.input}")
         config = _wan22_config(args, profile)
+        config.validate_extra_loras()
         with _maybe_silence(not args.verbose):
             result = run_wan22_i2v(image=args.input, prompt=args.prompt, config=config)
             artifact = _write_result_video_no_audio(result, args.out, prefix="comfy-videogen-wan22-i2v", fps=config.fps)
@@ -991,6 +1019,7 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
         if not args.last.is_file():
             raise FileNotFoundError(f"last image not found: {args.last}")
         config = _wan22_config(args, profile)
+        config.validate_extra_loras()
         with _maybe_silence(not args.verbose):
             result = run_wan22_flf2v(first_image=args.first, last_image=args.last, prompt=args.prompt, config=config)
             artifact = _write_result_video_no_audio(result, args.out, prefix="comfy-videogen-wan22-flf2v", fps=config.fps)
