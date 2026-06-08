@@ -8,10 +8,10 @@ image, video, and music generation. Users install the skills; the skills teach
 the agent how to install or update the Python tools with `uv`, validate the local
 runtime, initialize model profiles, and run generation commands.
 
-Local model files are not distributed with this repo. Local Anima, Qwen, LTX,
-ACE-Step, and upscaler profiles use model files under the user's configured
-`models_dir`; remote API profiles such as Seedance 2.0 and Grok Imagine use
-provider credentials instead of local weights.
+Local model files are not distributed with this repo. Local Anima, Qwen,
+Ideogram 4, LTX, ACE-Step, and upscaler profiles use model files under the
+user's configured `models_dir`; remote API profiles such as Seedance 2.0 and
+Grok Imagine use provider credentials instead of local weights.
 
 Contributions use fork-based pull requests. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -44,7 +44,7 @@ Python CLIs on demand, initialize local config if needed, and validate models.
 
 ## What You Get
 
-- `comfy-imagegen`: image generation, image editing, upscaling, and remote Grok Imagine.
+- `comfy-imagegen`: image generation, Ideogram 4 structured prompting, image editing, upscaling, and remote Grok Imagine.
 - `comfy-videogen`: local LTX 2.3/WAN 2.2 video plus remote Seedance 2.0 API video.
 - `comfy-motion-track-control`: LTX 2.3 HDR IC-LoRA guidance.
 - `comfy-musicgen`: ACE-Step 1.5 music generation to WAV.
@@ -101,7 +101,7 @@ uv run comfy-models validate
 ```
 
 The Python runtime dependency is `comfy-diffusion[comfyui,video,audio]` pinned
-to `v2.2.0` or newer for LTX 2.3 HDR IC-LoRA helpers. The
+to `v2.3.0` or newer for LTX 2.3 HDR IC-LoRA helpers. The
 media extras are required because ComfyUI imports media nodes during runtime
 startup, video generation writes MP4 files with audio, and music generation uses
 audio helpers.
@@ -157,6 +157,11 @@ diffusion_models/acestep_v1.5_base.safetensors
 text_encoders/qwen_0.6b_ace15.safetensors
 text_encoders/qwen_1.7b_ace15.safetensors
 vae/ace_1.5_vae.safetensors
+
+diffusion_models/ideogram4_fp8_scaled.safetensors
+diffusion_models/ideogram4_unconditional_fp8_scaled.safetensors
+text_encoders/qwen3vl_8b_fp8_scaled.safetensors
+vae/flux2-vae.safetensors
 ```
 
 ## Model Profiles
@@ -171,6 +176,7 @@ absent, the CLIs use built-in defaults:
 | `imagegen.upscale` | `clear-reality` | `upscale-model` |
 | `imagegen.grok-generate` | `grok-imagine-api` | `grok-imagine-api` |
 | `imagegen.grok-edit` | `grok-imagine-api` | `grok-imagine-api` |
+| `imagegen.ideogram4-generate` | `ideogram4-fp8` | `ideogram4` |
 | `videogen.t2v` | `ltx23-10eros` | `ltx23` |
 | `videogen.i2v` | `ltx23-10eros` | `ltx23` |
 | `videogen.flf2v` | `ltx23-10eros` | `ltx23` |
@@ -224,6 +230,14 @@ models, or weight redistribution without a separate license. Flux Klein edits
 follow the official distilled image-edit workflow from `comfy-diffusion`, with
 reference latents attached to both positive and negative conditioning.
 
+The built-in `ideogram4-fp8` profile is local text-to-image generation with
+architecture `ideogram4`. It uses the Comfy-Org Ideogram 4 FP8 files and does
+not use `COMFY_ORG_API_KEY`. Ideogram 4 accepts plain text, but works best with
+structured JSON prompts that include `compositional_deconstruction`, typed
+`obj`/`text` elements, uppercase `#RRGGBB` palettes, and optional `bbox`
+coordinates in `[y_min, x_min, y_max, x_max]` order normalized from `0` to
+`1000`.
+
 Add a compatible LTX 2.3 fine-tune profile:
 
 ```bash
@@ -255,6 +269,7 @@ uv run comfy-models download imagegen.generate --yes
 uv run comfy-models download-profile anima-base --yes
 uv run comfy-models download-profile ltx23-dasiwa-golden-lace-v3 --dry-run
 uv run comfy-models download-profile flux-klein-9b-snofs --dry-run
+uv run comfy-models download imagegen.ideogram4-generate --dry-run
 ```
 
 `download` skips files that already exist, writes temporary `*.part` files while
@@ -343,6 +358,40 @@ Prompt guidance:
 - Positive prefix: `masterpiece, best quality, score_7, safe, ...`
 - Negative guidance when adapting prompts: `worst quality, low quality, score_1, score_2, score_3, artist name`
 - Use lowercase tags with spaces, natural language, or a mix.
+
+### Ideogram 4 Images
+
+Ideogram 4 runs locally through `comfy-diffusion` and writes PNG files. Download
+only its profile when needed:
+
+```bash
+uv run comfy-models download imagegen.ideogram4-generate --dry-run
+uv run comfy-models download imagegen.ideogram4-generate --yes
+```
+
+Ideogram 4 uses structured JSON internally. The CLI builds that JSON from
+required layout/style flags; do not pass raw JSON on the command line.
+
+```bash
+uv run comfy-imagegen ideogram4-generate \
+  --prompt "A modern concert poster for a jazz trio." \
+  --style-aesthetics "minimal, elegant, high contrast" \
+  --style-lighting "flat graphic design lighting" \
+  --style-medium "graphic_design" \
+  --style-art-style "clean vector poster, sans-serif typography" \
+  --style-color "#101010" \
+  --style-color "#F4D35E" \
+  --background "Solid black background with subtle paper texture." \
+  --object "420,120,900,880|A golden saxophone centered in the lower half." \
+  --text "80,120,220,880|JAZZ NIGHT|Large condensed yellow headline." \
+  --out outputs
+```
+
+Bboxes are `y_min,x_min,y_max,x_max` on a `0..1000` normalized canvas, not pixel
+coordinates. `--prompt`, `--style-aesthetics`, `--style-lighting`,
+`--style-medium`, and `--background` are required. Pass exactly one of
+`--style-photo` or `--style-art-style`, plus at least one `--object` or `--text`
+element.
 
 ## Image Editing And Upscale
 

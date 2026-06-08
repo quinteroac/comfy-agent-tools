@@ -66,6 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_profile.add_argument("--models-dir")
     add_profile.add_argument("--checkpoint")
     add_profile.add_argument("--unet")
+    add_profile.add_argument("--uncond-unet")
     add_profile.add_argument("--clip")
     add_profile.add_argument("--clip-0-6b")
     add_profile.add_argument("--clip-1-7b")
@@ -256,6 +257,7 @@ def _models_from_args(args: argparse.Namespace) -> dict[str, str]:
     mapping = {
         "checkpoint": args.checkpoint,
         "unet": args.unet,
+        "uncond_unet": args.uncond_unet,
         "clip": args.clip,
         "clip_0_6b": args.clip_0_6b,
         "clip_1_7b": args.clip_1_7b,

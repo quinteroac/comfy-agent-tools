@@ -40,6 +40,7 @@ Only configure these architectures in v1:
 - `qwen-image-edit`: base profile `qwen-edit2511`, capabilities `imagegen.generate`, `imagegen.edit`.
 - `anima`: base profile `anima-base`, capability `imagegen.generate`.
 - `flux-klein`: base profile `flux-klein-9b-snofs`, capabilities `imagegen.generate`, `imagegen.edit`.
+- `ideogram4`: base profile `ideogram4-fp8`, capability `imagegen.ideogram4-generate`.
 - `upscale-model`: base profile `clear-reality`, capability `imagegen.upscale`.
 - `ltx23`: base profile `ltx23-10eros`, optional Dasiwa profile `ltx23-dasiwa-golden-lace-v3`, capabilities `videogen.t2v`, `videogen.i2v`, `videogen.flf2v`, `videogen.ia2av`.
 - `wan22`: base profiles `wan22-i2v` and `wan22-s2v`, optional Dasiwa profiles `wan22-dasiwa-tastysin-i2v`, `wan22-dasiwa-boundbite-i2v`, `wan22-dasiwa-littledemon-v2-s2v`, and `wan22-dasiwa-littledemon-v2-video-audio`, capabilities `videogen.wan22-i2v`, `videogen.wan22-flf2v`, `videogen.wan22-s2v`, `videogen.wan22-video-audio`.
@@ -60,6 +61,11 @@ Grok Imagine is also remote-only. Do not create local checkpoint profiles for
 `grok-imagine-api`, do not route it through `models_dir`, and do not use
 `comfy-model-downloader`. It requires `COMFY_ORG_API_KEY` and a
 `comfy-diffusion` version that vendors the Grok API nodes.
+
+Ideogram 4 is local, not a remote API profile. It uses `models_dir`, supports
+download through `comfy-model-downloader`, and does not use `COMFY_ORG_API_KEY`.
+Use `--unet`, `--uncond-unet`, `--clip`, and `--vae` when adding compatible
+custom Ideogram 4 profiles.
 
 ## Onboarding Flow
 
@@ -136,6 +142,18 @@ redistribute the weights, and do not use this profile for a public/commercial
 generation service without separate licensing. Flux Klein edits follow the
 official distilled image-edit workflow from `comfy-diffusion`.
 
+Ideogram 4 FP8:
+
+```bash
+uv run comfy-models download imagegen.ideogram4-generate --dry-run
+uv run comfy-models download imagegen.ideogram4-generate --yes
+uv run comfy-models validate-profile ideogram4-fp8
+```
+
+Ideogram prompts can be plain text, but structured JSON with bbox layout is
+preferred for typography and graphic design. Bboxes use
+`y_min,x_min,y_max,x_max` normalized `0..1000` coordinates.
+
 ACE-Step 1.5 variant:
 
 ```bash
@@ -150,6 +168,7 @@ uv run comfy-models set-default musicgen.generate my-ace15
 ## Smoke Tests
 
 - Image generate: `uv run comfy-imagegen generate --prompt "simple cinematic portrait" --width 512 --height 512`
+- Ideogram 4: `uv run comfy-imagegen ideogram4-generate --prompt "minimal poster reading HELLO" --width 512 --height 512`
 - Image edit: use a small existing PNG and a simple prompt.
 - Upscale: use a small existing PNG.
 - Video: use `--length 49 --fps 24`.

@@ -168,6 +168,32 @@ DOWNLOAD_REGISTRY: dict[str, dict[str, DownloadSource]] = {
             size_bytes=1_090_000_000,
         ),
     },
+    "ideogram4-fp8": {
+        "unet": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Ideogram-4",
+            filename="diffusion_models/ideogram4_fp8_scaled.safetensors",
+            token_env="HF_TOKEN",
+        ),
+        "uncond_unet": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Ideogram-4",
+            filename="diffusion_models/ideogram4_unconditional_fp8_scaled.safetensors",
+            token_env="HF_TOKEN",
+        ),
+        "clip": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Ideogram-4",
+            filename="text_encoders/qwen3vl_8b_fp8_scaled.safetensors",
+            token_env="HF_TOKEN",
+        ),
+        "vae": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Ideogram-4",
+            filename="vae/flux2-vae.safetensors",
+            token_env="HF_TOKEN",
+        ),
+    },
     "clear-reality": {
         "upscaler": DownloadSource(
             kind="hf",

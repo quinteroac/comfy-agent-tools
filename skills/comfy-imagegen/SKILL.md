@@ -1,6 +1,6 @@
 ---
 name: comfy-imagegen
-description: Generate, edit, or upscale raster images with comfy-diffusion, including local Anima Base v1.0 with turbo LoRA, Qwen Image Edit 2511, FLUX.2 Klein 9B SNOFS, ClearReality, and remote Grok Imagine API nodes. Use when the user wants image generation or image editing from the current machine with outputs saved into the workspace. Do not use for hosted OpenAI image generation, vector/SVG work, video, music, voice, model downloads, custom node installation, or ComfyUI server workflows.
+description: Generate, edit, or upscale raster images with comfy-diffusion, including local Anima Base v1.0 with turbo LoRA, Qwen Image Edit 2511, FLUX.2 Klein 9B SNOFS, local Ideogram 4 structured prompt/bbox generation, ClearReality, and remote Grok Imagine API nodes. Use when the user wants image generation or image editing from the current machine with outputs saved into the workspace. Do not use for hosted OpenAI image generation, vector/SVG work, video, music, voice, model downloads, custom node installation, or ComfyUI server workflows.
 ---
 
 # comfy-imagegen
@@ -32,7 +32,8 @@ checkpoint/fine-tune/default, use `comfy-model-onboarding` first.
 
 If model validation fails with `missing_model_file`, use `comfy-model-downloader`:
 `imagegen.generate` for the active generation profile, `imagegen.edit` for the
-active edit profile, or `imagegen.upscale` for ClearReality upscale.
+active edit profile, `imagegen.ideogram4-generate` for Ideogram 4, or
+`imagegen.upscale` for ClearReality upscale.
 
 If the user asks to use or organize a LoRA by name or purpose, use
 `comfy-lora-onboarding` to search `loras/<architecture>/` first and pass the
@@ -47,6 +48,8 @@ chosen file with `--extra-lora`.
   When the active profile is `flux-klein-9b-snofs`, use FLUX.2 Klein 9B plus
   SNOFS for single-reference editing.
 - `upscale`: input image to 4x upscale with ClearReality.
+- `ideogram4-generate`: local Ideogram 4 text-to-image. Use this for poster,
+  typography, graphic design, color palette, and bbox/layout-controlled images.
 - `grok-generate`: remote Grok Imagine text prompt to PNG through Comfy API
   nodes. Requires `COMFY_ORG_API_KEY`, not local model files.
 - `grok-edit`: remote Grok Imagine input image plus prompt to PNG through Comfy
@@ -84,6 +87,39 @@ Upscale:
 ```bash
 uv run comfy-imagegen upscale \
   --input path/to/input.png \
+  --out outputs
+```
+
+Ideogram 4:
+
+```bash
+uv run comfy-imagegen ideogram4-generate \
+  --prompt "A poster for a jazz night" \
+  --style-aesthetics "minimal, geometric, high contrast" \
+  --style-lighting "flat graphic design lighting" \
+  --style-medium "graphic_design" \
+  --style-art-style "clean vector poster, sans-serif typography" \
+  --background "Matte black paper background with subtle grain." \
+  --text "90,120,260,880|JAZZ NIGHT|Large cream uppercase headline." \
+  --width 1024 \
+  --height 1024 \
+  --out outputs
+```
+
+Ideogram 4 bbox builder:
+
+```bash
+uv run comfy-imagegen ideogram4-generate \
+  --prompt "A modern concert poster for a jazz trio." \
+  --style-aesthetics "minimal, elegant, high contrast" \
+  --style-lighting "flat graphic design lighting" \
+  --style-medium "graphic_design" \
+  --style-art-style "clean vector poster, sans-serif typography" \
+  --style-color "#101010" \
+  --style-color "#F4D35E" \
+  --background "Solid black background with subtle paper texture." \
+  --object "420,120,900,880|A golden saxophone centered in the lower half." \
+  --text "80,120,220,880|JAZZ NIGHT|Large condensed yellow headline." \
   --out outputs
 ```
 
@@ -129,6 +165,16 @@ dimensions match the saved PNG.
 
 For upscale, do not add prompt text; use the input image only.
 
+Ideogram 4 is trained for structured JSON captions, and the CLI builds that JSON
+from flags. Do not pass raw JSON. Required fields are `--prompt`,
+`--style-aesthetics`, `--style-lighting`, `--style-medium`, `--background`,
+exactly one of `--style-photo` or `--style-art-style`, and at least one
+`--object` or `--text`. Bboxes are `y_min,x_min,y_max,x_max` in normalized
+`0..1000` coordinates, not pixels. Use `--object "BBOX|DESCRIPTION"` for visual
+subjects and `--text "BBOX|TEXT|DESCRIPTION"` for literal rendered text. Use
+uppercase `#RRGGBB` color values; the CLI normalizes `--style-color` values to
+uppercase.
+
 Grok Imagine uses remote Comfy API nodes and is separate from local model
 profiles. Do not route `grok-imagine-api` through `models_dir`,
 `comfy-model-downloader`, local LoRAs, or checkpoint onboarding. Supported image
@@ -166,12 +212,18 @@ conditioning, `Flux2Scheduler`, `CFGGuider`, and `SamplerCustomAdvanced`.
 - FLUX VAE: `vae/flux2-vae.safetensors`
 - SNOFS LoRA: `loras/flux-klein/klein_snofs_v1_1.safetensors`
 - FLUX params: `steps=4`, `cfg=1.0`, `sampler=euler`, `seed=0`
+- Ideogram profile: `ideogram4-fp8`
+- Ideogram diffusion model: `diffusion_models/ideogram4_fp8_scaled.safetensors`
+- Ideogram unconditional model: `diffusion_models/ideogram4_unconditional_fp8_scaled.safetensors`
+- Ideogram text encoder: `text_encoders/qwen3vl_8b_fp8_scaled.safetensors`
+- Ideogram VAE: `vae/flux2-vae.safetensors`
+- Ideogram params: `steps=20`, `cfg=7.0`, `cfg_override_value=3.0`, `sampler=euler`, `seed=0`
 - Upscaler: `upscale_models/4x-ClearRealityV1.pth`
 - Grok profile: `grok-imagine-api`
 - Grok provider: `comfy-api`
 - Grok model: `grok-imagine-image`
 - Grok params: `resolution=1K`, `aspect_ratio=1:1`, `number_of_images=1`, `seed=0`
-- Dependency: `comfy-diffusion[comfyui,video]`
+- Dependency: `comfy-diffusion[comfyui,video,audio]` v2.3.0 or newer
 
 The Anima turbo LoRA expects `cfg=1.0`; increasing CFG can degrade or break the
 expected turbo behavior.

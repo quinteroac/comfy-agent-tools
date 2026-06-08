@@ -43,6 +43,14 @@ def test_builtin_profiles_separate_architecture_and_profile() -> None:
     assert flux["defaults"]["steps"] == 4
     assert flux["models"]["lora"] == "loras/flux-klein/klein_snofs_v1_1.safetensors"
 
+    ideogram4 = BUILTIN_PROFILES["ideogram4-fp8"]
+    assert ideogram4["architecture"] == "ideogram4"
+    assert ideogram4["supports"] == ["imagegen.ideogram4-generate"]
+    assert ideogram4["defaults"]["steps"] == 20
+    assert ideogram4["defaults"]["cfg"] == 7.0
+    assert ideogram4["models"]["unet"] == "diffusion_models/ideogram4_fp8_scaled.safetensors"
+    assert ideogram4["models"]["uncond_unet"] == "diffusion_models/ideogram4_unconditional_fp8_scaled.safetensors"
+
     wan22 = BUILTIN_PROFILES["wan22-i2v"]
     assert wan22["architecture"] == "wan22"
     assert wan22["supports"] == ["videogen.wan22-i2v", "videogen.wan22-flf2v"]
@@ -121,6 +129,7 @@ def test_builtin_defaults_point_to_supported_profiles() -> None:
     assert BUILTIN_DEFAULTS["videogen.wan22-video-audio"] == "wan22-dasiwa-littledemon-v2-video-audio"
     assert BUILTIN_DEFAULTS["imagegen.grok-generate"] == "grok-imagine-api"
     assert BUILTIN_DEFAULTS["imagegen.grok-edit"] == "grok-imagine-api"
+    assert BUILTIN_DEFAULTS["imagegen.ideogram4-generate"] == "ideogram4-fp8"
     for capability, profile_name in BUILTIN_DEFAULTS.items():
         profile = resolve_profile(profile_name, config)
         assert capability in profile["supports"]

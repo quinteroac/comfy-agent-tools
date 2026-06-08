@@ -47,6 +47,22 @@ from comfy_agent_tools.imagegen.grok import (
     run_edit as run_grok_edit,
     run_generate as run_grok_generate,
 )
+from comfy_agent_tools.imagegen.ideogram4 import (
+    DEFAULT_IDEOGRAM4_CFG,
+    DEFAULT_IDEOGRAM4_CFG_OVERRIDE_END,
+    DEFAULT_IDEOGRAM4_CFG_OVERRIDE_START,
+    DEFAULT_IDEOGRAM4_CFG_OVERRIDE_VALUE,
+    DEFAULT_IDEOGRAM4_HEIGHT,
+    DEFAULT_IDEOGRAM4_MU,
+    DEFAULT_IDEOGRAM4_SAMPLER,
+    DEFAULT_IDEOGRAM4_SEED,
+    DEFAULT_IDEOGRAM4_STD,
+    DEFAULT_IDEOGRAM4_STEPS,
+    DEFAULT_IDEOGRAM4_WIDTH,
+    Ideogram4Config,
+    load_prompt_from_args,
+    run_ideogram4_t2i,
+)
 from comfy_agent_tools.imagegen.qwen import run_qwen_edit
 from comfy_agent_tools.imagegen.upscale import run_upscale
 from comfy_agent_tools.media import write_run_manifest
@@ -142,6 +158,35 @@ def build_parser() -> argparse.ArgumentParser:
     grok_edit.add_argument("--input", type=_path, required=True)
     grok_edit.add_argument("--prompt", required=True)
 
+    ideogram4 = subparsers.add_parser("ideogram4-generate", help="Generate local Ideogram 4 images.")
+    add_common(ideogram4)
+    ideogram4.add_argument("--prompt", required=True, help="High-level Ideogram 4 description.")
+    ideogram4.add_argument("--width", type=int, default=None)
+    ideogram4.add_argument("--height", type=int, default=None)
+    ideogram4.add_argument("--steps", type=int, default=None)
+    ideogram4.add_argument("--cfg", type=float, default=None)
+    ideogram4.add_argument("--cfg-override-value", type=float, default=None)
+    ideogram4.add_argument("--disable-cfg-override", action="store_true")
+    ideogram4.add_argument("--cfg-override-start", type=float, default=None)
+    ideogram4.add_argument("--cfg-override-end", type=float, default=None)
+    ideogram4.add_argument("--seed", type=int, default=None)
+    ideogram4.add_argument("--mu", type=float, default=None)
+    ideogram4.add_argument("--std", type=float, default=None)
+    ideogram4.add_argument("--sampler", default=None)
+    ideogram4.add_argument("--unet", type=_path, default=None)
+    ideogram4.add_argument("--uncond-unet", type=_path, default=None)
+    ideogram4.add_argument("--clip", type=_path, default=None)
+    ideogram4.add_argument("--vae", type=_path, default=None)
+    ideogram4.add_argument("--style-aesthetics", required=True)
+    ideogram4.add_argument("--style-lighting", required=True)
+    ideogram4.add_argument("--style-medium", required=True)
+    ideogram4.add_argument("--style-photo")
+    ideogram4.add_argument("--style-art-style")
+    ideogram4.add_argument("--style-color", action="append", default=[])
+    ideogram4.add_argument("--background", required=True)
+    ideogram4.add_argument("--object", action="append", default=[])
+    ideogram4.add_argument("--text", action="append", default=[])
+
     return parser
 
 
@@ -182,6 +227,43 @@ def _grok_config(args: argparse.Namespace, profile: ResolvedProfile) -> GrokImag
             else int(profile.defaults.get("number_of_images", DEFAULT_GROK_NUMBER_OF_IMAGES))
         ),
         seed=args.seed if args.seed is not None else int(profile.defaults.get("seed", DEFAULT_GROK_SEED)),
+    )
+
+
+def _ideogram4_config(args: argparse.Namespace, profile: ResolvedProfile) -> Ideogram4Config:
+    cfg_override_value: float | None
+    if args.disable_cfg_override:
+        cfg_override_value = None
+    elif args.cfg_override_value is not None:
+        cfg_override_value = args.cfg_override_value
+    else:
+        default_override = profile.defaults.get("cfg_override_value", DEFAULT_IDEOGRAM4_CFG_OVERRIDE_VALUE)
+        cfg_override_value = None if default_override is None else float(default_override)
+    return Ideogram4Config(
+        models_dir=args.models_dir if args.models_dir is not None else profile.models_dir,
+        unet=args.unet if args.unet is not None else profile.models.get("unet"),
+        uncond_unet=args.uncond_unet if args.uncond_unet is not None else profile.models.get("uncond_unet"),
+        clip=args.clip if args.clip is not None else profile.models.get("clip"),
+        vae=args.vae if args.vae is not None else profile.models.get("vae"),
+        width=args.width if args.width is not None else int(profile.defaults.get("width", DEFAULT_IDEOGRAM4_WIDTH)),
+        height=args.height if args.height is not None else int(profile.defaults.get("height", DEFAULT_IDEOGRAM4_HEIGHT)),
+        steps=args.steps if args.steps is not None else int(profile.defaults.get("steps", DEFAULT_IDEOGRAM4_STEPS)),
+        cfg=args.cfg if args.cfg is not None else float(profile.defaults.get("cfg", DEFAULT_IDEOGRAM4_CFG)),
+        cfg_override_value=cfg_override_value,
+        cfg_override_start=(
+            args.cfg_override_start
+            if args.cfg_override_start is not None
+            else float(profile.defaults.get("cfg_override_start", DEFAULT_IDEOGRAM4_CFG_OVERRIDE_START))
+        ),
+        cfg_override_end=(
+            args.cfg_override_end
+            if args.cfg_override_end is not None
+            else float(profile.defaults.get("cfg_override_end", DEFAULT_IDEOGRAM4_CFG_OVERRIDE_END))
+        ),
+        seed=args.seed if args.seed is not None else int(profile.defaults.get("seed", DEFAULT_IDEOGRAM4_SEED)),
+        mu=args.mu if args.mu is not None else float(profile.defaults.get("mu", DEFAULT_IDEOGRAM4_MU)),
+        std=args.std if args.std is not None else float(profile.defaults.get("std", DEFAULT_IDEOGRAM4_STD)),
+        sampler=args.sampler if args.sampler is not None else str(profile.defaults.get("sampler", DEFAULT_IDEOGRAM4_SAMPLER)),
     )
 
 
@@ -256,6 +338,39 @@ def _grok_success(
     return payload
 
 
+def _ideogram4_success(
+    *,
+    artifacts: list[Path],
+    images: list[object],
+    config: Ideogram4Config,
+    profile: ResolvedProfile,
+) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "kind": "image",
+        "mode": "ideogram4-generate",
+        "artifacts": [str(path) for path in artifacts],
+        "seed": config.seed,
+        "model": config.unet.name,
+        "steps": config.steps,
+        "cfg": config.cfg,
+        "cfg_override_value": config.cfg_override_value,
+        "cfg_override_start": config.cfg_override_start,
+        "cfg_override_end": config.cfg_override_end,
+        "mu": config.mu,
+        "std": config.std,
+        "sampler": config.sampler,
+        "requested_width": config.width,
+        "requested_height": config.height,
+        "outputs": [_image_metadata(image) for image in images],
+        "capability": profile.capability,
+        "model_profile": profile.name,
+        "architecture": profile.architecture,
+        "models_dir": str(config.models_dir),
+        "resolved_models": _resolved_ideogram4_models(config),
+    }
+
+
 def _error(*, mode: str, error: Exception) -> dict[str, Any]:
     return {
         "ok": False,
@@ -291,6 +406,15 @@ def _resolved_image_models(config: ImagegenConfig, *, upscaled: bool) -> dict[st
     if upscaled:
         models["upscaler"] = config.resolve_model_path(config.upscaler)
     return {key: str(value) for key, value in models.items()}
+
+
+def _resolved_ideogram4_models(config: Ideogram4Config) -> dict[str, str]:
+    return {
+        "unet": str(config.resolve_model_path(config.unet)),
+        "uncond_unet": str(config.resolve_model_path(config.uncond_unet)),
+        "clip": str(config.resolve_model_path(config.clip)),
+        "vae": str(config.resolve_model_path(config.vae)),
+    }
 
 
 def _classify_error(error: Exception) -> str:
@@ -356,6 +480,19 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
             config=config,
             profile=profile,
             input_path=args.input,
+        )
+
+    if args.command == "ideogram4-generate":
+        config = _ideogram4_config(args, profile)
+        prompt = load_prompt_from_args(args)
+        with _maybe_silence(not args.verbose):
+            images = run_ideogram4_t2i(prompt=prompt, config=config)
+        artifacts = save_images(images, args.out, prefix="comfy-imagegen-ideogram4-generate")
+        return _ideogram4_success(
+            artifacts=artifacts,
+            images=images,
+            config=config,
+            profile=profile,
         )
 
     config = _config(args, profile)
