@@ -12,6 +12,7 @@ from comfy_agent_tools.cli import imagegen
 from comfy_agent_tools.imagegen.artifacts import create_seed_image
 from comfy_agent_tools.imagegen.config import ImagegenConfig
 from comfy_agent_tools.imagegen.flux_klein import _encode_flux2_prompt, run_flux_klein_edit
+from comfy_agent_tools.imagegen.ideogram4 import build_prompt
 
 
 def test_parser_generate_defaults() -> None:
@@ -77,6 +78,123 @@ def test_parser_grok_defaults(tmp_path: Path) -> None:
     assert generate.seed is None
     assert edit.command == "grok-edit"
     assert edit.aspect_ratio is None
+
+
+def test_parser_ideogram4_generate_accepts_core_and_builder_flags(tmp_path: Path) -> None:
+    args = imagegen.build_parser().parse_args(
+        [
+            "ideogram4-generate",
+            "--prompt",
+            "A poster for a jazz night.",
+            "--style-aesthetics",
+            "minimal",
+            "--style-lighting",
+            "flat",
+            "--style-medium",
+            "graphic_design",
+            "--style-art-style",
+            "vector",
+            "--background",
+            "Black paper.",
+            "--width",
+            "1536",
+            "--height",
+            "1024",
+            "--steps",
+            "48",
+            "--cfg",
+            "7.0",
+            "--cfg-override-value",
+            "3.0",
+            "--cfg-override-start",
+            "0.7",
+            "--cfg-override-end",
+            "1.0",
+            "--seed",
+            "123",
+            "--mu",
+            "0.0",
+            "--std",
+            "1.5",
+            "--sampler",
+            "euler",
+            "--style-color",
+            "#101010",
+            "--style-color",
+            "#f4d35e",
+            "--object",
+            "420,120,900,880|A golden saxophone.",
+            "--text",
+            "80,120,220,880|JAZZ NIGHT|Large headline.",
+            "--output-json",
+            str(tmp_path / "prompt.json"),
+        ]
+    )
+
+    assert args.command == "ideogram4-generate"
+    assert args.prompt == "A poster for a jazz night."
+    assert args.width == 1536
+    assert args.height == 1024
+    assert args.steps == 48
+    assert args.cfg == 7.0
+    assert args.cfg_override_value == 3.0
+    assert args.cfg_override_start == 0.7
+    assert args.cfg_override_end == 1.0
+    assert args.seed == 123
+    assert args.mu == 0.0
+    assert args.std == 1.5
+    assert args.sampler == "euler"
+    assert args.style_color == ["#101010", "#f4d35e"]
+    assert args.object == ["420,120,900,880|A golden saxophone."]
+    assert args.text == ["80,120,220,880|JAZZ NIGHT|Large headline."]
+    assert args.output_json == tmp_path / "prompt.json"
+
+
+def test_ideogram4_prompt_builder_preserves_json_shape_and_key_order() -> None:
+    prompt = build_prompt(
+        high_level_description="A modern concert poster for a jazz trio.",
+        style_aesthetics="minimal, elegant, high contrast",
+        style_lighting="flat graphic design lighting",
+        style_medium="graphic_design",
+        style_photo=None,
+        style_art_style="clean vector poster, sans-serif typography",
+        style_colors=["#101010", "#f4d35e"],
+        background="Solid black background with subtle paper texture.",
+        objects=["420,120,900,880|A golden saxophone centered in the lower half."],
+        texts=["80,120,220,880|JAZZ NIGHT|Large condensed yellow headline."],
+    )
+
+    assert (
+        prompt
+        == '{"high_level_description":"A modern concert poster for a jazz trio.",'
+        '"style_description":{"aesthetics":"minimal, elegant, high contrast",'
+        '"lighting":"flat graphic design lighting","medium":"graphic_design",'
+        '"art_style":"clean vector poster, sans-serif typography",'
+        '"color_palette":["#101010","#F4D35E"]},'
+        '"compositional_deconstruction":{"background":"Solid black background with subtle paper texture.",'
+        '"elements":[{"type":"obj","bbox":[420,120,900,880],'
+        '"desc":"A golden saxophone centered in the lower half."},'
+        '{"type":"text","bbox":[80,120,220,880],"text":"JAZZ NIGHT",'
+        '"desc":"Large condensed yellow headline."}]}}'
+    )
+
+
+def test_ideogram4_prompt_builder_validates_bbox() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="y_min < y_max"):
+        build_prompt(
+            high_level_description="A poster.",
+            style_aesthetics="minimal",
+            style_lighting="flat",
+            style_medium="graphic_design",
+            style_photo=None,
+            style_art_style="vector",
+            style_colors=[],
+            background="background",
+            objects=["900,120,420,880|Invalid saxophone."],
+            texts=[],
+        )
 
 
 def test_generate_creates_seed_image_with_requested_dimensions() -> None:
@@ -339,6 +457,182 @@ def test_grok_missing_api_key_returns_json(monkeypatch: MagicMock, tmp_path: Pat
     assert payload["ok"] is False
     assert payload["mode"] == "grok-generate"
     assert payload["error_type"] == "auth_required"
+
+
+def test_ideogram4_generate_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_run_ideogram4_t2i(*, prompt: str, config: object) -> list[Image.Image]:
+        seen["prompt"] = prompt
+        seen["width"] = config.width
+        seen["height"] = config.height
+        seen["uncond_unet"] = config.uncond_unet
+        return [Image.new("RGB", (18, 10), "yellow")]
+
+    monkeypatch.setattr(imagegen, "run_ideogram4_t2i", fake_run_ideogram4_t2i)
+
+    rc = imagegen.main(
+        [
+            "ideogram4-generate",
+            "--prompt",
+            "A poster for a jazz night",
+            "--style-aesthetics",
+            "minimal",
+            "--style-lighting",
+            "flat",
+            "--style-medium",
+            "graphic_design",
+            "--style-art-style",
+            "vector",
+            "--background",
+            "black paper",
+            "--text",
+            "100,100,250,900|JAZZ NIGHT|large headline",
+            "--models-dir",
+            str(tmp_path / "models"),
+            "--width",
+            "768",
+            "--height",
+            "512",
+            "--steps",
+            "12",
+            "--seed",
+            "99",
+            "--out",
+            str(tmp_path),
+            "--output-json",
+            str(tmp_path / "generated-prompt.json"),
+        ]
+    )
+
+    assert rc == 0
+    assert seen == {
+        "prompt": (
+            '{"high_level_description":"A poster for a jazz night",'
+            '"style_description":{"aesthetics":"minimal","lighting":"flat",'
+            '"medium":"graphic_design","art_style":"vector"},'
+            '"compositional_deconstruction":{"background":"black paper",'
+            '"elements":[{"type":"text","bbox":[100,100,250,900],'
+            '"text":"JAZZ NIGHT","desc":"large headline"}]}}'
+        ),
+        "width": 768,
+        "height": 512,
+        "uncond_unet": Path("diffusion_models/ideogram4_unconditional_fp8_scaled.safetensors"),
+    }
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["mode"] == "ideogram4-generate"
+    assert payload["capability"] == "imagegen.ideogram4-generate"
+    assert payload["model_profile"] == "ideogram4-fp8"
+    assert payload["architecture"] == "ideogram4"
+    assert payload["seed"] == 99
+    assert payload["requested_width"] == 768
+    assert payload["requested_height"] == 512
+    assert payload["resolved_models"]["unet"].endswith("diffusion_models/ideogram4_fp8_scaled.safetensors")
+    assert payload["resolved_models"]["uncond_unet"].endswith(
+        "diffusion_models/ideogram4_unconditional_fp8_scaled.safetensors"
+    )
+    assert payload["outputs"] == [{"width": 18, "height": 10, "mode": "RGB"}]
+    assert Path(payload["artifacts"][0]).is_file()
+    assert payload["prompt_json"] == str(tmp_path / "generated-prompt.json")
+    assert Path(payload["prompt_json"]).read_text(encoding="utf-8") == str(seen["prompt"]) + "\n"
+
+
+def test_ideogram4_generate_builder_prompt(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_run_ideogram4_t2i(*, prompt: str, config: object) -> list[Image.Image]:
+        seen["prompt"] = prompt
+        return [Image.new("RGB", (8, 8), "black")]
+
+    monkeypatch.setattr(imagegen, "run_ideogram4_t2i", fake_run_ideogram4_t2i)
+
+    rc = imagegen.main(
+        [
+            "ideogram4-generate",
+            "--prompt",
+            "A poster.",
+            "--style-aesthetics",
+            "minimal",
+            "--style-lighting",
+            "flat",
+            "--style-medium",
+            "graphic_design",
+            "--style-art-style",
+            "vector",
+            "--style-color",
+            "#abcdef",
+            "--background",
+            "Black paper.",
+            "--object",
+            "100,100,900,900|A saxophone.",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert json.loads(str(seen["prompt"]))["style_description"]["color_palette"] == ["#ABCDEF"]
+
+
+def test_ideogram4_rejects_raw_json_prompt(tmp_path: Path, capsys: MagicMock) -> None:
+    rc = imagegen.main(
+        [
+            "ideogram4-generate",
+            "--prompt",
+            '{"high_level_description":"raw json"}',
+            "--style-aesthetics",
+            "minimal",
+            "--style-lighting",
+            "flat",
+            "--style-medium",
+            "graphic_design",
+            "--style-art-style",
+            "vector",
+            "--background",
+            "background",
+            "--object",
+            "100,100,900,900|Object.",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "ideogram4-generate"
+    assert payload["error_type"] == "error"
+    assert "does not accept raw JSON" in payload["error"]
+
+
+def test_ideogram4_rejects_missing_elements(tmp_path: Path, capsys: MagicMock) -> None:
+    rc = imagegen.main(
+        [
+            "ideogram4-generate",
+            "--prompt",
+            "A poster for a jazz night",
+            "--style-aesthetics",
+            "minimal",
+            "--style-lighting",
+            "flat",
+            "--style-medium",
+            "graphic_design",
+            "--style-art-style",
+            "vector",
+            "--background",
+            "black paper",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "ideogram4-generate"
+    assert payload["error_type"] == "error"
+    assert "at least one --object or --text" in payload["error"]
 
 
 def test_edit_uses_qwen_default(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:

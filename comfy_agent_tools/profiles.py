@@ -29,6 +29,7 @@ BUILTIN_DEFAULTS: dict[str, str] = {
     "videogen.seedance2-flf2v": "seedance2-api",
     "imagegen.grok-generate": "grok-imagine-api",
     "imagegen.grok-edit": "grok-imagine-api",
+    "imagegen.ideogram4-generate": "ideogram4-fp8",
     "musicgen.generate": "ace15-base",
 }
 
@@ -114,6 +115,30 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
             "cfg": 1.0,
             "sampler": "euler",
             "scheduler": "flux2",
+        },
+    },
+    "ideogram4-fp8": {
+        "label": "Ideogram 4 FP8",
+        "architecture": "ideogram4",
+        "supports": ["imagegen.ideogram4-generate"],
+        "models": {
+            "unet": "diffusion_models/ideogram4_fp8_scaled.safetensors",
+            "uncond_unet": "diffusion_models/ideogram4_unconditional_fp8_scaled.safetensors",
+            "clip": "text_encoders/qwen3vl_8b_fp8_scaled.safetensors",
+            "vae": "vae/flux2-vae.safetensors",
+        },
+        "defaults": {
+            "width": 1024,
+            "height": 1024,
+            "steps": 20,
+            "cfg": 7.0,
+            "cfg_override_value": 3.0,
+            "cfg_override_start": 0.7,
+            "cfg_override_end": 1.0,
+            "mu": 0.0,
+            "std": 1.75,
+            "sampler": "euler",
+            "seed": 0,
         },
     },
     "ltx23-10eros": {
@@ -378,6 +403,7 @@ SUPPORTED_ARCHITECTURES = {
     "qwen-image-edit",
     "anima",
     "flux-klein",
+    "ideogram4",
     "upscale-model",
     "ltx23",
     "wan22",

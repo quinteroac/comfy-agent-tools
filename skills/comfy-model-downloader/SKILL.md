@@ -16,6 +16,7 @@ prefer `uv run comfy-models`; outside the repo, use the installed CLI.
 
 - Image generation: `imagegen.generate`
 - Image editing: `imagegen.edit`
+- Ideogram 4 local generation: `imagegen.ideogram4-generate`
 - Image upscale: `imagegen.upscale`
 - Text to video: `videogen.t2v`
 - Image to video: `videogen.i2v`
@@ -32,6 +33,8 @@ Do not map Seedance 2.0 API requests to downloads. `videogen.seedance2-t2v`,
 `seedance2-api` profile and require `COMFY_ORG_API_KEY`, not local model files.
 Do not map Grok Imagine API requests to downloads either. `imagegen.grok-generate`
 and `imagegen.grok-edit` use the remote `grok-imagine-api` profile.
+Ideogram 4 is local and should be downloaded with `imagegen.ideogram4-generate`
+when requested.
 
 ## Flow
 
@@ -61,6 +64,7 @@ uv run comfy-models validate-profile anima-base
 - `anima-base`: Anima Base v1.0 image generation with the turbo LoRA.
 - `qwen-edit2511`: Qwen Image Edit 2511 generation/editing.
 - `flux-klein-9b-snofs`: FLUX.2 Klein 9B FP8 generation/editing with SNOFS.
+- `ideogram4-fp8`: local Ideogram 4 FP8 text-to-image with structured JSON/bbox prompting.
 - `clear-reality`: ClearReality image upscaling.
 - `ltx23-10eros`: LTX 2.3 video and IA2AV.
 - `ltx23-dasiwa-golden-lace-v3`: Dasiwa LTX 2.3 Golden Lace v3 video and IA2AV.
@@ -72,6 +76,8 @@ uv run comfy-models validate-profile anima-base
 
 `seedance2-api` is intentionally excluded: it is a remote Comfy API profile, not
 a downloadable model profile. `grok-imagine-api` is excluded for the same reason.
+`ideogram4-fp8` is not remote; it uses Hugging Face model files under
+`models_dir`.
 
 Do not download models for custom local profiles unless the CLI provides a
 source. For unknown custom checkpoints, use `comfy-model-onboarding` and ask the
@@ -81,7 +87,8 @@ user for the file.
 
 Supported sources are Hugging Face and direct HTTP model links. Set `HF_TOKEN`
 for gated Hugging Face repositories; FLUX.2 Klein 9B requires accepting the
-Black Forest Labs license terms before download. Set `CIVITAI_API_TOKEN` if
+Black Forest Labs license terms before download. Ideogram 4 may require
+accepting the Ideogram model terms before download. Set `CIVITAI_API_TOKEN` if
 Civitai requires authenticated downloads.
 
 The tool writes into the active `models_dir`, usually `/mnt/models/comfyui`, and
