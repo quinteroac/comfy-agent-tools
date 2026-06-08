@@ -101,6 +101,7 @@ uv run comfy-imagegen ideogram4-generate \
   --style-art-style "clean vector poster, sans-serif typography" \
   --background "Matte black paper background with subtle grain." \
   --text "90,120,260,880|JAZZ NIGHT|Large cream uppercase headline." \
+  --output-json outputs/ideogram4-prompt.json \
   --width 1024 \
   --height 1024 \
   --out outputs
@@ -120,6 +121,7 @@ uv run comfy-imagegen ideogram4-generate \
   --background "Solid black background with subtle paper texture." \
   --object "420,120,900,880|A golden saxophone centered in the lower half." \
   --text "80,120,220,880|JAZZ NIGHT|Large condensed yellow headline." \
+  --output-json outputs/ideogram4-poster-prompt.json \
   --out outputs
 ```
 
@@ -173,7 +175,8 @@ exactly one of `--style-photo` or `--style-art-style`, and at least one
 `0..1000` coordinates, not pixels. Use `--object "BBOX|DESCRIPTION"` for visual
 subjects and `--text "BBOX|TEXT|DESCRIPTION"` for literal rendered text. Use
 uppercase `#RRGGBB` color values; the CLI normalizes `--style-color` values to
-uppercase.
+uppercase. Use `--output-json PATH` when the generated Ideogram prompt JSON
+should be saved for inspection or reuse.
 
 Grok Imagine uses remote Comfy API nodes and is separate from local model
 profiles. Do not route `grok-imagine-api` through `models_dir`,

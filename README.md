@@ -384,6 +384,7 @@ uv run comfy-imagegen ideogram4-generate \
   --background "Solid black background with subtle paper texture." \
   --object "420,120,900,880|A golden saxophone centered in the lower half." \
   --text "80,120,220,880|JAZZ NIGHT|Large condensed yellow headline." \
+  --output-json outputs/ideogram4-prompt.json \
   --out outputs
 ```
 
@@ -391,7 +392,8 @@ Bboxes are `y_min,x_min,y_max,x_max` on a `0..1000` normalized canvas, not pixel
 coordinates. `--prompt`, `--style-aesthetics`, `--style-lighting`,
 `--style-medium`, and `--background` are required. Pass exactly one of
 `--style-photo` or `--style-art-style`, plus at least one `--object` or `--text`
-element.
+element. Add `--output-json PATH` to write the structured prompt JSON that the
+CLI sent to Ideogram 4.
 
 ## Image Editing And Upscale
 

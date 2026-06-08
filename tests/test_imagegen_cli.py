@@ -126,6 +126,8 @@ def test_parser_ideogram4_generate_accepts_core_and_builder_flags(tmp_path: Path
             "420,120,900,880|A golden saxophone.",
             "--text",
             "80,120,220,880|JAZZ NIGHT|Large headline.",
+            "--output-json",
+            str(tmp_path / "prompt.json"),
         ]
     )
 
@@ -145,6 +147,7 @@ def test_parser_ideogram4_generate_accepts_core_and_builder_flags(tmp_path: Path
     assert args.style_color == ["#101010", "#f4d35e"]
     assert args.object == ["420,120,900,880|A golden saxophone."]
     assert args.text == ["80,120,220,880|JAZZ NIGHT|Large headline."]
+    assert args.output_json == tmp_path / "prompt.json"
 
 
 def test_ideogram4_prompt_builder_preserves_json_shape_and_key_order() -> None:
@@ -497,6 +500,8 @@ def test_ideogram4_generate_success_json(monkeypatch: MagicMock, tmp_path: Path,
             "99",
             "--out",
             str(tmp_path),
+            "--output-json",
+            str(tmp_path / "generated-prompt.json"),
         ]
     )
 
@@ -529,6 +534,8 @@ def test_ideogram4_generate_success_json(monkeypatch: MagicMock, tmp_path: Path,
     )
     assert payload["outputs"] == [{"width": 18, "height": 10, "mode": "RGB"}]
     assert Path(payload["artifacts"][0]).is_file()
+    assert payload["prompt_json"] == str(tmp_path / "generated-prompt.json")
+    assert Path(payload["prompt_json"]).read_text(encoding="utf-8") == str(seen["prompt"]) + "\n"
 
 
 def test_ideogram4_generate_builder_prompt(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:

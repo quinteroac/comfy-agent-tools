@@ -186,6 +186,12 @@ def build_parser() -> argparse.ArgumentParser:
     ideogram4.add_argument("--background", required=True)
     ideogram4.add_argument("--object", action="append", default=[])
     ideogram4.add_argument("--text", action="append", default=[])
+    ideogram4.add_argument(
+        "--output-json",
+        type=_path,
+        default=None,
+        help="Write the generated structured Ideogram prompt JSON to this path.",
+    )
 
     return parser
 
@@ -344,8 +350,9 @@ def _ideogram4_success(
     images: list[object],
     config: Ideogram4Config,
     profile: ResolvedProfile,
+    prompt_json: Path | None = None,
 ) -> dict[str, Any]:
-    return {
+    payload: dict[str, Any] = {
         "ok": True,
         "kind": "image",
         "mode": "ideogram4-generate",
@@ -369,6 +376,9 @@ def _ideogram4_success(
         "models_dir": str(config.models_dir),
         "resolved_models": _resolved_ideogram4_models(config),
     }
+    if prompt_json is not None:
+        payload["prompt_json"] = str(prompt_json)
+    return payload
 
 
 def _error(*, mode: str, error: Exception) -> dict[str, Any]:
@@ -415,6 +425,12 @@ def _resolved_ideogram4_models(config: Ideogram4Config) -> dict[str, str]:
         "clip": str(config.resolve_model_path(config.clip)),
         "vae": str(config.resolve_model_path(config.vae)),
     }
+
+
+def _write_prompt_json(prompt: str, path: Path) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(prompt + "\n", encoding="utf-8")
+    return path
 
 
 def _classify_error(error: Exception) -> str:
@@ -488,11 +504,13 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
         with _maybe_silence(not args.verbose):
             images = run_ideogram4_t2i(prompt=prompt, config=config)
         artifacts = save_images(images, args.out, prefix="comfy-imagegen-ideogram4-generate")
+        prompt_json = _write_prompt_json(prompt, args.output_json) if args.output_json is not None else None
         return _ideogram4_success(
             artifacts=artifacts,
             images=images,
             config=config,
             profile=profile,
+            prompt_json=prompt_json,
         )
 
     config = _config(args, profile)
