@@ -138,6 +138,50 @@ def test_models_download_wan22_i2v_dry_run_includes_dual_unets(
     assert not (tmp_path / "models").exists()
 
 
+def test_models_download_wan22_t2v_dry_run_includes_dual_unets(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: MagicMock
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    models.main(["set-models-dir", str(tmp_path / "models")])
+    capsys.readouterr()
+
+    rc = models.main(["download", "videogen.wan22-t2v", "--dry-run"])
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["dry_run"] is True
+    assert payload["model_profile"] == "wan22-t2v"
+    assert str(tmp_path / "models/diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors") in payload["planned"]
+    assert str(tmp_path / "models/diffusion_models/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors") in payload["planned"]
+    assert str(tmp_path / "models/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors") in payload["planned"]
+    assert str(tmp_path / "models/vae/wan_2.1_vae.safetensors") in payload["planned"]
+    assert set(payload["sources"]) == {"huggingface"}
+    assert not (tmp_path / "models").exists()
+
+
+def test_models_download_dasiwa_wan22_t2v_dry_run_marks_unets_local(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: MagicMock
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    models.main(["set-models-dir", str(tmp_path / "models")])
+    capsys.readouterr()
+
+    rc = models.main(["download-profile", "wan22-dasiwa-tastysin-t2v", "--dry-run"])
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["dry_run"] is True
+    assert payload["model_profile"] == "wan22-dasiwa-tastysin-t2v"
+    assert str(tmp_path / "models/diffusion_models/DasiwaWAN22I2V14BV8V1_tastysinHighV81.safetensors") in payload["planned"]
+    assert str(tmp_path / "models/diffusion_models/DasiwaWAN22I2V14BV8V1_tastysinLowV81.safetensors") in payload["planned"]
+    assert str(tmp_path / "models/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors") in payload["planned"]
+    assert str(tmp_path / "models/vae/wan_2.1_vae.safetensors") in payload["planned"]
+    assert set(payload["sources"]) == {"huggingface", "local"}
+    assert not (tmp_path / "models").exists()
+
+
 def test_models_download_wan22_s2v_dry_run_includes_audio_encoder(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: MagicMock
 ) -> None:

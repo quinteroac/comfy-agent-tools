@@ -57,6 +57,13 @@ def test_builtin_profiles_separate_architecture_and_profile() -> None:
     assert wan22["models"]["unet_high"] == "diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors"
     assert wan22["defaults"]["fps"] == 16
 
+    wan22_t2v = BUILTIN_PROFILES["wan22-t2v"]
+    assert wan22_t2v["architecture"] == "wan22"
+    assert wan22_t2v["supports"] == ["videogen.wan22-t2v"]
+    assert wan22_t2v["models"]["unet_high"] == "diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors"
+    assert wan22_t2v["models"]["unet_low"] == "diffusion_models/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors"
+    assert wan22_t2v["defaults"]["cfg"] == 3.5
+
     wan22_s2v = BUILTIN_PROFILES["wan22-s2v"]
     assert wan22_s2v["architecture"] == "wan22"
     assert wan22_s2v["supports"] == ["videogen.wan22-s2v"]
@@ -93,6 +100,16 @@ def test_builtin_profiles_separate_architecture_and_profile() -> None:
     assert dasiwa["defaults"]["i2v_cfg"] == 1.0
     assert dasiwa["defaults"]["flf2v_cfg"] == 1.0
 
+    dasiwa_t2v = BUILTIN_PROFILES["wan22-dasiwa-tastysin-t2v"]
+    assert dasiwa_t2v["architecture"] == "wan22"
+    assert dasiwa_t2v["supports"] == ["videogen.wan22-t2v"]
+    assert dasiwa_t2v["models"]["unet_high"] == "diffusion_models/DasiwaWAN22I2V14BV8V1_tastysinHighV81.safetensors"
+    assert dasiwa_t2v["models"]["unet_low"] == "diffusion_models/DasiwaWAN22I2V14BV8V1_tastysinLowV81.safetensors"
+    assert dasiwa_t2v["defaults"]["steps"] == 8
+    assert dasiwa_t2v["defaults"]["high_steps"] == 2
+    assert dasiwa_t2v["defaults"]["low_steps"] == 6
+    assert dasiwa_t2v["defaults"]["cfg"] == 1.0
+
     boundbite = BUILTIN_PROFILES["wan22-dasiwa-boundbite-i2v"]
     assert boundbite["architecture"] == "wan22"
     assert boundbite["supports"] == ["videogen.wan22-i2v", "videogen.wan22-flf2v"]
@@ -101,6 +118,16 @@ def test_builtin_profiles_separate_architecture_and_profile() -> None:
     assert boundbite["defaults"]["steps"] == 4
     assert boundbite["defaults"]["i2v_cfg"] == 1.0
     assert boundbite["defaults"]["flf2v_cfg"] == 1.0
+
+    boundbite_t2v = BUILTIN_PROFILES["wan22-dasiwa-boundbite-t2v"]
+    assert boundbite_t2v["architecture"] == "wan22"
+    assert boundbite_t2v["supports"] == ["videogen.wan22-t2v"]
+    assert boundbite_t2v["models"]["unet_high"] == "diffusion_models/DasiwaWAN22I2V14BLightspeed_boundbiteHighV10.safetensors"
+    assert boundbite_t2v["models"]["unet_low"] == "diffusion_models/DasiwaWAN22I2V14BLightspeed_boundbiteLowV10.safetensors"
+    assert boundbite_t2v["defaults"]["steps"] == 8
+    assert boundbite_t2v["defaults"]["high_steps"] == 2
+    assert boundbite_t2v["defaults"]["low_steps"] == 6
+    assert boundbite_t2v["defaults"]["cfg"] == 1.0
 
     seedance = BUILTIN_PROFILES["seedance2-api"]
     assert seedance["architecture"] == "seedance2-api"
@@ -124,6 +151,7 @@ def test_builtin_defaults_point_to_supported_profiles() -> None:
     assert BUILTIN_DEFAULTS["imagegen.generate"] == "anima-base"
     assert BUILTIN_DEFAULTS["imagegen.edit"] == "qwen-edit2511"
     assert BUILTIN_DEFAULTS["videogen.seedance2-t2v"] == "seedance2-api"
+    assert BUILTIN_DEFAULTS["videogen.wan22-t2v"] == "wan22-t2v"
     assert BUILTIN_DEFAULTS["videogen.wan22-i2v"] == "wan22-i2v"
     assert BUILTIN_DEFAULTS["videogen.wan22-s2v"] == "wan22-s2v"
     assert BUILTIN_DEFAULTS["videogen.wan22-video-audio"] == "wan22-dasiwa-littledemon-v2-video-audio"

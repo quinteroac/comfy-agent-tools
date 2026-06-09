@@ -51,6 +51,9 @@ from comfy_agent_tools.videogen.wan22 import (
     DEFAULT_WAN22_S2V_SHIFT,
     DEFAULT_WAN22_S2V_UNET,
     DEFAULT_WAN22_STEPS,
+    DEFAULT_WAN22_T2V_CFG,
+    DEFAULT_WAN22_T2V_UNET_HIGH,
+    DEFAULT_WAN22_T2V_UNET_LOW,
     DEFAULT_WAN22_TEXT_ENCODER,
     DEFAULT_WAN22_UNET_HIGH,
     DEFAULT_WAN22_UNET_LOW,
@@ -71,6 +74,7 @@ from comfy_agent_tools.videogen.wan22 import (
     run_flf2v as run_wan22_flf2v,
     run_i2v as run_wan22_i2v,
     run_s2v as run_wan22_s2v,
+    run_t2v as run_wan22_t2v,
     run_video_audio as run_wan22_video_audio,
 )
 from comfy_agent_tools.videogen.seedance2 import (
@@ -236,6 +240,10 @@ def build_parser() -> argparse.ArgumentParser:
             action="store_true",
             help="Show ComfyUI warnings and progress output while running.",
         )
+
+    wan22_t2v = subparsers.add_parser("wan22-t2v", help="Generate a WAN 2.2 video from a text prompt.")
+    add_wan22_common(wan22_t2v, default_cfg=DEFAULT_WAN22_T2V_CFG)
+    wan22_t2v.add_argument("--prompt", required=True)
 
     wan22_i2v = subparsers.add_parser("wan22-i2v", help="Animate an input image with WAN 2.2.")
     add_wan22_common(wan22_i2v, default_cfg=DEFAULT_WAN22_I2V_CFG)
@@ -419,13 +427,26 @@ def _seedance2_config(args: argparse.Namespace, profile: ResolvedProfile) -> See
 
 
 def _wan22_config(args: argparse.Namespace, profile: ResolvedProfile) -> Wan22Config:
-    command_default_cfg = DEFAULT_WAN22_FLF2V_CFG if args.command == "wan22-flf2v" else DEFAULT_WAN22_I2V_CFG
-    profile_cfg_key = "flf2v_cfg" if args.command == "wan22-flf2v" else "i2v_cfg"
+    if args.command == "wan22-flf2v":
+        command_default_cfg = DEFAULT_WAN22_FLF2V_CFG
+        profile_cfg_key = "flf2v_cfg"
+        default_unet_high = DEFAULT_WAN22_UNET_HIGH
+        default_unet_low = DEFAULT_WAN22_UNET_LOW
+    elif args.command == "wan22-t2v":
+        command_default_cfg = DEFAULT_WAN22_T2V_CFG
+        profile_cfg_key = "cfg"
+        default_unet_high = DEFAULT_WAN22_T2V_UNET_HIGH
+        default_unet_low = DEFAULT_WAN22_T2V_UNET_LOW
+    else:
+        command_default_cfg = DEFAULT_WAN22_I2V_CFG
+        profile_cfg_key = "i2v_cfg"
+        default_unet_high = DEFAULT_WAN22_UNET_HIGH
+        default_unet_low = DEFAULT_WAN22_UNET_LOW
     steps, high_steps, low_steps = _wan22_step_counts(args, profile)
     return Wan22Config(
         models_dir=args.models_dir if args.models_dir is not None else profile.models_dir,
-        unet_high=args.unet_high if args.unet_high is not None else profile.models.get("unet_high", DEFAULT_WAN22_UNET_HIGH),
-        unet_low=args.unet_low if args.unet_low is not None else profile.models.get("unet_low", DEFAULT_WAN22_UNET_LOW),
+        unet_high=args.unet_high if args.unet_high is not None else profile.models.get("unet_high", default_unet_high),
+        unet_low=args.unet_low if args.unet_low is not None else profile.models.get("unet_low", default_unet_low),
         text_encoder=args.text_encoder if args.text_encoder is not None else profile.models.get("text_encoder", DEFAULT_WAN22_TEXT_ENCODER),
         vae=args.vae if args.vae is not None else profile.models.get("vae", DEFAULT_WAN22_VAE),
         width=args.width if args.width is not None else int(profile.defaults.get("width", DEFAULT_WAN22_WIDTH)),
@@ -994,6 +1015,20 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
             profile=profile,
             first_path=args.first,
             last_path=args.last,
+        )
+
+    if args.command == "wan22-t2v":
+        config = _wan22_config(args, profile)
+        config.validate_extra_loras()
+        with _maybe_silence(not args.verbose):
+            result = run_wan22_t2v(prompt=args.prompt, config=config)
+            artifact = _write_result_video_no_audio(result, args.out, prefix="comfy-videogen-wan22-t2v", fps=config.fps)
+        return _wan22_success(
+            mode="wan22-t2v",
+            artifact=artifact,
+            config=config,
+            frames=result["frames"],
+            profile=profile,
         )
 
     if args.command == "wan22-i2v":

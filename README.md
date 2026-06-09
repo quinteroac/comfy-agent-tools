@@ -147,7 +147,13 @@ latent_upscale_models/ltx-2.3-spatial-upscaler-x2-1.1.safetensors
 
 diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors
 diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors
+diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors
+diffusion_models/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors
 diffusion_models/wan2.2_s2v_14B_fp8_scaled.safetensors
+diffusion_models/DasiwaWAN22I2V14BV8V1_tastysinHighV81.safetensors
+diffusion_models/DasiwaWAN22I2V14BV8V1_tastysinLowV81.safetensors
+diffusion_models/DasiwaWAN22I2V14BLightspeed_boundbiteHighV10.safetensors
+diffusion_models/DasiwaWAN22I2V14BLightspeed_boundbiteLowV10.safetensors
 diffusion_models/DasiwaWan2214BS2V_littledemonV2.safetensors
 text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors
 audio_encoders/wav2vec2_large_english_fp16.safetensors
@@ -182,6 +188,7 @@ absent, the CLIs use built-in defaults:
 | `videogen.flf2v` | `ltx23-10eros` | `ltx23` |
 | `videogen.ia2av` | `ltx23-10eros` | `ltx23` |
 | `videogen.motion-track` | `ltx23-motion-track` | `ltx23` |
+| `videogen.wan22-t2v` | `wan22-t2v` | `wan22` |
 | `videogen.wan22-i2v` | `wan22-i2v` | `wan22` |
 | `videogen.wan22-flf2v` | `wan22-i2v` | `wan22` |
 | `videogen.wan22-s2v` | `wan22-s2v` | `wan22` |
@@ -197,14 +204,19 @@ profile validated for that architecture. The optional
 and reuses the same LTX 2.3 text encoder, distilled LoRA, text-encoder LoRA, and
 latent upscaler files as the 10Eros profile.
 
-`wan22` is the local WAN 2.2 adapter. The default `wan22-i2v` profile uses the
-Comfy-Org FP8 I2V high/low UNets. The optional
-`wan22-dasiwa-tastysin-i2v` and `wan22-dasiwa-boundbite-i2v` point to local
-Dasiwa high/low UNets and use `steps=4`, `cfg=1.0`; the WAN 2.2 i2v wrapper
-samples the high-noise model in the first tranche and the low-noise model in
-the second. The high-noise tranche controls broad motion, while the low-noise
-tranche controls detail/refinement. By default WAN splits steps 50/50; pass
-`--high-steps` and `--low-steps` to bias motion vs detail.
+`wan22` is the local WAN 2.2 adapter. The default `wan22-t2v` profile uses the
+Comfy-Org FP8 T2V high/low UNets, while `wan22-i2v` uses the Comfy-Org FP8 I2V
+high/low UNets. The optional `wan22-dasiwa-tastysin-t2v`,
+`wan22-dasiwa-boundbite-t2v`, `wan22-dasiwa-tastysin-i2v`, and
+`wan22-dasiwa-boundbite-i2v` profiles point to local Dasiwa I2V high/low UNets.
+Dasiwa T2V defaults to `steps=8`, `high_steps=2`, `low_steps=6`, `cfg=1.0`;
+Dasiwa I2V/FLF2V uses `steps=4`, `cfg=1.0`. The WAN 2.2 wrappers sample the high-noise model
+in the first tranche and the low-noise model in the second. The high-noise
+tranche controls broad motion, while the low-noise tranche controls
+detail/refinement. By default WAN splits steps 50/50; pass `--high-steps` and
+`--low-steps` to bias motion vs detail. Dasiwa T2V profiles intentionally reuse
+I2V checkpoints, so validate quality with a GPU smoke test before treating them
+as production defaults.
 
 The `wan22-s2v` profile uses the Wan 2.2 S2V FP8 model plus wav2vec2 audio
 encoder for reference-image and input-audio driven video. Defaults mirror the
@@ -453,7 +465,7 @@ are `grok-imagine-image-pro`, `grok-imagine-image`, and
 
 ## Video Generation
 
-`comfy-videogen` supports local LTX 2.3 generation, local WAN 2.2 image-driven
+`comfy-videogen` supports local LTX 2.3 generation, local WAN 2.2 text/image-driven
 and sound-driven generation, and remote Seedance 2.0 API generation. It is quiet by default and prints final JSON only; pass
 `--verbose` to show ComfyUI logs.
 
@@ -461,13 +473,14 @@ Local LTX 2.3 uses the `ltx23-10eros` profile by default and writes MP4 files
 with audio. To use Dasiwa LTX 2.3 Golden Lace v3, set
 `ltx23-dasiwa-golden-lace-v3` as the default for the desired LTX capabilities
 (`videogen.t2v`, `videogen.i2v`, `videogen.flf2v`, or `videogen.ia2av`).
-Local WAN 2.2 I2V/FLF2V uses the `wan22-i2v` profile and writes silent MP4
-files. These modes accept ad hoc LoRAs with `--extra-lora` for both UNets,
+Local WAN 2.2 T2V uses the `wan22-t2v` profile by default. I2V/FLF2V uses the
+`wan22-i2v` profile. These modes write silent MP4 files and accept ad hoc LoRAs
+with `--extra-lora` for both UNets,
 `--extra-lora-high` for the high-noise pass, and `--extra-lora-low` for the
 low-noise pass. WAN 2.2 S2V and video+audio modes mux the input audio into the
 output.
-For Dasiwa TastySin or BoundBite, set the matching Dasiwa profile as the default
-or pass its high/low UNet paths explicitly; use `--steps 4 --cfg 1.0`.
+For Dasiwa TastySin or BoundBite, set the matching Dasiwa T2V/I2V profile as the
+default or pass its high/low UNet paths explicitly; use `--steps 4 --cfg 1.0`.
 For Dasiwa LittleDemon S2V, set `wan22-dasiwa-littledemon-v2-s2v` as the
 `videogen.wan22-s2v` default or pass its checkpoint with `--unet`; use the
 profile defaults for 4-step generation.
@@ -484,6 +497,14 @@ Text to video:
 ```bash
 uv run comfy-videogen t2v \
   --prompt "a slow cinematic camera push through a warm coffee shop, soft ambient room tone" \
+  --out outputs
+```
+
+WAN 2.2 text to video:
+
+```bash
+uv run comfy-videogen wan22-t2v \
+  --prompt "a cinematic slow dolly through a sunlit atelier, elegant fabric motion, realistic camera drift" \
   --out outputs
 ```
 

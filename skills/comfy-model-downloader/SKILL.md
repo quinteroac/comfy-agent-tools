@@ -68,7 +68,10 @@ uv run comfy-models validate-profile anima-base
 - `clear-reality`: ClearReality image upscaling.
 - `ltx23-10eros`: LTX 2.3 video and IA2AV.
 - `ltx23-dasiwa-golden-lace-v3`: Dasiwa LTX 2.3 Golden Lace v3 video and IA2AV.
+- `wan22-t2v`: WAN 2.2 text-to-video.
 - `wan22-i2v`: WAN 2.2 image and first/last-frame video.
+- `wan22-dasiwa-tastysin-t2v`: Dasiwa TastySin WAN 2.2 T2V local UNets plus shared UMT5/VAE.
+- `wan22-dasiwa-boundbite-t2v`: Dasiwa BoundBite WAN 2.2 T2V local UNets plus shared UMT5/VAE.
 - `wan22-s2v`: WAN 2.2 sound-to-video with wav2vec2 audio encoder.
 - `wan22-dasiwa-littledemon-v2-s2v`: Dasiwa LittleDemon v2 S2V, 4-step profile.
 - `wan22-dasiwa-littledemon-v2-video-audio`: Dasiwa LittleDemon v2 S2V for 16 fps video+audio, audio-driven, and external-mask lipsync.

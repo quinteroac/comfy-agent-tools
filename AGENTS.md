@@ -79,7 +79,7 @@ Current skills:
 
 - `comfy-tools-setup`: installs/validates the Python CLIs.
 - `comfy-imagegen`: local image generation/edit/upscale.
-- `comfy-videogen`: local LTX 2.3 video generation and remote Seedance 2.0 API video.
+- `comfy-videogen`: local LTX 2.3/WAN 2.2 video generation and remote Seedance 2.0 API video.
 - `comfy-motion-track-control`: LTX 2.3 Motion Track IC-LoRA control video workflows.
 - `comfy-musicgen`: local ACE-Step music generation.
 - `comfy-model-onboarding`: persistent model profiles/defaults.
@@ -95,6 +95,7 @@ The repo should not download models automatically. Built-in defaults include:
 - image editing: Qwen Image Edit 2511
 - optional image generation/editing: FLUX.2 Klein 9B FP8 with SNOFS LoRA
 - video: LTX 2.3 10Eros profile
+- WAN text video: WAN 2.2 T2V profile
 - motion-track video: LTX 2.3 10Eros plus Motion Track IC-LoRA
 - music: ACE-Step 1.5 base
 - remote video API: Seedance 2.0 via `COMFY_ORG_API_KEY`

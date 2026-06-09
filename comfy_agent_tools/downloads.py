@@ -333,6 +333,28 @@ DOWNLOAD_REGISTRY: dict[str, dict[str, DownloadSource]] = {
             filename="split_files/vae/wan_2.1_vae.safetensors",
         ),
     },
+    "wan22-t2v": {
+        "unet_high": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+            filename="split_files/diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors",
+        ),
+        "unet_low": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+            filename="split_files/diffusion_models/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors",
+        ),
+        "text_encoder": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+            filename="split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+        ),
+        "vae": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+            filename="split_files/vae/wan_2.1_vae.safetensors",
+        ),
+    },
     "wan22-dasiwa-tastysin-i2v": {
         "unet_high": DownloadSource(kind="local"),
         "unet_low": DownloadSource(kind="local"),
@@ -347,7 +369,35 @@ DOWNLOAD_REGISTRY: dict[str, dict[str, DownloadSource]] = {
             filename="split_files/vae/wan_2.1_vae.safetensors",
         ),
     },
+    "wan22-dasiwa-tastysin-t2v": {
+        "unet_high": DownloadSource(kind="local"),
+        "unet_low": DownloadSource(kind="local"),
+        "text_encoder": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+            filename="split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+        ),
+        "vae": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+            filename="split_files/vae/wan_2.1_vae.safetensors",
+        ),
+    },
     "wan22-dasiwa-boundbite-i2v": {
+        "unet_high": DownloadSource(kind="local"),
+        "unet_low": DownloadSource(kind="local"),
+        "text_encoder": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+            filename="split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+        ),
+        "vae": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+            filename="split_files/vae/wan_2.1_vae.safetensors",
+        ),
+    },
+    "wan22-dasiwa-boundbite-t2v": {
         "unet_high": DownloadSource(kind="local"),
         "unet_low": DownloadSource(kind="local"),
         "text_encoder": DownloadSource(
