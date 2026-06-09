@@ -177,6 +177,13 @@ def build_parser() -> argparse.ArgumentParser:
     ideogram4.add_argument("--uncond-unet", type=_path, default=None)
     ideogram4.add_argument("--clip", type=_path, default=None)
     ideogram4.add_argument("--vae", type=_path, default=None)
+    ideogram4.add_argument(
+        "--extra-lora",
+        action="append",
+        type=parse_extra_lora,
+        default=[],
+        help="Apply an extra LoRA as PATH[:MODEL_STRENGTH[:CLIP_STRENGTH]]. Repeatable.",
+    )
     ideogram4.add_argument("--style-aesthetics", required=True)
     ideogram4.add_argument("--style-lighting", required=True)
     ideogram4.add_argument("--style-medium", required=True)
@@ -270,6 +277,7 @@ def _ideogram4_config(args: argparse.Namespace, profile: ResolvedProfile) -> Ide
         mu=args.mu if args.mu is not None else float(profile.defaults.get("mu", DEFAULT_IDEOGRAM4_MU)),
         std=args.std if args.std is not None else float(profile.defaults.get("std", DEFAULT_IDEOGRAM4_STD)),
         sampler=args.sampler if args.sampler is not None else str(profile.defaults.get("sampler", DEFAULT_IDEOGRAM4_SAMPLER)),
+        extra_loras=list(args.extra_lora or []),
     )
 
 
@@ -375,6 +383,7 @@ def _ideogram4_success(
         "architecture": profile.architecture,
         "models_dir": str(config.models_dir),
         "resolved_models": _resolved_ideogram4_models(config),
+        "extra_loras": extra_loras_json(config.models_dir, config.extra_loras or []),
     }
     if prompt_json is not None:
         payload["prompt_json"] = str(prompt_json)

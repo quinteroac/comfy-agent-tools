@@ -8,11 +8,12 @@ from unittest.mock import MagicMock
 
 from PIL import Image
 
+from comfy_agent_tools.loras import ExtraLora
 from comfy_agent_tools.cli import imagegen
 from comfy_agent_tools.imagegen.artifacts import create_seed_image
 from comfy_agent_tools.imagegen.config import ImagegenConfig
 from comfy_agent_tools.imagegen.flux_klein import _encode_flux2_prompt, run_flux_klein_edit
-from comfy_agent_tools.imagegen.ideogram4 import build_prompt
+from comfy_agent_tools.imagegen.ideogram4 import Ideogram4Config, build_prompt, run_ideogram4_t2i
 
 
 def test_parser_generate_defaults() -> None:
@@ -126,6 +127,8 @@ def test_parser_ideogram4_generate_accepts_core_and_builder_flags(tmp_path: Path
             "420,120,900,880|A golden saxophone.",
             "--text",
             "80,120,220,880|JAZZ NIGHT|Large headline.",
+            "--extra-lora",
+            "loras/ideogram4/poster-detail.safetensors:0.8:0.2",
             "--output-json",
             str(tmp_path / "prompt.json"),
         ]
@@ -147,6 +150,9 @@ def test_parser_ideogram4_generate_accepts_core_and_builder_flags(tmp_path: Path
     assert args.style_color == ["#101010", "#f4d35e"]
     assert args.object == ["420,120,900,880|A golden saxophone."]
     assert args.text == ["80,120,220,880|JAZZ NIGHT|Large headline."]
+    assert args.extra_lora[0].path == Path("loras/ideogram4/poster-detail.safetensors")
+    assert args.extra_lora[0].strength_model == 0.8
+    assert args.extra_lora[0].strength_clip == 0.2
     assert args.output_json == tmp_path / "prompt.json"
 
 
@@ -461,12 +467,16 @@ def test_grok_missing_api_key_returns_json(monkeypatch: MagicMock, tmp_path: Pat
 
 def test_ideogram4_generate_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
     seen: dict[str, object] = {}
+    lora_path = tmp_path / "models" / "loras" / "ideogram4" / "poster-detail.safetensors"
+    lora_path.parent.mkdir(parents=True)
+    lora_path.write_bytes(b"fake")
 
     def fake_run_ideogram4_t2i(*, prompt: str, config: object) -> list[Image.Image]:
         seen["prompt"] = prompt
         seen["width"] = config.width
         seen["height"] = config.height
         seen["uncond_unet"] = config.uncond_unet
+        seen["extra_loras"] = config.extra_loras
         return [Image.new("RGB", (18, 10), "yellow")]
 
     monkeypatch.setattr(imagegen, "run_ideogram4_t2i", fake_run_ideogram4_t2i)
@@ -498,6 +508,8 @@ def test_ideogram4_generate_success_json(monkeypatch: MagicMock, tmp_path: Path,
             "12",
             "--seed",
             "99",
+            "--extra-lora",
+            "loras/ideogram4/poster-detail.safetensors:0.6:0.1",
             "--out",
             str(tmp_path),
             "--output-json",
@@ -518,7 +530,9 @@ def test_ideogram4_generate_success_json(monkeypatch: MagicMock, tmp_path: Path,
         "width": 768,
         "height": 512,
         "uncond_unet": Path("diffusion_models/ideogram4_unconditional_fp8_scaled.safetensors"),
+        "extra_loras": seen["extra_loras"],
     }
+    assert seen["extra_loras"][0].path == Path("loras/ideogram4/poster-detail.safetensors")
     payload = json.loads(capsys.readouterr().out)
     assert payload["ok"] is True
     assert payload["mode"] == "ideogram4-generate"
@@ -532,6 +546,9 @@ def test_ideogram4_generate_success_json(monkeypatch: MagicMock, tmp_path: Path,
     assert payload["resolved_models"]["uncond_unet"].endswith(
         "diffusion_models/ideogram4_unconditional_fp8_scaled.safetensors"
     )
+    assert payload["extra_loras"] == [
+        {"path": str(lora_path), "strength_model": 0.6, "strength_clip": 0.1}
+    ]
     assert payload["outputs"] == [{"width": 18, "height": 10, "mode": "RGB"}]
     assert Path(payload["artifacts"][0]).is_file()
     assert payload["prompt_json"] == str(tmp_path / "generated-prompt.json")
@@ -633,6 +650,146 @@ def test_ideogram4_rejects_missing_elements(tmp_path: Path, capsys: MagicMock) -
     assert payload["mode"] == "ideogram4-generate"
     assert payload["error_type"] == "error"
     assert "at least one --object or --text" in payload["error"]
+
+
+def test_ideogram4_extra_lora_missing_returns_json(tmp_path: Path, capsys: MagicMock) -> None:
+    rc = imagegen.main(
+        [
+            "ideogram4-generate",
+            "--prompt",
+            "A poster",
+            "--style-aesthetics",
+            "minimal",
+            "--style-lighting",
+            "flat",
+            "--style-medium",
+            "graphic_design",
+            "--style-art-style",
+            "vector",
+            "--background",
+            "black paper",
+            "--object",
+            "100,100,900,900|A saxophone.",
+            "--models-dir",
+            str(tmp_path),
+            "--extra-lora",
+            "loras/ideogram4/missing.safetensors",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["mode"] == "ideogram4-generate"
+    assert payload["error_type"] == "not_found"
+    assert "extra LoRA file not found" in payload["error"]
+
+
+def test_ideogram4_runtime_applies_extra_loras_to_both_unets(
+    monkeypatch: MagicMock, tmp_path: Path
+) -> None:
+    lora_path = tmp_path / "loras" / "ideogram4" / "poster-detail.safetensors"
+    lora_path.parent.mkdir(parents=True)
+    lora_path.write_bytes(b"fake")
+    calls: dict[str, object] = {}
+
+    class FakeModelManager:
+        def __init__(self, models_dir: Path) -> None:
+            calls["models_dir"] = models_dir
+
+        def load_unet(self, path: Path) -> str:
+            return f"unet:{path.name}"
+
+        def load_clip(self, path: Path, *, clip_type: str) -> str:
+            calls["clip_type"] = clip_type
+            return f"clip:{path.name}"
+
+        def load_vae(self, path: Path) -> str:
+            return f"vae:{path.name}"
+
+    conditioning = types.ModuleType("comfy_diffusion.conditioning")
+    conditioning.conditioning_zero_out = lambda cond: ("zero", cond)
+    conditioning.encode_prompt = lambda clip, prompt: ("positive", clip, prompt)
+
+    latent = types.ModuleType("comfy_diffusion.latent")
+    latent.empty_flux2_latent_image = lambda width, height, batch_size: ("latent", width, height, batch_size)
+
+    models = types.ModuleType("comfy_diffusion.models")
+    models.ModelManager = FakeModelManager
+
+    runtime = types.ModuleType("comfy_diffusion.runtime")
+    runtime.check_runtime = lambda: {}
+
+    sampling = types.ModuleType("comfy_diffusion.sampling")
+    sampling.cfg_override = lambda model, value, start, end: f"cfg:{model}:{value}:{start}:{end}"
+    sampling.dual_model_guider = lambda model, positive, cfg, *, model_negative, negative: (
+        "guider",
+        model,
+        positive,
+        cfg,
+        model_negative,
+        negative,
+    )
+    sampling.get_sampler = lambda sampler: ("sampler", sampler)
+    sampling.ideogram4_scheduler = lambda steps, width, height, mu, std: (
+        "sigmas",
+        steps,
+        width,
+        height,
+        mu,
+        std,
+    )
+    sampling.random_noise = lambda seed: ("noise", seed)
+    sampling.sample_custom = lambda noise, guider, sampler, sigmas, latent: (("latent_out", guider), None)
+
+    vae = types.ModuleType("comfy_diffusion.vae")
+    vae.vae_decode = lambda vae_model, latent_out: Image.new("RGB", (12, 10), "orange")
+
+    monkeypatch.setitem(sys.modules, "comfy_diffusion", types.ModuleType("comfy_diffusion"))
+    monkeypatch.setitem(sys.modules, "comfy_diffusion.conditioning", conditioning)
+    monkeypatch.setitem(sys.modules, "comfy_diffusion.latent", latent)
+    monkeypatch.setitem(sys.modules, "comfy_diffusion.models", models)
+    monkeypatch.setitem(sys.modules, "comfy_diffusion.runtime", runtime)
+    monkeypatch.setitem(sys.modules, "comfy_diffusion.sampling", sampling)
+    monkeypatch.setitem(sys.modules, "comfy_diffusion.vae", vae)
+
+    def fake_apply_extra_loras_to_models(
+        model_list: list[str],
+        clip: str,
+        loras: list[ExtraLora],
+    ) -> tuple[list[str], str]:
+        calls["lora_models"] = model_list
+        calls["lora_clip"] = clip
+        calls["loras"] = loras
+        return ["patched-main", "patched-uncond"], "patched-clip"
+
+    monkeypatch.setattr(
+        "comfy_agent_tools.imagegen.ideogram4.apply_extra_loras_to_models",
+        fake_apply_extra_loras_to_models,
+    )
+
+    images = run_ideogram4_t2i(
+        prompt="poster",
+        config=Ideogram4Config(
+            models_dir=tmp_path,
+            width=64,
+            height=48,
+            steps=5,
+            cfg=6.5,
+            extra_loras=[ExtraLora(Path("loras/ideogram4/poster-detail.safetensors"), 0.7, 0.2)],
+        ),
+    )
+
+    assert images[0].size == (12, 10)
+    assert calls["clip_type"] == "ideogram4"
+    assert calls["lora_models"] == [
+        "unet:ideogram4_fp8_scaled.safetensors",
+        "unet:ideogram4_unconditional_fp8_scaled.safetensors",
+    ]
+    assert calls["lora_clip"] == "clip:qwen3vl_8b_fp8_scaled.safetensors"
+    assert calls["loras"] == [ExtraLora(lora_path, 0.7, 0.2)]
 
 
 def test_edit_uses_qwen_default(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:

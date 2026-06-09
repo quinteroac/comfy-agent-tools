@@ -305,6 +305,8 @@ loras/
     product-retouch.safetensors
   flux-klein/
     klein_snofs_v1_1.safetensors
+  ideogram4/
+    poster-detail.safetensors
   ltx23/
     camera-static.safetensors
     detailer.safetensors
@@ -332,6 +334,9 @@ For local WAN 2.2 I2V/FLF2V, `--extra-lora` applies the LoRA to both high-noise
 and low-noise UNets. Use `--extra-lora-high` or `--extra-lora-low` when the LoRA
 should affect only one pass. WAN uses a shared text encoder, so any nonzero
 `CLIP_STRENGTH` patches that shared text encoder once for the given LoRA flag.
+For local Ideogram 4, `--extra-lora` applies the LoRA to both the main UNet and
+the unconditional UNet. Any nonzero `CLIP_STRENGTH` patches the shared Ideogram
+text encoder once.
 
 Example:
 
@@ -339,6 +344,19 @@ Example:
 uv run comfy-imagegen generate \
   --prompt "masterpiece, best quality, score_7, safe, realistic portrait, soft window light" \
   --extra-lora /mnt/models/comfyui/loras/anima/realism-portrait.safetensors:0.8:0.0 \
+  --out outputs
+```
+
+```bash
+uv run comfy-imagegen ideogram4-generate \
+  --prompt "A poster for a jazz night" \
+  --style-aesthetics "minimal, geometric, high contrast" \
+  --style-lighting "flat graphic design lighting" \
+  --style-medium "graphic_design" \
+  --style-art-style "clean vector poster, sans-serif typography" \
+  --background "Matte black paper background with subtle grain." \
+  --text "90,120,260,880|JAZZ NIGHT|Large cream uppercase headline." \
+  --extra-lora /mnt/models/comfyui/loras/ideogram4/poster-detail.safetensors:0.8:0.0 \
   --out outputs
 ```
 

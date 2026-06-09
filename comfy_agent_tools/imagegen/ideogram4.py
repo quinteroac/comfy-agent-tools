@@ -9,6 +9,7 @@ from typing import Any
 
 from PIL import Image
 
+from comfy_agent_tools.loras import ExtraLora, apply_extra_loras_to_models, resolve_extra_loras
 from comfy_agent_tools.imagegen.artifacts import tensor_to_pil
 
 
@@ -49,10 +50,16 @@ class Ideogram4Config:
     mu: float = DEFAULT_IDEOGRAM4_MU
     std: float = DEFAULT_IDEOGRAM4_STD
     sampler: str = DEFAULT_IDEOGRAM4_SAMPLER
+    extra_loras: list[ExtraLora] | None = None
 
     def resolve_model_path(self, path: Path) -> Path:
         """Resolve a model path relative to models_dir when needed."""
         return path if path.is_absolute() else self.models_dir / path
+
+    @property
+    def resolved_extra_loras(self) -> list[ExtraLora]:
+        """Return validated extra LoRAs, or an empty list."""
+        return resolve_extra_loras(self.models_dir, self.extra_loras or [])
 
 
 def run_ideogram4_t2i(*, prompt: str, config: Ideogram4Config) -> list[Image.Image]:
@@ -60,28 +67,62 @@ def run_ideogram4_t2i(*, prompt: str, config: Ideogram4Config) -> list[Image.Ima
     if not prompt.strip():
         raise ValueError("prompt must not be empty")
 
-    from comfy_diffusion.pipelines.image.ideogram4.t2i import run
-
-    images = run(
-        models_dir=config.models_dir,
-        prompt=prompt,
-        width=config.width,
-        height=config.height,
-        steps=config.steps,
-        cfg=config.cfg,
-        cfg_override_value=config.cfg_override_value,
-        cfg_override_start=config.cfg_override_start,
-        cfg_override_end=config.cfg_override_end,
-        seed=config.seed,
-        mu=config.mu,
-        std=config.std,
-        sampler_name=config.sampler,
-        unet_filename=config.unet,
-        uncond_unet_filename=config.uncond_unet,
-        clip_filename=config.clip,
-        vae_filename=config.vae,
+    from comfy_diffusion.conditioning import conditioning_zero_out, encode_prompt
+    from comfy_diffusion.latent import empty_flux2_latent_image
+    from comfy_diffusion.models import ModelManager
+    from comfy_diffusion.runtime import check_runtime
+    from comfy_diffusion.sampling import (
+        cfg_override,
+        dual_model_guider,
+        get_sampler,
+        ideogram4_scheduler,
+        random_noise,
+        sample_custom,
     )
-    return [_to_pil(image) for image in images]
+    from comfy_diffusion.vae import vae_decode
+
+    check_result = check_runtime()
+    if check_result.get("error"):
+        raise RuntimeError(f"ComfyUI runtime not available: {check_result['error']}")
+
+    resolved_extra_loras = config.resolved_extra_loras
+    mm = ModelManager(config.models_dir)
+
+    model = mm.load_unet(config.resolve_model_path(config.unet))
+    model_negative = mm.load_unet(config.resolve_model_path(config.uncond_unet))
+    clip = mm.load_clip(config.resolve_model_path(config.clip), clip_type="ideogram4")
+    vae = mm.load_vae(config.resolve_model_path(config.vae))
+
+    (model, model_negative), clip = apply_extra_loras_to_models(
+        [model, model_negative],
+        clip,
+        resolved_extra_loras,
+    )
+
+    positive = encode_prompt(clip, prompt)
+    negative = conditioning_zero_out(positive)
+    if config.cfg_override_value is not None:
+        model = cfg_override(
+            model,
+            config.cfg_override_value,
+            config.cfg_override_start,
+            config.cfg_override_end,
+        )
+
+    latent = empty_flux2_latent_image(config.width, config.height, batch_size=1)
+    noise = random_noise(config.seed)
+    sampler = get_sampler(config.sampler)
+    sigmas = ideogram4_scheduler(config.steps, config.width, config.height, config.mu, config.std)
+    guider = dual_model_guider(
+        model,
+        positive,
+        config.cfg,
+        model_negative=model_negative,
+        negative=negative,
+    )
+
+    latent_out, _ = sample_custom(noise, guider, sampler, sigmas, latent)
+    return [_to_pil(vae_decode(vae, latent_out))]
 
 
 def build_prompt(
