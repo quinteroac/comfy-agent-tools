@@ -15,6 +15,8 @@ and uses semantic versioning once releases are tagged.
 
 ### Added
 
+- Add local WAN 2.2 T2V command, profile, downloader entry, and Dasiwa T2V
+  profiles that reuse the existing Dasiwa I2V high/low UNets.
 - Add optional Dasiwa LTX 2.3 Golden Lace v3 built-in video profile and
   downloader entry.
 - Add remote Grok Imagine API image generation and editing commands to

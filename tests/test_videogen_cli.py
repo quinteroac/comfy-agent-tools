@@ -214,6 +214,7 @@ def test_parser_seedance2_defaults(tmp_path: Path) -> None:
 def test_parser_wan22_defaults(tmp_path: Path) -> None:
     parser = videogen.build_parser()
 
+    t2v = parser.parse_args(["wan22-t2v", "--prompt", "hello"])
     i2v = parser.parse_args(["wan22-i2v", "--input", str(tmp_path / "a.png"), "--prompt", "hello"])
     flf2v = parser.parse_args(
         [
@@ -238,6 +239,17 @@ def test_parser_wan22_defaults(tmp_path: Path) -> None:
         ]
     )
 
+    assert t2v.command == "wan22-t2v"
+    assert t2v.prompt == "hello"
+    assert t2v.width is None
+    assert t2v.height is None
+    assert t2v.length is None
+    assert t2v.fps is None
+    assert t2v.steps is None
+    assert t2v.cfg is None
+    assert t2v.extra_lora == []
+    assert t2v.extra_lora_high == []
+    assert t2v.extra_lora_low == []
     assert i2v.command == "wan22-i2v"
     assert i2v.width is None
     assert i2v.height is None
@@ -686,6 +698,91 @@ def test_wan22_i2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: 
         "diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors"
     )
     assert Path(payload["artifacts"][0]).is_file()
+
+
+def test_wan22_t2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    monkeypatch.chdir(tmp_path)
+    seen: dict[str, object] = {}
+
+    def fake_run(*, prompt, config):
+        seen["prompt"] = prompt
+        seen["unet_high"] = config.unet_high
+        seen["unet_low"] = config.unet_low
+        seen["steps"] = config.steps
+        seen["high_steps"] = config.high_steps
+        seen["low_steps"] = config.low_steps
+        seen["cfg"] = config.cfg
+        return {"frames": _frames()}
+
+    monkeypatch.setattr(videogen, "run_wan22_t2v", fake_run)
+    monkeypatch.setattr(videogen, "save_mp4", lambda frames, path, fps: Path(path).touch())
+
+    rc = videogen.main(["wan22-t2v", "--prompt", "make a video", "--out", str(tmp_path)])
+
+    assert rc == 0
+    assert seen["prompt"] == "make a video"
+    assert seen["unet_high"] == Path("diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors")
+    assert seen["unet_low"] == Path("diffusion_models/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors")
+    assert seen["steps"] == 20
+    assert seen["high_steps"] == 10
+    assert seen["low_steps"] == 10
+    assert seen["cfg"] == 3.5
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "wan22-t2v"
+    assert payload["audio_muxed"] is False
+    assert payload["capability"] == "videogen.wan22-t2v"
+    assert payload["model_profile"] == "wan22-t2v"
+    assert payload["architecture"] == "wan22"
+    assert payload["fps"] == 16
+    assert payload["resolved_models"]["unet_high"].endswith(
+        "diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors"
+    )
+    assert Path(payload["artifacts"][0]).is_file()
+
+
+def test_wan22_t2v_accepts_dasiwa_profile_defaults(
+    monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / ".comfy-agent-tools.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "models_dir": str(tmp_path / "models"),
+                "defaults": {"videogen.wan22-t2v": "wan22-dasiwa-boundbite-t2v"},
+                "profiles": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    seen: dict[str, object] = {}
+
+    def fake_run(*, prompt, config):
+        seen["unet_high"] = config.unet_high
+        seen["unet_low"] = config.unet_low
+        seen["steps"] = config.steps
+        seen["high_steps"] = config.high_steps
+        seen["low_steps"] = config.low_steps
+        seen["cfg"] = config.cfg
+        return {"frames": _frames()}
+
+    monkeypatch.setattr(videogen, "run_wan22_t2v", fake_run)
+    monkeypatch.setattr(videogen, "save_mp4", lambda frames, path, fps: Path(path).touch())
+
+    rc = videogen.main(["wan22-t2v", "--prompt", "make a video", "--out", str(tmp_path)])
+
+    assert rc == 0
+    assert seen["unet_high"] == Path("diffusion_models/DasiwaWAN22I2V14BLightspeed_boundbiteHighV10.safetensors")
+    assert seen["unet_low"] == Path("diffusion_models/DasiwaWAN22I2V14BLightspeed_boundbiteLowV10.safetensors")
+    assert seen["steps"] == 8
+    assert seen["high_steps"] == 2
+    assert seen["low_steps"] == 6
+    assert seen["cfg"] == 1.0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["model_profile"] == "wan22-dasiwa-boundbite-t2v"
+    assert payload["resolved_models"]["unet_high"].endswith(
+        "diffusion_models/DasiwaWAN22I2V14BLightspeed_boundbiteHighV10.safetensors"
+    )
 
 
 def test_wan22_i2v_accepts_targeted_extra_loras(
@@ -1484,6 +1581,22 @@ def test_wan22_i2v_wrapper_samples_high_noise_then_low_noise() -> None:
     assert "end_at_step=config.split_step" in source
     assert "start_at_step=config.split_step" in source
     assert "end_at_step=config.steps" in source
+
+
+def test_wan22_t2v_wrapper_uses_empty_wan_latent_and_dual_sampling() -> None:
+    source = Path("comfy_agent_tools/videogen/wan22.py").read_text(encoding="utf-8")
+
+    t2v_start = source.index("def run_t2v")
+    s2v_start = source.index("def run_s2v")
+    t2v_source = source[t2v_start:s2v_start]
+    high_call = t2v_source.index("latent = sample_advanced(\n        model_high")
+    low_call = t2v_source.index("latent = sample_advanced(\n        model_low")
+    assert "wan_image_to_video(" in t2v_source
+    assert high_call < low_call
+    assert "start_at_step=0" in t2v_source
+    assert "end_at_step=config.split_step" in t2v_source
+    assert "start_at_step=config.split_step" in t2v_source
+    assert "end_at_step=config.steps" in t2v_source
 
 
 def test_wan22_extra_loras_apply_to_selected_unets(monkeypatch: MagicMock, tmp_path: Path) -> None:

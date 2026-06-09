@@ -14,6 +14,8 @@ from comfy_agent_tools.loras import ExtraLora, apply_extra_loras, apply_extra_lo
 
 DEFAULT_WAN22_UNET_HIGH = Path("diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors")
 DEFAULT_WAN22_UNET_LOW = Path("diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors")
+DEFAULT_WAN22_T2V_UNET_HIGH = Path("diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors")
+DEFAULT_WAN22_T2V_UNET_LOW = Path("diffusion_models/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors")
 DEFAULT_WAN22_S2V_UNET = Path("diffusion_models/wan2.2_s2v_14B_fp8_scaled.safetensors")
 DEFAULT_WAN22_TEXT_ENCODER = Path("text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors")
 DEFAULT_WAN22_AUDIO_ENCODER = Path("audio_encoders/wav2vec2_large_english_fp16.safetensors")
@@ -28,6 +30,7 @@ DEFAULT_WAN22_STEPS = 20
 DEFAULT_WAN22_HIGH_STEPS = DEFAULT_WAN22_STEPS // 2
 DEFAULT_WAN22_LOW_STEPS = DEFAULT_WAN22_STEPS - DEFAULT_WAN22_HIGH_STEPS
 DEFAULT_WAN22_I2V_CFG = 3.5
+DEFAULT_WAN22_T2V_CFG = 3.5
 DEFAULT_WAN22_FLF2V_CFG = 4.0
 DEFAULT_WAN22_S2V_CFG = 6.0
 DEFAULT_WAN22_S2V_SAMPLER = "uni_pc"
@@ -259,6 +262,75 @@ def run_i2v(*, image: Path, prompt: str, config: Wan22Config) -> dict[str, Any]:
         height=config.height,
         length=config.length,
         start_image=start_image,
+    )
+
+    latent = sample_advanced(
+        model_high,
+        positive,
+        negative,
+        latent,
+        steps=config.steps,
+        cfg=config.cfg,
+        sampler_name="euler",
+        scheduler="simple",
+        noise_seed=config.seed,
+        add_noise=True,
+        start_at_step=0,
+        end_at_step=config.split_step,
+        return_with_leftover_noise=True,
+    )
+    latent = sample_advanced(
+        model_low,
+        positive,
+        negative,
+        latent,
+        steps=config.steps,
+        cfg=config.cfg,
+        sampler_name="euler",
+        scheduler="simple",
+        noise_seed=config.seed,
+        add_noise=False,
+        start_at_step=config.split_step,
+        end_at_step=config.steps,
+        return_with_leftover_noise=False,
+    )
+    frames = vae_decode_batch(vae, latent)
+    return {"frames": frames}
+
+
+def run_t2v(*, prompt: str, config: Wan22Config) -> dict[str, Any]:
+    """Run WAN 2.2 text-to-video with high-noise first, low-noise second."""
+    if not prompt.strip():
+        raise ValueError("prompt must not be empty")
+
+    from comfy_diffusion.conditioning import encode_prompt, wan_image_to_video
+    from comfy_diffusion.models import ModelManager, model_sampling_sd3
+    from comfy_diffusion.runtime import check_runtime
+    from comfy_diffusion.sampling import sample_advanced
+    from comfy_diffusion.vae import vae_decode_batch
+
+    check_result = check_runtime()
+    if check_result.get("error"):
+        raise RuntimeError(f"ComfyUI runtime not available: {check_result['error']}")
+
+    mm = ModelManager(config.models_dir)
+    model_high = mm.load_unet(config.resolve_model_path(config.unet_high))
+    model_low = mm.load_unet(config.resolve_model_path(config.unet_low))
+    clip = mm.load_clip(config.resolve_model_path(config.text_encoder), clip_type="wan")
+    vae = mm.load_vae(config.resolve_model_path(config.vae))
+
+    model_high, model_low, clip = _apply_extra_loras(model_high, model_low, clip, config)
+    model_high = model_sampling_sd3(model_high, shift=5.0)
+    model_low = model_sampling_sd3(model_low, shift=5.0)
+
+    positive, negative = encode_prompt(clip, prompt, config.negative_prompt)
+    positive, negative, latent = wan_image_to_video(
+        positive,
+        negative,
+        vae,
+        width=config.width,
+        height=config.height,
+        length=config.length,
     )
 
     latent = sample_advanced(

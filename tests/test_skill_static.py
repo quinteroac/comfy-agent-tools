@@ -41,9 +41,12 @@ def test_comfy_videogen_skill_frontmatter() -> None:
     assert "ia2av" in content
     assert "seedance2-t2v" in content
     assert "Seedance 2.0" in content
+    assert "wan22-t2v" in content
     assert "wan22-s2v" in content
     assert "wan22-video-audio" in content
     assert "wav2vec2_large_english_fp16.safetensors" in content
+    assert "wan22-dasiwa-tastysin-t2v" in content
+    assert "wan22-dasiwa-boundbite-t2v" in content
     assert "wan22-dasiwa-littledemon-v2-s2v" in content
     assert "wan22-dasiwa-littledemon-v2-video-audio" in content
     assert "DasiwaWan2214BS2V_littledemonV2.safetensors" in content
@@ -133,6 +136,8 @@ def test_comfy_model_onboarding_skill_frontmatter() -> None:
     assert "flux-klein-9b-snofs" in content
     assert "flux-klein" in content
     assert "wan22-dasiwa-littledemon-v2-video-audio" in content
+    assert "wan22-dasiwa-tastysin-t2v" in content
+    assert "videogen.wan22-t2v" in content
     assert "videogen.wan22-video-audio" in content
     assert "comfy-tools-setup" in content
     assert "comfy-model-downloader" in content
@@ -152,6 +157,8 @@ def test_comfy_model_downloader_skill_frontmatter() -> None:
     assert "flux-klein-9b-snofs" in content
     assert "SNOFS" in content
     assert "ltx23-dasiwa-golden-lace-v3" in content
+    assert "wan22-t2v" in content
+    assert "wan22-dasiwa-tastysin-t2v" in content
     assert "seedance2-api" in content
     assert "COMFY_ORG_API_KEY" in content
     assert "Do not download every model" in content
@@ -200,6 +207,8 @@ def test_readme_documents_skills_first_installation() -> None:
     assert "Seedance 2.0" in content
     assert "COMFY_ORG_API_KEY" in content
     assert "seedance2-api" in content
+    assert "wan22-t2v" in content
+    assert "wan22-dasiwa-tastysin-t2v" in content
     assert "comfy-models download imagegen.generate --dry-run" in content
     assert "flux-klein-9b-snofs" in content
     assert "klein_snofs_v1_1.safetensors" in content
