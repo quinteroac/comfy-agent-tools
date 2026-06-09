@@ -238,7 +238,11 @@ through the LoRA folder convention:
 - `loras/anima/` for Anima generation LoRAs.
 - `loras/qwen-image-edit/` for Qwen edit LoRAs.
 - `loras/flux-klein/` for FLUX.2 Klein LoRAs such as SNOFS.
+- `loras/ideogram4/` for Ideogram 4 style or poster/detail LoRAs.
 - fallback to loose files in `loras/` only when no architecture folder match is clear.
+
+For Ideogram 4, `--extra-lora` patches both the main and unconditional UNets.
+Nonzero `CLIP_STRENGTH` patches the shared Ideogram text encoder once.
 
 Warnings about missing `torchaudio` can appear in verbose mode because ComfyUI imports
 audio-capable modules. They are expected while this skill is only using image workflows.
