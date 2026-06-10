@@ -101,7 +101,8 @@ uv run comfy-models validate
 ```
 
 The Python runtime dependency is `comfy-diffusion[comfyui,video,audio]` pinned
-to `v2.3.0` or newer for LTX 2.3 HDR IC-LoRA helpers. The
+to `v2.3.1` or newer for LTX 2.3 HDR IC-LoRA helpers, Ideogram 4, and the VAE
+decode fix required by LTX 2.3 video. The
 media extras are required because ComfyUI imports media nodes during runtime
 startup, video generation writes MP4 files with audio, and music generation uses
 audio helpers.
