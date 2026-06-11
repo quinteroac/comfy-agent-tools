@@ -380,7 +380,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.13" },
-    { name = "comfy-diffusion", extras = ["comfyui", "video", "audio"], git = "https://github.com/quinteroac/comfy-diffusion.git?rev=v2.3.1" },
+    { name = "comfy-diffusion", extras = ["comfyui", "video", "audio"], git = "https://github.com/quinteroac/comfy-diffusion.git?rev=v2.4.0" },
     { name = "hf-xet", specifier = ">=1.2" },
     { name = "huggingface-hub", specifier = ">=0.36" },
     { name = "pillow", specifier = ">=12.0.0" },
@@ -404,8 +404,8 @@ wheels = [
 
 [[package]]
 name = "comfy-diffusion"
-version = "2.3.1"
-source = { git = "https://github.com/quinteroac/comfy-diffusion.git?rev=v2.3.1#5b28b4c2983624d8cd104984b304ee979bc5e694" }
+version = "2.4.0"
+source = { git = "https://github.com/quinteroac/comfy-diffusion.git?rev=v2.4.0#35c4a7988e5d09e9effcc2968b83e16e1fd51cf8" }
 dependencies = [
     { name = "einops" },
     { name = "huggingface-hub" },

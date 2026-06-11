@@ -155,6 +155,7 @@ def test_builtin_defaults_point_to_supported_profiles() -> None:
     assert BUILTIN_DEFAULTS["videogen.wan22-i2v"] == "wan22-i2v"
     assert BUILTIN_DEFAULTS["videogen.wan22-s2v"] == "wan22-s2v"
     assert BUILTIN_DEFAULTS["videogen.wan22-video-audio"] == "wan22-dasiwa-littledemon-v2-video-audio"
+    assert BUILTIN_DEFAULTS["videogen.wan22-bernini"] == "wan22-bernini"
     assert BUILTIN_DEFAULTS["imagegen.grok-generate"] == "grok-imagine-api"
     assert BUILTIN_DEFAULTS["imagegen.grok-edit"] == "grok-imagine-api"
     assert BUILTIN_DEFAULTS["imagegen.ideogram4-generate"] == "ideogram4-fp8"

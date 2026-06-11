@@ -20,18 +20,30 @@ DEFAULT_WAN22_S2V_UNET = Path("diffusion_models/wan2.2_s2v_14B_fp8_scaled.safete
 DEFAULT_WAN22_TEXT_ENCODER = Path("text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors")
 DEFAULT_WAN22_AUDIO_ENCODER = Path("audio_encoders/wav2vec2_large_english_fp16.safetensors")
 DEFAULT_WAN22_VAE = Path("vae/wan_2.1_vae.safetensors")
+DEFAULT_WAN22_BERNINI_UNET_HIGH = Path("diffusion_models/Wan22_Bernini_HIGH_fp8_e4m3fn_scaled.safetensors")
+DEFAULT_WAN22_BERNINI_UNET_LOW = Path("diffusion_models/Wan22_Bernini_LOW_fp8_e4m3fn_scaled.safetensors")
+DEFAULT_WAN22_BERNINI_LORA = Path("loras/wan22/lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank64_bf16.safetensors")
+DEFAULT_WAN22_BERNINI_TEXT_ENCODER = Path("text_encoders/nsfw_wan_umt5-xxl_fp8_scaled.safetensors")
 DEFAULT_WAN22_WIDTH = 640
 DEFAULT_WAN22_HEIGHT = 640
 DEFAULT_WAN22_LENGTH = 81
+DEFAULT_WAN22_BERNINI_WIDTH = 832
+DEFAULT_WAN22_BERNINI_HEIGHT = 480
 DEFAULT_WAN22_S2V_LENGTH = 77
 DEFAULT_WAN22_S2V_CHUNK_LENGTH = 77
 DEFAULT_WAN22_FPS = 16
 DEFAULT_WAN22_STEPS = 20
+DEFAULT_WAN22_BERNINI_STEPS = 8
+DEFAULT_WAN22_BERNINI_SPLIT_STEP = 4
 DEFAULT_WAN22_HIGH_STEPS = DEFAULT_WAN22_STEPS // 2
 DEFAULT_WAN22_LOW_STEPS = DEFAULT_WAN22_STEPS - DEFAULT_WAN22_HIGH_STEPS
 DEFAULT_WAN22_I2V_CFG = 3.5
 DEFAULT_WAN22_T2V_CFG = 3.5
 DEFAULT_WAN22_FLF2V_CFG = 4.0
+DEFAULT_WAN22_BERNINI_CFG = 1.0
+DEFAULT_WAN22_BERNINI_HIGH_LORA_STRENGTH = 3.0
+DEFAULT_WAN22_BERNINI_LOW_LORA_STRENGTH = 1.5
+DEFAULT_WAN22_BERNINI_REF_MAX_SIZE = 848
 DEFAULT_WAN22_S2V_CFG = 6.0
 DEFAULT_WAN22_S2V_SAMPLER = "uni_pc"
 DEFAULT_WAN22_S2V_SCHEDULER = "simple"
@@ -49,6 +61,10 @@ DEFAULT_WAN22_VIDEO_AUDIO_LIPSYNC_SECOND_DENOISE = 0.25
 DEFAULT_WAN22_NEGATIVE_PROMPT = (
     "overexposed, static, blurry details, subtitles, watermark, low quality, jpeg artifacts, "
     "bad anatomy, malformed hands, malformed face, distorted limbs, messy background"
+)
+DEFAULT_WAN22_BERNINI_NEGATIVE_PROMPT = (
+    "overexposed, static, blurry details, subtitles, watermark, low quality, jpeg artifacts, "
+    "bad anatomy, malformed hands, malformed face, distorted limbs, messy background, extra limbs"
 )
 
 
@@ -221,6 +237,55 @@ class Wan22VideoAudioConfig:
             raise ValueError("audio_start_time must be greater than or equal to 0")
 
 
+@dataclass(frozen=True)
+class Wan22BerniniConfig:
+    """Runtime configuration for WAN 2.2 Bernini video editing."""
+
+    models_dir: Path
+    unet_high: Path = DEFAULT_WAN22_BERNINI_UNET_HIGH
+    unet_low: Path = DEFAULT_WAN22_BERNINI_UNET_LOW
+    lora: Path = DEFAULT_WAN22_BERNINI_LORA
+    text_encoder: Path = DEFAULT_WAN22_BERNINI_TEXT_ENCODER
+    vae: Path = DEFAULT_WAN22_VAE
+    width: int = DEFAULT_WAN22_BERNINI_WIDTH
+    height: int = DEFAULT_WAN22_BERNINI_HEIGHT
+    length: int = DEFAULT_WAN22_LENGTH
+    fps: int = DEFAULT_WAN22_FPS
+    steps: int = DEFAULT_WAN22_BERNINI_STEPS
+    split_step: int = DEFAULT_WAN22_BERNINI_SPLIT_STEP
+    cfg: float = DEFAULT_WAN22_BERNINI_CFG
+    seed: int = 3
+    negative_prompt: str = DEFAULT_WAN22_BERNINI_NEGATIVE_PROMPT
+    high_lora_strength: float = DEFAULT_WAN22_BERNINI_HIGH_LORA_STRENGTH
+    low_lora_strength: float = DEFAULT_WAN22_BERNINI_LOW_LORA_STRENGTH
+    sampler: str = "res_multistep"
+    scheduler: str = "simple"
+    ref_max_size: int = DEFAULT_WAN22_BERNINI_REF_MAX_SIZE
+
+    def resolve_model_path(self, path: Path) -> Path:
+        """Resolve a model path relative to models_dir when needed."""
+        if path.is_absolute():
+            return path
+        return self.models_dir / path
+
+    def validate(self) -> None:
+        """Validate Bernini runtime settings before loading large models."""
+        if self.width <= 0 or self.height <= 0:
+            raise ValueError("width and height must be greater than 0")
+        if self.length <= 0:
+            raise ValueError("length must be greater than 0")
+        if self.fps <= 0:
+            raise ValueError("fps must be greater than 0")
+        if self.steps <= 0:
+            raise ValueError("steps must be greater than 0")
+        if self.split_step <= 0 or self.split_step >= self.steps:
+            raise ValueError("split_step must be greater than 0 and smaller than steps")
+        if self.cfg <= 0:
+            raise ValueError("cfg must be greater than 0")
+        if self.ref_max_size <= 0:
+            raise ValueError("ref_max_size must be greater than 0")
+
+
 def run_i2v(*, image: Path, prompt: str, config: Wan22Config) -> dict[str, Any]:
     """Run WAN 2.2 image-to-video with high-noise first, low-noise second."""
     if not image.is_file():
@@ -295,6 +360,69 @@ def run_i2v(*, image: Path, prompt: str, config: Wan22Config) -> dict[str, Any]:
         return_with_leftover_noise=False,
     )
     frames = vae_decode_batch(vae, latent)
+    return {"frames": frames}
+
+
+def run_bernini(
+    *,
+    prompt: str,
+    config: Wan22BerniniConfig,
+    source_video: Path | None = None,
+    reference_images: list[Path] | None = None,
+) -> dict[str, Any]:
+    """Run WAN 2.2 Bernini video editing or reference-guided video generation."""
+    if source_video is not None and not source_video.is_file():
+        raise FileNotFoundError(f"input video not found: {source_video}")
+    if reference_images:
+        for image in reference_images:
+            if not image.is_file():
+                raise FileNotFoundError(f"reference image not found: {image}")
+    if source_video is None and not reference_images:
+        raise ValueError("wan22-bernini requires --input-video or at least one --reference-image")
+    if not prompt.strip():
+        raise ValueError("prompt must not be empty")
+    config.validate()
+
+    from comfy_diffusion.pipelines.video.wan.wan22 import bernini
+
+    refs: list[Image.Image] | None = None
+    handles: list[Image.Image] = []
+    try:
+        if reference_images:
+            refs = []
+            for path in reference_images:
+                loaded = Image.open(path)
+                handles.append(loaded)
+                refs.append(ImageOps.exif_transpose(loaded).convert("RGB"))
+
+        frames = bernini.run(
+            source_video=source_video,
+            reference_image=refs,
+            prompt=prompt,
+            negative_prompt=config.negative_prompt,
+            width=config.width,
+            height=config.height,
+            length=config.length,
+            models_dir=config.models_dir,
+            seed=config.seed,
+            steps=config.steps,
+            split_step=config.split_step,
+            cfg=config.cfg,
+            high_lora_strength=config.high_lora_strength,
+            low_lora_strength=config.low_lora_strength,
+            sampler_name=config.sampler,
+            scheduler=config.scheduler,
+            ref_max_size=config.ref_max_size,
+            unet_high_filename=config.unet_high,
+            unet_low_filename=config.unet_low,
+            lora_filename=config.lora,
+            text_encoder_filename=config.text_encoder,
+            vae_filename=config.vae,
+        )
+    finally:
+        for handle in handles:
+            handle.close()
+
     return {"frames": frames}
 
 

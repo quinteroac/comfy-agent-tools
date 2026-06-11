@@ -315,6 +315,30 @@ def test_parser_wan22_defaults(tmp_path: Path) -> None:
     assert lipsync.mode == "lipsync"
     assert lipsync.mask_video == tmp_path / "mask.mp4"
 
+    bernini = parser.parse_args(
+        [
+            "wan22-bernini",
+            "--input-video",
+            str(tmp_path / "source.mp4"),
+            "--reference-image",
+            str(tmp_path / "ref.png"),
+            "--prompt",
+            "replace the subject",
+        ]
+    )
+    assert bernini.command == "wan22-bernini"
+    assert bernini.input_video == tmp_path / "source.mp4"
+    assert bernini.reference_image == [tmp_path / "ref.png"]
+    assert bernini.prompt == "replace the subject"
+    assert bernini.width is None
+    assert bernini.height is None
+    assert bernini.steps is None
+    assert bernini.split_step is None
+    assert bernini.cfg is None
+    assert bernini.high_lora_strength is None
+    assert bernini.low_lora_strength is None
+    assert bernini.ref_max_size is None
+
 
 def test_parser_rejects_unknown_wan22_video_audio_mode(tmp_path: Path) -> None:
     with pytest.raises(SystemExit):
@@ -736,6 +760,71 @@ def test_wan22_t2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: 
     assert payload["fps"] == 16
     assert payload["resolved_models"]["unet_high"].endswith(
         "diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors"
+    )
+    assert Path(payload["artifacts"][0]).is_file()
+
+
+def test_wan22_bernini_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    monkeypatch.chdir(tmp_path)
+    input_video = tmp_path / "source.mp4"
+    ref_image = tmp_path / "ref.png"
+    input_video.write_bytes(b"mp4")
+    Image.new("RGB", (8, 8), "green").save(ref_image)
+    seen: dict[str, object] = {}
+
+    def fake_run(*, prompt, config, source_video, reference_images):
+        seen["prompt"] = prompt
+        seen["source_video"] = source_video
+        seen["reference_images"] = reference_images
+        seen["steps"] = config.steps
+        seen["split_step"] = config.split_step
+        seen["cfg"] = config.cfg
+        seen["high_lora_strength"] = config.high_lora_strength
+        seen["low_lora_strength"] = config.low_lora_strength
+        return {"frames": _frames()}
+
+    monkeypatch.setattr(videogen, "run_wan22_bernini", fake_run)
+    monkeypatch.setattr(videogen, "save_mp4", lambda frames, path, fps: Path(path).touch())
+
+    rc = videogen.main(
+        [
+            "wan22-bernini",
+            "--input-video",
+            str(input_video),
+            "--reference-image",
+            str(ref_image),
+            "--prompt",
+            "replace the subject",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    assert seen["prompt"] == "replace the subject"
+    assert seen["source_video"] == input_video
+    assert seen["reference_images"] == [ref_image]
+    assert seen["steps"] == 8
+    assert seen["split_step"] == 4
+    assert seen["cfg"] == 1.0
+    assert seen["high_lora_strength"] == 3.0
+    assert seen["low_lora_strength"] == 1.5
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "wan22-bernini"
+    assert payload["input_video"] == str(input_video)
+    assert payload["reference_images"] == [str(ref_image)]
+    assert payload["audio_muxed"] is False
+    assert payload["capability"] == "videogen.wan22-bernini"
+    assert payload["model_profile"] == "wan22-bernini"
+    assert payload["architecture"] == "wan22"
+    assert payload["fps"] == 16
+    assert payload["steps"] == 8
+    assert payload["split_step"] == 4
+    assert payload["resolved_models"]["unet_high"].endswith(
+        "diffusion_models/Wan22_Bernini_HIGH_fp8_e4m3fn_scaled.safetensors"
+    )
+    assert payload["resolved_models"]["lora"].endswith(
+        "loras/wan22/lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank64_bf16.safetensors"
     )
     assert Path(payload["artifacts"][0]).is_file()
 

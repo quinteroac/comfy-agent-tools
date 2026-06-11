@@ -36,6 +36,19 @@ from comfy_agent_tools.videogen.config import (
 from comfy_agent_tools.videogen.ltx23 import run_flf2v, run_i2v, run_ia2av, run_motion_track, run_t2v
 from comfy_agent_tools.videogen.wan22 import (
     DEFAULT_WAN22_AUDIO_ENCODER,
+    DEFAULT_WAN22_BERNINI_CFG,
+    DEFAULT_WAN22_BERNINI_HEIGHT,
+    DEFAULT_WAN22_BERNINI_HIGH_LORA_STRENGTH,
+    DEFAULT_WAN22_BERNINI_LORA,
+    DEFAULT_WAN22_BERNINI_LOW_LORA_STRENGTH,
+    DEFAULT_WAN22_BERNINI_NEGATIVE_PROMPT,
+    DEFAULT_WAN22_BERNINI_REF_MAX_SIZE,
+    DEFAULT_WAN22_BERNINI_SPLIT_STEP,
+    DEFAULT_WAN22_BERNINI_STEPS,
+    DEFAULT_WAN22_BERNINI_TEXT_ENCODER,
+    DEFAULT_WAN22_BERNINI_UNET_HIGH,
+    DEFAULT_WAN22_BERNINI_UNET_LOW,
+    DEFAULT_WAN22_BERNINI_WIDTH,
     DEFAULT_WAN22_FLF2V_CFG,
     DEFAULT_WAN22_FPS,
     DEFAULT_WAN22_HEIGHT,
@@ -68,9 +81,11 @@ from comfy_agent_tools.videogen.wan22 import (
     DEFAULT_WAN22_VIDEO_AUDIO_PROMPT,
     DEFAULT_WAN22_VIDEO_AUDIO_STEPS,
     DEFAULT_WAN22_WIDTH,
+    Wan22BerniniConfig,
     Wan22Config,
     Wan22S2VConfig,
     Wan22VideoAudioConfig,
+    run_bernini as run_wan22_bernini,
     run_flf2v as run_wan22_flf2v,
     run_i2v as run_wan22_i2v,
     run_s2v as run_wan22_s2v,
@@ -331,6 +346,51 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show ComfyUI warnings and progress output while running.",
     )
 
+    wan22_bernini = subparsers.add_parser(
+        "wan22-bernini",
+        help="Edit or generate a reference-guided video with WAN 2.2 Bernini.",
+    )
+    wan22_bernini.add_argument("--models-dir", type=_path, default=None)
+    wan22_bernini.add_argument("--out", type=_path, default=DEFAULT_OUT)
+    wan22_bernini.add_argument(
+        "--no-manifest",
+        action="store_true",
+        help="Do not write a comfy-media run manifest for this generation.",
+    )
+    wan22_bernini.add_argument("--input-video", type=_path, default=None)
+    wan22_bernini.add_argument(
+        "--reference-image",
+        type=_path,
+        action="append",
+        default=[],
+        help="Reference image for Bernini conditioning. Repeat for multi-reference edits.",
+    )
+    wan22_bernini.add_argument("--prompt", required=True)
+    wan22_bernini.add_argument("--unet-high", type=_path, default=None)
+    wan22_bernini.add_argument("--unet-low", type=_path, default=None)
+    wan22_bernini.add_argument("--lora", type=_path, default=None)
+    wan22_bernini.add_argument("--text-encoder", type=_path, default=None)
+    wan22_bernini.add_argument("--vae", type=_path, default=None)
+    wan22_bernini.add_argument("--width", type=int, default=None)
+    wan22_bernini.add_argument("--height", type=int, default=None)
+    wan22_bernini.add_argument("--length", type=int, default=None)
+    wan22_bernini.add_argument("--fps", type=int, default=None)
+    wan22_bernini.add_argument("--steps", type=int, default=None)
+    wan22_bernini.add_argument("--split-step", type=int, default=None)
+    wan22_bernini.add_argument("--cfg", type=float, default=None)
+    wan22_bernini.add_argument("--seed", type=int, default=3)
+    wan22_bernini.add_argument("--negative-prompt", default=DEFAULT_WAN22_BERNINI_NEGATIVE_PROMPT)
+    wan22_bernini.add_argument("--high-lora-strength", type=float, default=None)
+    wan22_bernini.add_argument("--low-lora-strength", type=float, default=None)
+    wan22_bernini.add_argument("--sampler", default=None)
+    wan22_bernini.add_argument("--scheduler", default=None)
+    wan22_bernini.add_argument("--ref-max-size", type=int, default=None)
+    wan22_bernini.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show ComfyUI warnings and progress output while running.",
+    )
+
     def add_seedance2_common(subparser: argparse.ArgumentParser) -> None:
         subparser.add_argument("--out", type=_path, default=DEFAULT_OUT)
         subparser.add_argument(
@@ -560,6 +620,51 @@ def _wan22_video_audio_config(args: argparse.Namespace, profile: ResolvedProfile
             else str(profile.defaults.get("negative_prompt", ""))
         ),
         audio_start_time=args.audio_start_time,
+    )
+
+
+def _wan22_bernini_config(args: argparse.Namespace, profile: ResolvedProfile) -> Wan22BerniniConfig:
+    return Wan22BerniniConfig(
+        models_dir=args.models_dir if args.models_dir is not None else profile.models_dir,
+        unet_high=args.unet_high if args.unet_high is not None else profile.models.get("unet_high", DEFAULT_WAN22_BERNINI_UNET_HIGH),
+        unet_low=args.unet_low if args.unet_low is not None else profile.models.get("unet_low", DEFAULT_WAN22_BERNINI_UNET_LOW),
+        lora=args.lora if args.lora is not None else profile.models.get("lora", DEFAULT_WAN22_BERNINI_LORA),
+        text_encoder=(
+            args.text_encoder
+            if args.text_encoder is not None
+            else profile.models.get("text_encoder", DEFAULT_WAN22_BERNINI_TEXT_ENCODER)
+        ),
+        vae=args.vae if args.vae is not None else profile.models.get("vae", DEFAULT_WAN22_VAE),
+        width=args.width if args.width is not None else int(profile.defaults.get("width", DEFAULT_WAN22_BERNINI_WIDTH)),
+        height=args.height if args.height is not None else int(profile.defaults.get("height", DEFAULT_WAN22_BERNINI_HEIGHT)),
+        length=args.length if args.length is not None else int(profile.defaults.get("length", DEFAULT_WAN22_LENGTH)),
+        fps=args.fps if args.fps is not None else int(profile.defaults.get("fps", DEFAULT_WAN22_FPS)),
+        steps=args.steps if args.steps is not None else int(profile.defaults.get("steps", DEFAULT_WAN22_BERNINI_STEPS)),
+        split_step=(
+            args.split_step
+            if args.split_step is not None
+            else int(profile.defaults.get("split_step", DEFAULT_WAN22_BERNINI_SPLIT_STEP))
+        ),
+        cfg=args.cfg if args.cfg is not None else float(profile.defaults.get("cfg", DEFAULT_WAN22_BERNINI_CFG)),
+        seed=args.seed,
+        negative_prompt=args.negative_prompt,
+        high_lora_strength=(
+            args.high_lora_strength
+            if args.high_lora_strength is not None
+            else float(profile.defaults.get("high_lora_strength", DEFAULT_WAN22_BERNINI_HIGH_LORA_STRENGTH))
+        ),
+        low_lora_strength=(
+            args.low_lora_strength
+            if args.low_lora_strength is not None
+            else float(profile.defaults.get("low_lora_strength", DEFAULT_WAN22_BERNINI_LOW_LORA_STRENGTH))
+        ),
+        sampler=args.sampler if args.sampler is not None else str(profile.defaults.get("sampler", "res_multistep")),
+        scheduler=args.scheduler if args.scheduler is not None else str(profile.defaults.get("scheduler", "simple")),
+        ref_max_size=(
+            args.ref_max_size
+            if args.ref_max_size is not None
+            else int(profile.defaults.get("ref_max_size", DEFAULT_WAN22_BERNINI_REF_MAX_SIZE))
+        ),
     )
 
 
@@ -876,6 +981,50 @@ def _wan22_video_audio_success(
     return payload
 
 
+def _wan22_bernini_success(
+    *,
+    artifact: Path,
+    config: Wan22BerniniConfig,
+    frames: list[object],
+    profile: ResolvedProfile,
+    input_video: Path | None = None,
+    reference_images: list[Path] | None = None,
+) -> dict[str, Any]:
+    meta = frame_metadata(frames, config.fps)
+    payload: dict[str, Any] = {
+        "ok": True,
+        "kind": "video",
+        "mode": "wan22-bernini",
+        "artifacts": [str(artifact)],
+        "seed": config.seed,
+        "models_dir": str(config.models_dir),
+        "model": config.unet_high.name,
+        "width": meta["width"],
+        "height": meta["height"],
+        "frames": meta["frames"],
+        "fps": meta["fps"],
+        "duration_seconds": meta["duration_seconds"],
+        "steps": config.steps,
+        "split_step": config.split_step,
+        "cfg": config.cfg,
+        "high_lora_strength": config.high_lora_strength,
+        "low_lora_strength": config.low_lora_strength,
+        "sampler": config.sampler,
+        "scheduler": config.scheduler,
+        "ref_max_size": config.ref_max_size,
+        "audio_muxed": False,
+        "capability": profile.capability,
+        "model_profile": profile.name,
+        "architecture": profile.architecture,
+        "resolved_models": _resolved_wan22_bernini_models(config),
+    }
+    if input_video is not None:
+        payload["input_video"] = str(input_video)
+    if reference_images:
+        payload["reference_images"] = [str(path) for path in reference_images]
+    return payload
+
+
 def _resolved_video_models(config: VideogenConfig) -> dict[str, str]:
     return {
         "checkpoint": str(config.resolve_model_path(config.checkpoint)),
@@ -913,6 +1062,16 @@ def _resolved_wan22_video_audio_models(config: Wan22VideoAudioConfig) -> dict[st
         "unet": str(config.resolve_model_path(config.unet)),
         "text_encoder": str(config.resolve_model_path(config.text_encoder)),
         "audio_encoder": str(config.resolve_model_path(config.audio_encoder)),
+        "vae": str(config.resolve_model_path(config.vae)),
+    }
+
+
+def _resolved_wan22_bernini_models(config: Wan22BerniniConfig) -> dict[str, str]:
+    return {
+        "unet_high": str(config.resolve_model_path(config.unet_high)),
+        "unet_low": str(config.resolve_model_path(config.unet_low)),
+        "lora": str(config.resolve_model_path(config.lora)),
+        "text_encoder": str(config.resolve_model_path(config.text_encoder)),
         "vae": str(config.resolve_model_path(config.vae)),
     }
 
@@ -1123,6 +1282,31 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
             chunks=list(result.get("chunks", [])),
             mask_video=args.mask_video,
             mask_image=args.mask_image,
+        )
+
+    if args.command == "wan22-bernini":
+        reference_images = list(args.reference_image or [])
+        if args.input_video is not None and not args.input_video.is_file():
+            raise FileNotFoundError(f"input video not found: {args.input_video}")
+        for image in reference_images:
+            if not image.is_file():
+                raise FileNotFoundError(f"reference image not found: {image}")
+        config = _wan22_bernini_config(args, profile)
+        with _maybe_silence(not args.verbose):
+            result = run_wan22_bernini(
+                prompt=args.prompt,
+                config=config,
+                source_video=args.input_video,
+                reference_images=reference_images,
+            )
+            artifact = _write_result_video_no_audio(result, args.out, prefix="comfy-videogen-wan22-bernini", fps=config.fps)
+        return _wan22_bernini_success(
+            artifact=artifact,
+            config=config,
+            frames=result["frames"],
+            profile=profile,
+            input_video=args.input_video,
+            reference_images=reference_images,
         )
 
     config = _config(args, profile)

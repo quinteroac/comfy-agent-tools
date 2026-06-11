@@ -80,6 +80,7 @@ Current skills:
 - `comfy-tools-setup`: installs/validates the Python CLIs.
 - `comfy-imagegen`: local image generation/edit/upscale.
 - `comfy-videogen`: local LTX 2.3/WAN 2.2 video generation and remote Seedance 2.0 API video.
+- `comfy-bernini-videoedit`: Bernini WAN 2.2 video edit workflows.
 - `comfy-motion-track-control`: LTX 2.3 Motion Track IC-LoRA control video workflows.
 - `comfy-musicgen`: local ACE-Step music generation.
 - `comfy-model-onboarding`: persistent model profiles/defaults.

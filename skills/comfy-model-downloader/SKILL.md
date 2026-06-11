@@ -26,6 +26,7 @@ prefer `uv run comfy-models`; outside the repo, use the installed CLI.
 - WAN 2.2 first/last frame video: `videogen.wan22-flf2v`
 - WAN 2.2 sound to video: `videogen.wan22-s2v`
 - WAN 2.2 video plus audio: `videogen.wan22-video-audio`
+- WAN 2.2 Bernini video edit: `videogen.wan22-bernini`
 - Music generation: `musicgen.generate`
 
 Do not map Seedance 2.0 API requests to downloads. `videogen.seedance2-t2v`,
