@@ -46,6 +46,7 @@ Python CLIs on demand, initialize local config if needed, and validate models.
 
 - `comfy-imagegen`: image generation, Ideogram 4 structured prompting, image editing, upscaling, and remote Grok Imagine.
 - `comfy-videogen`: local LTX 2.3/WAN 2.2 video plus remote Seedance 2.0 API video.
+- `comfy-bernini-videoedit`: Bernini WAN 2.2 video edit workflows for V2V, RV2V, VV2V planning, and R2V.
 - `comfy-motion-track-control`: LTX 2.3 HDR IC-LoRA guidance.
 - `comfy-musicgen`: ACE-Step 1.5 music generation to WAV.
 - `comfy-media`: local media gallery, indexing, and HyperFrames review-reel export.
@@ -101,8 +102,8 @@ uv run comfy-models validate
 ```
 
 The Python runtime dependency is `comfy-diffusion[comfyui,video,audio]` pinned
-to `v2.3.1` or newer for LTX 2.3 HDR IC-LoRA helpers, Ideogram 4, and the VAE
-decode fix required by LTX 2.3 video. The
+to `v2.4.0` or newer for LTX 2.3 HDR IC-LoRA helpers, Ideogram 4, Bernini video
+editing, and the VAE decode fix required by LTX 2.3 video. The
 media extras are required because ComfyUI imports media nodes during runtime
 startup, video generation writes MP4 files with audio, and music generation uses
 audio helpers.
@@ -194,6 +195,7 @@ absent, the CLIs use built-in defaults:
 | `videogen.wan22-flf2v` | `wan22-i2v` | `wan22` |
 | `videogen.wan22-s2v` | `wan22-s2v` | `wan22` |
 | `videogen.wan22-video-audio` | `wan22-dasiwa-littledemon-v2-video-audio` | `wan22` |
+| `videogen.wan22-bernini` | `wan22-bernini` | `wan22` |
 | `videogen.seedance2-t2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-r2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-flf2v` | `seedance2-api` | `seedance2-api` |
@@ -228,6 +230,11 @@ The optional `wan22-dasiwa-littledemon-v2-s2v` profile points to Dasiwa
 LittleDemon v2 S2V. Its fast distillation is baked into the checkpoint, so the
 profile uses `steps=4`, `cfg=1.0`, `sampler=euler`, `scheduler=simple`, and
 `shift=10.0`; do not add extra Lightning/speed-up LoRAs on top of it.
+
+The `wan22-bernini` profile uses the Bernini WAN 2.2 video-edit UNets plus the
+LightX2V LoRA and the NSFW WAN UMT5 text encoder. It supports source-video
+editing, reference-guided generation, and multi-reference conditioning through
+`comfy-diffusion` v2.4.0 or newer.
 The `wan22-dasiwa-littledemon-v2-video-audio` profile is the default for
 `videogen.wan22-video-audio`; it reuses the Dasiwa S2V model for 16 fps
 video+audio processing with 77-frame chunks and 4-frame crossfade overlap.
@@ -611,6 +618,16 @@ uv run comfy-videogen wan22-video-audio \
   --input-video input.mp4 \
   --audio speech.wav \
   --mask-video mouth-mask.mp4 \
+  --out outputs
+```
+
+WAN 2.2 Bernini video edit with a source video and reference image:
+
+```bash
+uv run comfy-videogen wan22-bernini \
+  --input-video input.mp4 \
+  --reference-image replacement-subject.png \
+  --prompt "Replace the character with the subject in image 0. Keep camera motion, lighting, and background unchanged." \
   --out outputs
 ```
 

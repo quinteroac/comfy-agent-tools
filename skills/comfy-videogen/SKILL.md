@@ -1,6 +1,6 @@
 ---
 name: comfy-videogen
-description: Generate MP4 videos with comfy-diffusion using local LTX 2.3, local WAN 2.2, or remote ByteDance Seedance 2.0 API nodes. Use when the user wants local GPU-backed text-to-video, image-to-video, image+audio-to-video, video+audio processing, first/last-frame video generation, WAN 2.2 image/first-last-frame/sound-to-video/video+audio, LTX motion-track IC-LoRA control, or Seedance 2.0 API text/reference/first-last-frame video saved into the workspace. Do not use for image-only generation, music-only generation, voice generation, model downloads, ComfyUI server workflows, UI work, custom node installation, or non-Seedance hosted video APIs.
+description: Generate MP4 videos with comfy-diffusion using local LTX 2.3, local WAN 2.2, or remote ByteDance Seedance 2.0 API nodes. Use when the user wants local GPU-backed text-to-video, image-to-video, image+audio-to-video, video+audio processing, first/last-frame video generation, WAN 2.2 image/first-last-frame/sound-to-video/video+audio/Bernini video editing, LTX motion-track IC-LoRA control, or Seedance 2.0 API text/reference/first-last-frame video saved into the workspace. Do not use for image-only generation, music-only generation, voice generation, model downloads, ComfyUI server workflows, UI work, custom node installation, or non-Seedance hosted video APIs.
 ---
 
 # comfy-videogen
@@ -39,7 +39,7 @@ checkpoint/fine-tune/default such as an LTX 2.3 variant, use
 If model validation fails with `missing_model_file`, use `comfy-model-downloader`
 for the exact mode: `videogen.t2v`, `videogen.i2v`, `videogen.flf2v`,
 `videogen.ia2av`, `videogen.wan22-t2v`, `videogen.wan22-i2v`, `videogen.wan22-flf2v`,
-`videogen.wan22-s2v`, `videogen.wan22-video-audio`, or
+`videogen.wan22-s2v`, `videogen.wan22-video-audio`, `videogen.wan22-bernini`, or
 `videogen.motion-track`.
 
 If the user asks to use or organize a LoRA by name or purpose, use
@@ -65,6 +65,9 @@ file only to modes that support ad hoc LoRA insertion.
 - `wan22-video-audio`: WAN 2.2 input video plus input audio to MP4. Use
   `--mode audio-driven` for full-frame audio-reactive V2V, or `--mode lipsync`
   with `--mask-video`/`--mask-image` for external-mask mouth recomposition.
+- `wan22-bernini`: WAN 2.2 Bernini source-video editing or reference-guided
+  generation to silent MP4. Use `--input-video` for video edits and one or more
+  `--reference-image` values for subject/style references.
 - `motion-track`: input image plus motion-track control video plus prompt to MP4
   with audio. Use `comfy-motion-track-control` for IC-LoRA setup and control
   video preparation.
@@ -175,6 +178,16 @@ uv run comfy-videogen wan22-video-audio \
   --input-video path/to/input.mp4 \
   --audio path/to/speech.wav \
   --mask-video path/to/mouth-mask.mp4 \
+  --out outputs
+```
+
+WAN 2.2 Bernini video edit:
+
+```bash
+uv run comfy-videogen wan22-bernini \
+  --input-video path/to/input.mp4 \
+  --reference-image path/to/reference.png \
+  --prompt "Replace the character with the subject in image 0. Keep camera motion, lighting, and background unchanged." \
   --out outputs
 ```
 

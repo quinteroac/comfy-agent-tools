@@ -61,6 +61,26 @@ def test_comfy_videogen_skill_frontmatter() -> None:
     assert "uv run comfy-media index --out outputs" in content
 
 
+def test_comfy_bernini_videoedit_skill_frontmatter() -> None:
+    skill_path = Path("skills/comfy-bernini-videoedit/SKILL.md")
+    content = skill_path.read_text(encoding="utf-8")
+
+    assert content.startswith("---\n")
+    frontmatter = content.split("---", 2)[1]
+    assert "name: comfy-bernini-videoedit" in frontmatter
+    assert "description:" in frontmatter
+    assert "V2V" in content
+    assert "RV2V" in content
+    assert "VV2V" in content
+    assert "R2V" in content
+    assert "wan22-bernini" in content
+    assert "videogen.wan22-bernini" in content
+    assert "comfy-tools-setup" in content
+    assert "comfy-model-downloader" in content
+    assert "uv run comfy-media gallery --out outputs" in content
+    assert "VV2V`: video-reference-to-video is not supported by the current CLI" in content
+
+
 def test_comfy_motion_track_control_skill_frontmatter() -> None:
     skill_path = Path("skills/comfy-motion-track-control/SKILL.md")
     content = skill_path.read_text(encoding="utf-8")
@@ -214,3 +234,4 @@ def test_readme_documents_skills_first_installation() -> None:
     assert "klein_snofs_v1_1.safetensors" in content
     assert "comfy-model-downloader" in content
     assert "comfy-media" in content
+    assert "comfy-bernini-videoedit" in content

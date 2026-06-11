@@ -485,6 +485,33 @@ DOWNLOAD_REGISTRY: dict[str, dict[str, DownloadSource]] = {
             filename="split_files/vae/wan_2.1_vae.safetensors",
         ),
     },
+    "wan22-bernini": {
+        "unet_high": DownloadSource(
+            kind="hf",
+            repo_id="Kijai/WanVideo_comfy_fp8_scaled",
+            filename="Bernini/Wan22_Bernini_HIGH_fp8_e4m3fn_scaled.safetensors",
+        ),
+        "unet_low": DownloadSource(
+            kind="hf",
+            repo_id="Kijai/WanVideo_comfy_fp8_scaled",
+            filename="Bernini/Wan22_Bernini_LOW_fp8_e4m3fn_scaled.safetensors",
+        ),
+        "lora": DownloadSource(
+            kind="hf",
+            repo_id="Kijai/WanVideo_comfy",
+            filename="Lightx2v/lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank64_bf16.safetensors",
+        ),
+        "text_encoder": DownloadSource(
+            kind="hf",
+            repo_id="NSFW-API/NSFW-Wan-UMT5-XXL",
+            filename="nsfw_wan_umt5-xxl_fp8_scaled.safetensors",
+        ),
+        "vae": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+            filename="split_files/vae/wan_2.1_vae.safetensors",
+        ),
+    },
     "ace15-base": {
         "unet": DownloadSource(
             kind="hf",
