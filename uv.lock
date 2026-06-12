@@ -415,7 +415,7 @@ requires-dist = [
     { name = "av", specifier = ">=16.0.0" },
     { name = "blake3" },
     { name = "comfy-aimdo", specifier = "==0.4.8" },
-    { name = "comfy-diffusion", extras = ["video", "audio"], git = "https://github.com/quinteroac/comfy-diffusion.git?rev=v2.4.2" },
+    { name = "comfy-diffusion", extras = ["video", "audio"], git = "https://github.com/quinteroac/comfy-diffusion.git?rev=v2.4.3" },
     { name = "comfy-kitchen", specifier = "==0.2.10" },
     { name = "comfyui-embedded-docs", specifier = "==0.5.2" },
     { name = "comfyui-frontend-package", specifier = "==1.44.19" },
@@ -466,8 +466,8 @@ wheels = [
 
 [[package]]
 name = "comfy-diffusion"
-version = "2.4.2"
-source = { git = "https://github.com/quinteroac/comfy-diffusion.git?rev=v2.4.2#365207c3fc54b4d631bae698104869eabffc84c4" }
+version = "2.4.3"
+source = { git = "https://github.com/quinteroac/comfy-diffusion.git?rev=v2.4.3#87742868641b63b782284a3f0391b41adbb28faa" }
 dependencies = [
     { name = "einops" },
     { name = "huggingface-hub" },
