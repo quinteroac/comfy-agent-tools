@@ -101,12 +101,13 @@ uv sync --extra dev
 uv run comfy-models validate
 ```
 
-The Python runtime dependency is `comfy-diffusion[comfyui,video,audio]` pinned
-to `v2.4.0` or newer for LTX 2.3 HDR IC-LoRA helpers, Ideogram 4, Bernini video
-editing, and the VAE decode fix required by LTX 2.3 video. The
-media extras are required because ComfyUI imports media nodes during runtime
-startup, video generation writes MP4 files with audio, and music generation uses
-audio helpers.
+The Python runtime dependency is `comfy-diffusion[video,audio]` pinned to
+`v2.4.2` or newer for LTX 2.3 HDR IC-LoRA helpers, Ideogram 4, Bernini video
+editing, and the VAE decode fix required by LTX 2.3 video. ComfyUI runtime
+packages are pinned directly from the ComfyUI `0.24.1` requirements vendored by
+`comfy-diffusion`, because the media extras are required during runtime startup,
+video generation writes MP4 files with audio, and music generation uses audio
+helpers.
 
 ## Local Models
 
@@ -234,7 +235,7 @@ profile uses `steps=4`, `cfg=1.0`, `sampler=euler`, `scheduler=simple`, and
 The `wan22-bernini` profile uses the Bernini WAN 2.2 video-edit UNets plus the
 LightX2V LoRA and the NSFW WAN UMT5 text encoder. It supports source-video
 editing, reference-guided generation, and multi-reference conditioning through
-`comfy-diffusion` v2.4.0 or newer.
+`comfy-diffusion` v2.4.2 or newer.
 The `wan22-dasiwa-littledemon-v2-video-audio` profile is the default for
 `videogen.wan22-video-audio`; it reuses the Dasiwa S2V model for 16 fps
 video+audio processing with 77-frame chunks and 4-frame crossfade overlap.

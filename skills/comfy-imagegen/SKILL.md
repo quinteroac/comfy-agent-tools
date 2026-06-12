@@ -226,7 +226,8 @@ conditioning, `Flux2Scheduler`, `CFGGuider`, and `SamplerCustomAdvanced`.
 - Grok provider: `comfy-api`
 - Grok model: `grok-imagine-image`
 - Grok params: `resolution=1K`, `aspect_ratio=1:1`, `number_of_images=1`, `seed=0`
-- Dependency: `comfy-diffusion[comfyui,video,audio]` v2.3.0 or newer
+- Dependency: `comfy-diffusion[video,audio]` v2.3.0 or newer plus the vendored
+  ComfyUI requirements
 
 The Anima turbo LoRA expects `cfg=1.0`; increasing CFG can degrade or break the
 expected turbo behavior.
