@@ -279,7 +279,8 @@ high-noise model more of the schedule, for example `--high-steps 4 --low-steps
 - Video params: `width=512`, `height=320`, `length=49`, `fps=24`, `cfg=1.0`, `seed=0`
 - Motion-track params: `attention_strength=1.0`, `reference_downscale=1.0`
 - IA2AV audio params: `audio_start_time=0.0`, `audio_duration=length/fps` by default
-- Dependency: `comfy-diffusion[comfyui,video,audio]` v2.2.0 or newer for HDR IC-LoRA
+- Dependency: `comfy-diffusion[video,audio]` v2.2.0 or newer plus the vendored
+  ComfyUI requirements for HDR IC-LoRA
 
 To use Dasiwa Golden Lace v3 for standard LTX modes, set
 `ltx23-dasiwa-golden-lace-v3` as the default for one or more of

@@ -158,7 +158,8 @@ Troubleshooting:
 - Audio params: `duration=120`, `bpm=120`, `time_signature=4`, `keyscale=C major`, `language=en`
 - Sampling params: `steps=32`, `cfg=7.0`, `sampler=euler`, `scheduler=simple`, `seed=0`
 - Output format: WAV PCM 16-bit
-- Dependency: `comfy-diffusion[comfyui,video,audio]`
+- Dependency: `comfy-diffusion[video,audio]` plus the vendored ComfyUI
+  requirements
 
 Extra LoRAs are optional and ad hoc. Use repeatable
 `--extra-lora PATH[:MODEL_STRENGTH[:CLIP_STRENGTH]]` after resolving the file
