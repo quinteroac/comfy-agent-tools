@@ -1,19 +1,20 @@
 ---
 name: comfy-videogen
-description: Generate MP4 videos with comfy-diffusion using local LTX 2.3, local WAN 2.2, or remote ByteDance Seedance 2.0 API nodes. Use when the user wants local GPU-backed text-to-video, image-to-video, image+audio-to-video, video+audio processing, first/last-frame video generation, WAN 2.2 image/first-last-frame/sound-to-video/video+audio/Bernini video editing, LTX motion-track IC-LoRA control, or Seedance 2.0 API text/reference/first-last-frame video saved into the workspace. Do not use for image-only generation, music-only generation, voice generation, model downloads, ComfyUI server workflows, UI work, custom node installation, or non-Seedance hosted video APIs.
+description: Generate or post-process MP4 videos with comfy-diffusion using local LTX 2.3, local WAN 2.2, NVIDIA RTX Video Super Resolution, or remote ByteDance Seedance 2.0 API nodes. Use when the user wants local GPU-backed text-to-video, image-to-video, image+audio-to-video, video+audio processing, first/last-frame video generation, WAN 2.2 image/first-last-frame/sound-to-video/video+audio/Bernini video editing, LTX motion-track IC-LoRA control, RTX upscaling to target resolutions such as 720p/1080p/4k, or Seedance 2.0 API text/reference/first-last-frame video saved into the workspace. Do not use for image-only generation, music-only generation, voice generation, model downloads, ComfyUI server workflows, UI work, custom node installation, or non-Seedance hosted video APIs.
 ---
 
 # comfy-videogen
 
-Use this skill for video generation through the `comfy-videogen` CLI. Local LTX
-2.3 and WAN 2.2 modes use model files under `/mnt/models/comfyui`. Remote
-Seedance 2.0 modes use ComfyUI API Nodes vendored by `comfy-diffusion` and require
-`COMFY_ORG_API_KEY`.
+Use this skill for video generation and RTX VSR video upscaling through the
+`comfy-videogen` CLI. Local LTX 2.3 and WAN 2.2 modes use model files under
+`/mnt/models/comfyui`. RTX upscaling uses `nvidia-vfx`, not model files. Remote
+Seedance 2.0 modes use ComfyUI API Nodes vendored by `comfy-diffusion` and
+require `COMFY_ORG_API_KEY`.
 
 If a built-in local video profile is missing files, use `comfy-model-downloader`
 for the requested local `videogen.<mode>` capability before running inference.
-Do not use the downloader for Seedance 2.0; `seedance2-api` has no local model
-files.
+Do not use the downloader for Seedance 2.0 or RTX upscaling; `seedance2-api` and
+`rtx-vsr` have no local model files.
 
 The CLI is quiet by default and prints only final JSON. Use `--verbose` only when
 debugging ComfyUI runtime output, warnings, or progress bars.
@@ -41,6 +42,9 @@ for the exact mode: `videogen.t2v`, `videogen.i2v`, `videogen.flf2v`,
 `videogen.ia2av`, `videogen.wan22-t2v`, `videogen.wan22-i2v`, `videogen.wan22-flf2v`,
 `videogen.wan22-s2v`, `videogen.wan22-video-audio`, `videogen.wan22-bernini`, or
 `videogen.motion-track`.
+
+Do not use `comfy-model-downloader` for `videogen.rtx-upscale`; install/validate
+`nvidia-vfx` and RTX GPU support instead.
 
 If the user asks to use or organize a LoRA by name or purpose, use
 `comfy-lora-onboarding` to search the architecture folder first, such as
@@ -71,6 +75,9 @@ file only to modes that support ad hoc LoRA insertion.
 - `motion-track`: input image plus motion-track control video plus prompt to MP4
   with audio. Use `comfy-motion-track-control` for IC-LoRA setup and control
   video preparation.
+- `rtx-upscale`: existing MP4 to upscaled MP4 with NVIDIA RTX Video Super
+  Resolution. Preserves input audio when present. Use for target presets such
+  as `720p`, `1080p`, and `4k`.
 - `seedance2-t2v`: remote Seedance 2.0 text prompt to MP4.
 - `seedance2-r2v`: remote Seedance 2.0 reference image plus prompt to MP4.
 - `seedance2-flf2v`: remote Seedance 2.0 first image plus last image plus
@@ -311,6 +318,24 @@ for the given LoRA flag. WAN S2V uses its separate model-only `--lora` flag.
   `ByteDance Seedance 2.0`. If missing, the CLI returns `missing_dependency`.
 - Do not use Seedance 1.x/1.5, OAuth, or token auth in this skill.
 
+### NVIDIA RTX Video Super Resolution
+
+- Profile: `rtx-vsr`
+- Capability: `videogen.rtx-upscale`
+- Command: `uv run comfy-videogen rtx-upscale --input-video input.mp4 --resolution 1080p --quality ULTRA --out outputs`
+- Presets: `480p`, `720p`, `1080p`, `1440p`, `4k`, `8k`
+- Presets preserve aspect ratio by fitting inside the target bounds. For
+  example, square input plus `--resolution 1080p` outputs `1080x1080`, 4:3
+  input outputs `1440x1080`, and portrait input outputs up to `1080x1920`.
+- Custom exact sizing: use `--width` and `--height` together. This can change
+  aspect ratio. Use `--scale 1.0..4.0` to preserve aspect ratio by multiplier.
+- Requires a CUDA-capable NVIDIA RTX GPU and the `nvidia-vfx` Python package.
+  If missing, the CLI returns `missing_dependency`; if no compatible GPU is
+  available, it returns `hardware_required`.
+- No local model files, no `models_dir`, no downloader, and no LoRAs.
+- Preserves and re-encodes the input MP4 audio track when present
+  (`audio_muxed=true`). Inputs without audio remain silent (`audio_muxed=false`).
+
 ### WAN 2.2 Local
 
 - Profile: `wan22-i2v`
@@ -347,6 +372,7 @@ uv run comfy-media index --out outputs
 ```
 
 Audio is required for LTX 2.3 audiovisual modes, WAN 2.2 S2V, and WAN 2.2
-video+audio. If MP4 audio muxing fails, the command fails instead of silently
-saving a no-audio video. WAN 2.2 I2V and FLF2V intentionally save silent MP4
-and report `audio_muxed=false`.
+video+audio. RTX upscaling preserves source audio when the input has an audio
+track. If MP4 audio muxing fails, the command fails instead of silently saving a
+no-audio video. WAN 2.2 I2V and FLF2V intentionally save silent MP4 and report
+`audio_muxed=false`.

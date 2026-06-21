@@ -197,6 +197,7 @@ absent, the CLIs use built-in defaults:
 | `videogen.wan22-s2v` | `wan22-s2v` | `wan22` |
 | `videogen.wan22-video-audio` | `wan22-dasiwa-littledemon-v2-video-audio` | `wan22` |
 | `videogen.wan22-bernini` | `wan22-bernini` | `wan22` |
+| `videogen.rtx-upscale` | `rtx-vsr` | `rtx-vsr` |
 | `videogen.seedance2-t2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-r2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-flf2v` | `seedance2-api` | `seedance2-api` |
@@ -668,6 +669,31 @@ Audio muxing is required for LTX audiovisual modes, WAN 2.2 S2V, and WAN 2.2
 video+audio. If audio cannot be written into the MP4, the command returns
 `ok:false` instead of saving a silent video. WAN 2.2 I2V/FLF2V intentionally
 save silent MP4 files.
+
+### RTX Video Super Resolution
+
+`rtx-upscale` upscales an existing MP4 with NVIDIA RTX Video Super Resolution.
+It wraps the same `nvidia-vfx` backend used by
+`Comfy-Org/Nvidia_RTX_Nodes_ComfyUI` and requires a CUDA-capable NVIDIA RTX GPU.
+It does not use local model files, `models_dir`, LoRAs, or the model downloader.
+If `nvidia-vfx` is not installed, the CLI returns `missing_dependency`.
+
+```bash
+uv run comfy-videogen rtx-upscale \
+  --input-video outputs/source.mp4 \
+  --resolution 1080p \
+  --quality ULTRA \
+  --out outputs
+```
+
+Supported target presets are `480p`, `720p`, `1080p`, `1440p`, `4k`, and `8k`.
+Presets preserve the input aspect ratio by fitting inside the target bounds; for
+example, square input plus `--resolution 1080p` outputs `1080x1080`, and 4:3
+input outputs `1440x1080`. Use `--width` plus `--height` for exact custom
+dimensions, or `--scale 2.0` for a multiplier from the input dimensions. Output
+dimensions are rounded to multiples of 8. If the input MP4 has an audio track,
+the output re-encodes and muxes it into the upscaled MP4 (`audio_muxed=true`);
+inputs without audio remain silent.
 
 ### Seedance 2.0 API Video
 

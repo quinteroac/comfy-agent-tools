@@ -26,6 +26,7 @@ BUILTIN_DEFAULTS: dict[str, str] = {
     "videogen.wan22-s2v": "wan22-s2v",
     "videogen.wan22-video-audio": "wan22-dasiwa-littledemon-v2-video-audio",
     "videogen.wan22-bernini": "wan22-bernini",
+    "videogen.rtx-upscale": "rtx-vsr",
     "videogen.seedance2-t2v": "seedance2-api",
     "videogen.seedance2-r2v": "seedance2-api",
     "videogen.seedance2-flf2v": "seedance2-api",
@@ -472,6 +473,17 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
             "remote": True,
         },
     },
+    "rtx-vsr": {
+        "label": "NVIDIA RTX Video Super Resolution",
+        "architecture": "rtx-vsr",
+        "supports": ["videogen.rtx-upscale"],
+        "models": {},
+        "defaults": {
+            "resolution": "1080p",
+            "quality": "ULTRA",
+            "chunk_size": 8,
+        },
+    },
     "grok-imagine-api": {
         "label": "Grok Imagine API",
         "architecture": "grok-imagine-api",
@@ -498,6 +510,7 @@ SUPPORTED_ARCHITECTURES = {
     "upscale-model",
     "ltx23",
     "wan22",
+    "rtx-vsr",
     "ace-step-1.5",
     "seedance2-api",
     "grok-imagine-api",

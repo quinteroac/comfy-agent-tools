@@ -12,9 +12,10 @@ import pytest
 import torch
 
 from comfy_agent_tools.cli import videogen
-from comfy_agent_tools.videogen.artifacts import save_mp4, save_mp4_with_audio
+from comfy_agent_tools.videogen.artifacts import save_mp4, save_mp4_with_audio, save_mp4_with_source_audio
 from comfy_agent_tools.loras import ExtraLora
 from comfy_agent_tools.videogen import ltx23, wan22
+from comfy_agent_tools.videogen.rtx_upscale import RTXUpscaleConfig, target_size
 from comfy_agent_tools.videogen.seedance2 import _disable_api_node_progress_display
 
 
@@ -102,6 +103,65 @@ def test_parser_accepts_verbose_for_all_modes(tmp_path: Path) -> None:
     assert i2v.verbose is True
     assert ia2av.verbose is True
     assert flf2v.verbose is True
+
+
+def test_parser_accepts_rtx_upscale_presets(tmp_path: Path) -> None:
+    args = videogen.build_parser().parse_args(
+        [
+            "rtx-upscale",
+            "--input-video",
+            str(tmp_path / "input.mp4"),
+            "--resolution",
+            "4k",
+            "--quality",
+            "HIGH",
+            "--chunk-size",
+            "2",
+            "--verbose",
+        ]
+    )
+
+    assert args.command == "rtx-upscale"
+    assert args.input_video == tmp_path / "input.mp4"
+    assert args.resolution == "4k"
+    assert args.quality == "HIGH"
+    assert args.chunk_size == 2
+    assert args.verbose is True
+
+
+def test_rtx_target_size_presets_and_custom_values() -> None:
+    assert target_size(RTXUpscaleConfig(resolution="720p"), input_width=640, input_height=360) == (
+        (1280, 720),
+        "720p",
+    )
+    assert target_size(RTXUpscaleConfig(resolution="1080p"), input_width=640, input_height=640) == (
+        (1080, 1080),
+        "1080p",
+    )
+    assert target_size(RTXUpscaleConfig(resolution="1080p"), input_width=640, input_height=480) == (
+        (1440, 1080),
+        "1080p",
+    )
+    assert target_size(RTXUpscaleConfig(resolution="1080p"), input_width=720, input_height=1280) == (
+        (1080, 1920),
+        "1080p",
+    )
+    assert target_size(
+        RTXUpscaleConfig(resolution=None, width=1919, height=1079),
+        input_width=640,
+        input_height=360,
+    ) == ((1920, 1080), "custom")
+    assert target_size(RTXUpscaleConfig(resolution=None, scale=2.0), input_width=641, input_height=359) == (
+        (1280, 720),
+        "scale",
+    )
+
+
+def test_rtx_target_size_rejects_conflicting_modes() -> None:
+    with pytest.raises(ValueError, match="scale cannot be combined"):
+        target_size(RTXUpscaleConfig(resolution="720p", scale=2.0), input_width=640, input_height=360)
+    with pytest.raises(ValueError, match="resolution cannot be combined"):
+        target_size(RTXUpscaleConfig(resolution="720p", width=1920, height=1080), input_width=640, input_height=360)
 
 
 def test_parser_ia2av_defaults(tmp_path: Path) -> None:
@@ -362,6 +422,71 @@ def test_parser_seedance2_accepts_verbose_and_no_audio() -> None:
 
     assert args.generate_audio is False
     assert args.verbose is True
+
+
+def test_rtx_upscale_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    input_video = tmp_path / "input.mp4"
+    input_video.write_bytes(b"mp4")
+
+    def fake_run_rtx_upscale_video(*, video: Path, config: RTXUpscaleConfig) -> dict[str, object]:
+        assert video == input_video
+        assert config.resolution == "720p"
+        assert config.quality == "MEDIUM"
+        assert config.chunk_size == 3
+        return {
+            "frames": _frames(),
+            "fps": 30,
+            "input_width": 640,
+            "input_height": 640,
+            "target": "720p",
+            "target_width": 720,
+            "target_height": 720,
+            "quality": "MEDIUM",
+        }
+
+    monkeypatch.setattr(videogen, "run_rtx_upscale_video", fake_run_rtx_upscale_video)
+    monkeypatch.setattr(
+        videogen,
+        "save_mp4_with_source_audio",
+        lambda frames, source_video, path, fps: Path(path).touch() or True,
+    )
+
+    rc = videogen.main(
+        [
+            "rtx-upscale",
+            "--input-video",
+            str(input_video),
+            "--resolution",
+            "720p",
+            "--quality",
+            "MEDIUM",
+            "--chunk-size",
+            "3",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["kind"] == "video"
+    assert payload["mode"] == "rtx-upscale"
+    assert payload["input_video"] == str(input_video)
+    assert payload["input_width"] == 640
+    assert payload["input_height"] == 640
+    assert payload["target"] == "720p"
+    assert payload["target_width"] == 720
+    assert payload["target_height"] == 720
+    assert payload["quality"] == "MEDIUM"
+    assert payload["fps"] == 30
+    assert payload["audio_muxed"] is True
+    assert payload["capability"] == "videogen.rtx-upscale"
+    assert payload["model_profile"] == "rtx-vsr"
+    assert payload["architecture"] == "rtx-vsr"
+    assert payload["resolved_models"] == {}
+    assert Path(payload["artifacts"][0]).is_file()
+    assert Path(payload["manifests"][0]).is_file()
 
 
 def test_t2v_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
@@ -1633,6 +1758,27 @@ def test_save_mp4_without_audio(tmp_path: Path) -> None:
 
     assert output.is_file()
     assert output.stat().st_size > 0
+
+
+def test_save_mp4_with_source_audio_muxes_input_audio(tmp_path: Path) -> None:
+    import av
+
+    source = tmp_path / "source.mp4"
+    output = tmp_path / "upscaled.mp4"
+    frames = _frames()
+    sample_rate = 8000
+    waveform = torch.zeros((1, sample_rate), dtype=torch.float32)
+    save_mp4_with_audio(frames, {"waveform": waveform, "sample_rate": sample_rate}, source, 24)
+
+    audio_muxed = save_mp4_with_source_audio(frames, source, output, 24)
+
+    assert audio_muxed is True
+    assert output.is_file()
+    with av.open(str(output)) as container:
+        assert len(container.streams.video) == 1
+        assert len(container.streams.audio) == 1
+        decoded = [frame for frame in container.decode(container.streams.audio[0])]
+    assert decoded
 
 
 def test_flf2v_wrapper_uses_latent_upscaler() -> None:

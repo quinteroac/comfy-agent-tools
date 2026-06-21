@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -112,6 +113,78 @@ def save_mp4_with_audio(frames: list[Any], audio: dict[str, Any], path: str | Pa
             container.mux(packet)
 
 
+def save_mp4_with_source_audio(frames: list[Any], source_video: str | Path, path: str | Path, fps: int) -> bool:
+    """Save frames into an MP4 and mux audio from a source video when present."""
+    if fps <= 0:
+        raise ValueError("fps must be greater than 0")
+    if not frames:
+        raise ValueError("no frames were produced")
+
+    import av
+    import numpy as np
+
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    first_width, first_height = frames[0].size
+    audio_muxed = False
+
+    with av.open(str(source_video)) as source, av.open(str(output_path), mode="w") as container:
+        source_audio = next((stream for stream in source.streams.audio), None)
+        audio_stream = None
+        resampler = None
+        sample_rate = 44100
+        layout = "stereo"
+        if source_audio is not None:
+            sample_rate = int(source_audio.rate or sample_rate)
+            layout = source_audio.layout.name if source_audio.layout is not None else layout
+            audio_stream = container.add_stream("aac", rate=sample_rate)
+            audio_stream.layout = layout
+            resampler = av.AudioResampler(format="fltp", layout=layout, rate=sample_rate)
+
+        video_stream = container.add_stream("libx264", rate=fps)
+        video_stream.width = int(first_width)
+        video_stream.height = int(first_height)
+        video_stream.pix_fmt = "yuv420p"
+
+        for image in frames:
+            if image.size != (first_width, first_height):
+                raise ValueError("all frames must have identical width and height")
+            array = np.asarray(image.convert("RGB"))
+            video_frame = av.VideoFrame.from_ndarray(array, format="rgb24")
+            for packet in video_stream.encode(video_frame):
+                container.mux(packet)
+
+        for packet in video_stream.encode():
+            container.mux(packet)
+
+        if source_audio is None or audio_stream is None or resampler is None:
+            return False
+
+        audio_pts = 0
+        for audio_frame in source.decode(source_audio):
+            for resampled_frame in _resampled_audio_frames(resampler, audio_frame):
+                resampled_frame.pts = audio_pts
+                resampled_frame.time_base = Fraction(1, sample_rate)
+                audio_pts += resampled_frame.samples
+                for packet in audio_stream.encode(resampled_frame):
+                    container.mux(packet)
+                audio_muxed = True
+
+        for resampled_frame in _resampled_audio_frames(resampler, None):
+            resampled_frame.pts = audio_pts
+            resampled_frame.time_base = Fraction(1, sample_rate)
+            audio_pts += resampled_frame.samples
+            for packet in audio_stream.encode(resampled_frame):
+                container.mux(packet)
+            audio_muxed = True
+
+        for packet in audio_stream.encode():
+            container.mux(packet)
+
+    return audio_muxed
+
+
 def _audio_to_numpy(waveform: Any) -> Any:
     import numpy as np
 
@@ -148,3 +221,12 @@ def _audio_frames(waveform: Any, sample_rate: int, layout: str) -> list[Any]:
         frame.sample_rate = sample_rate
         frames.append(frame)
     return frames
+
+
+def _resampled_audio_frames(resampler: Any, frame: Any) -> list[Any]:
+    resampled = resampler.resample(frame)
+    if resampled is None:
+        return []
+    if isinstance(resampled, list):
+        return resampled
+    return [resampled]

@@ -11,7 +11,13 @@ from typing import Any
 
 from comfy_agent_tools.loras import extra_loras_json, parse_extra_lora
 from comfy_agent_tools.media import write_run_manifest
-from comfy_agent_tools.videogen.artifacts import frame_metadata, make_video_path, save_mp4, save_mp4_with_audio
+from comfy_agent_tools.videogen.artifacts import (
+    frame_metadata,
+    make_video_path,
+    save_mp4,
+    save_mp4_with_audio,
+    save_mp4_with_source_audio,
+)
 from comfy_agent_tools.videogen.config import (
     DEFAULT_CFG,
     DEFAULT_AUDIO_START_TIME,
@@ -106,6 +112,14 @@ from comfy_agent_tools.videogen.seedance2 import (
     run_flf2v as run_seedance2_flf2v,
     run_r2v as run_seedance2_r2v,
     run_t2v as run_seedance2_t2v,
+)
+from comfy_agent_tools.videogen.rtx_upscale import (
+    DEFAULT_RTX_QUALITY,
+    DEFAULT_RTX_RESOLUTION,
+    RTX_QUALITY_LEVELS,
+    RTX_RESOLUTION_PRESETS,
+    RTXUpscaleConfig,
+    run_rtx_upscale_video,
 )
 from comfy_agent_tools.profiles import ProfileError, ResolvedProfile, resolve_capability
 
@@ -431,6 +445,34 @@ def build_parser() -> argparse.ArgumentParser:
     seedance2_flf2v.add_argument("--last", type=_path, required=True)
     seedance2_flf2v.add_argument("--prompt", required=True)
 
+    rtx_upscale = subparsers.add_parser(
+        "rtx-upscale",
+        help="Upscale an input video with NVIDIA RTX Video Super Resolution.",
+    )
+    rtx_upscale.add_argument("--input-video", type=_path, required=True)
+    rtx_upscale.add_argument("--out", type=_path, default=DEFAULT_OUT)
+    rtx_upscale.add_argument(
+        "--no-manifest",
+        action="store_true",
+        help="Do not write a comfy-media run manifest for this generation.",
+    )
+    rtx_upscale.add_argument(
+        "--resolution",
+        default=None,
+        choices=sorted(RTX_RESOLUTION_PRESETS),
+        help=f"Target output resolution, preserving input aspect ratio. Defaults to {DEFAULT_RTX_RESOLUTION}.",
+    )
+    rtx_upscale.add_argument("--width", type=int, default=None, help="Custom target width. Requires --height.")
+    rtx_upscale.add_argument("--height", type=int, default=None, help="Custom target height. Requires --width.")
+    rtx_upscale.add_argument("--scale", type=float, default=None, help="Scale input dimensions by 1.0-4.0.")
+    rtx_upscale.add_argument("--quality", default=None, choices=RTX_QUALITY_LEVELS)
+    rtx_upscale.add_argument("--chunk-size", type=int, default=None)
+    rtx_upscale.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show RTX VSR runtime output while running.",
+    )
+
     return parser
 
 
@@ -483,6 +525,25 @@ def _seedance2_config(args: argparse.Namespace, profile: ResolvedProfile) -> See
         ),
         watermark=args.watermark if args.watermark is not None else bool(profile.defaults.get("watermark", DEFAULT_SEEDANCE2_WATERMARK)),
         seed=args.seed if args.seed is not None else int(profile.defaults.get("seed", DEFAULT_SEEDANCE2_SEED)),
+    )
+
+
+def _rtx_upscale_config(args: argparse.Namespace, profile: ResolvedProfile) -> RTXUpscaleConfig:
+    resolution: str | None
+    if args.resolution is not None:
+        resolution = args.resolution
+    elif args.scale is not None or args.width is not None or args.height is not None:
+        resolution = None
+    else:
+        resolution = str(profile.defaults.get("resolution", DEFAULT_RTX_RESOLUTION))
+
+    return RTXUpscaleConfig(
+        resolution=resolution,
+        width=args.width,
+        height=args.height,
+        scale=args.scale,
+        quality=args.quality if args.quality is not None else str(profile.defaults.get("quality", DEFAULT_RTX_QUALITY)),
+        chunk_size=args.chunk_size if args.chunk_size is not None else int(profile.defaults.get("chunk_size", 8)),
     )
 
 
@@ -1025,6 +1086,43 @@ def _wan22_bernini_success(
     return payload
 
 
+def _rtx_upscale_success(
+    *,
+    artifact: Path,
+    result: dict[str, Any],
+    config: RTXUpscaleConfig,
+    profile: ResolvedProfile,
+    input_video: Path,
+    audio_muxed: bool,
+) -> dict[str, Any]:
+    frames = result["frames"]
+    meta = frame_metadata(frames, int(result["fps"]))
+    return {
+        "ok": True,
+        "kind": "video",
+        "mode": "rtx-upscale",
+        "artifacts": [str(artifact)],
+        "input_video": str(input_video),
+        "width": meta["width"],
+        "height": meta["height"],
+        "frames": meta["frames"],
+        "fps": meta["fps"],
+        "duration_seconds": meta["duration_seconds"],
+        "input_width": result["input_width"],
+        "input_height": result["input_height"],
+        "target": result["target"],
+        "target_width": result["target_width"],
+        "target_height": result["target_height"],
+        "quality": config.quality,
+        "chunk_size": config.chunk_size,
+        "audio_muxed": audio_muxed,
+        "capability": profile.capability,
+        "model_profile": profile.name,
+        "architecture": profile.architecture,
+        "resolved_models": {},
+    }
+
+
 def _resolved_video_models(config: VideogenConfig) -> dict[str, str]:
     return {
         "checkpoint": str(config.resolve_model_path(config.checkpoint)),
@@ -1108,6 +1206,8 @@ def _classify_error(error: Exception) -> str:
         return "auth_required"
     if "seedance 2.0 api" in message or "api request" in message:
         return "remote_api_error"
+    if "rtx video super resolution requires" in message:
+        return "hardware_required"
     return "error"
 
 
@@ -1130,9 +1230,47 @@ def _write_result_video_no_audio(result: dict[str, Any], out_dir: Path, *, prefi
     return path
 
 
+def _write_result_video_with_source_audio(
+    result: dict[str, Any],
+    source_video: Path,
+    out_dir: Path,
+    *,
+    prefix: str,
+    fps: int,
+) -> tuple[Path, bool]:
+    frames = result.get("frames")
+    if not isinstance(frames, list):
+        raise ValueError("pipeline result did not include a frames list")
+    path = make_video_path(out_dir, prefix=prefix)
+    audio_muxed = save_mp4_with_source_audio(frames, source_video, path, fps)
+    return path, audio_muxed
+
+
 def run_command(args: argparse.Namespace) -> dict[str, Any]:
     """Run a parsed comfy-videogen command and return its JSON payload."""
     profile, _source = resolve_capability(_capability(args.command))
+
+    if args.command == "rtx-upscale":
+        if not args.input_video.is_file():
+            raise FileNotFoundError(f"input video not found: {args.input_video}")
+        config = _rtx_upscale_config(args, profile)
+        with _maybe_silence(not args.verbose):
+            result = run_rtx_upscale_video(video=args.input_video, config=config)
+            artifact, audio_muxed = _write_result_video_with_source_audio(
+                result,
+                args.input_video,
+                args.out,
+                prefix="comfy-videogen-rtx-upscale",
+                fps=int(result["fps"]),
+            )
+        return _rtx_upscale_success(
+            artifact=artifact,
+            result=result,
+            config=config,
+            profile=profile,
+            input_video=args.input_video,
+            audio_muxed=audio_muxed,
+        )
 
     if args.command == "seedance2-t2v":
         config = _seedance2_config(args, profile)
