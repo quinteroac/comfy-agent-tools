@@ -44,6 +44,7 @@ Only configure these architectures in v1:
 - `upscale-model`: base profile `clear-reality`, capability `imagegen.upscale`.
 - `ltx23`: base profile `ltx23-10eros`, optional Dasiwa profile `ltx23-dasiwa-golden-lace-v3`, capabilities `videogen.t2v`, `videogen.i2v`, `videogen.flf2v`, `videogen.ia2av`.
 - `wan22`: base profiles `wan22-t2v`, `wan22-i2v`, `wan22-s2v`, and `wan22-bernini`, optional Dasiwa profiles `wan22-dasiwa-tastysin-t2v`, `wan22-dasiwa-boundbite-t2v`, `wan22-dasiwa-tastysin-i2v`, `wan22-dasiwa-boundbite-i2v`, `wan22-dasiwa-littledemon-v2-s2v`, and `wan22-dasiwa-littledemon-v2-video-audio`, capabilities `videogen.wan22-t2v`, `videogen.wan22-i2v`, `videogen.wan22-flf2v`, `videogen.wan22-s2v`, `videogen.wan22-video-audio`, `videogen.wan22-bernini`.
+- `seedvr2`: base profile `seedvr2`, capability `videogen.seedvr2-upscale`.
 - `ace-step-1.5`: base profile `ace15-base`, capability `musicgen.generate`.
 - `seedance2-api`: remote profile `seedance2-api`, capabilities `videogen.seedance2-t2v`, `videogen.seedance2-r2v`, `videogen.seedance2-flf2v`.
 - `grok-imagine-api`: remote profile `grok-imagine-api`, capabilities `imagegen.grok-generate`, `imagegen.grok-edit`.
@@ -66,6 +67,11 @@ Ideogram 4 is local, not a remote API profile. It uses `models_dir`, supports
 download through `comfy-model-downloader`, and does not use `COMFY_ORG_API_KEY`.
 Use `--unet`, `--uncond-unet`, `--clip`, and `--vae` when adding compatible
 custom Ideogram 4 profiles.
+
+SeedVR2 is local but its model files are managed by the pinned SeedVR2 upstream
+CLI, not by `comfy-model-downloader` or general `models_dir` onboarding. Use
+`--models-dir`/`--model-dir` on `comfy-videogen seedvr2-upscale` only when the
+user wants a specific SeedVR2 download/cache location.
 
 ## Onboarding Flow
 

@@ -198,6 +198,7 @@ absent, the CLIs use built-in defaults:
 | `videogen.wan22-video-audio` | `wan22-dasiwa-littledemon-v2-video-audio` | `wan22` |
 | `videogen.wan22-bernini` | `wan22-bernini` | `wan22` |
 | `videogen.rtx-upscale` | `rtx-vsr` | `rtx-vsr` |
+| `videogen.seedvr2-upscale` | `seedvr2` | `seedvr2` |
 | `videogen.seedance2-t2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-r2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-flf2v` | `seedance2-api` | `seedance2-api` |
@@ -693,6 +694,33 @@ input outputs `1440x1080`. Use `--width` plus `--height` for exact custom
 dimensions, or `--scale 2.0` for a multiplier from the input dimensions. Output
 dimensions are rounded to multiples of 8. If the input MP4 has an audio track,
 the output re-encodes and muxes it into the upscaled MP4 (`audio_muxed=true`);
+inputs without audio remain silent.
+
+### SeedVR2 Video Upscaler
+
+`seedvr2-upscale` upscales an existing MP4 with
+`numz/ComfyUI-SeedVR2_VideoUpscaler`. The wrapper fetches the pinned upstream
+repo on first use, then SeedVR2 downloads its DiT/VAE model files automatically
+when they are missing. It does not use `comfy-models download`,
+`COMFY_ORG_API_KEY`, or LoRAs.
+
+```bash
+uv run comfy-videogen seedvr2-upscale \
+  --input-video outputs/source.mp4 \
+  --resolution 1080p \
+  --models-dir /mnt/models/seedvr2 \
+  --out outputs
+```
+
+Supported target presets are `720p`, `1080p`, `1440p`, and `4k`. Presets map to
+SeedVR2 short-edge targets and long-edge caps: `720p` is `720/1280`, `1080p` is
+`1080/1920`, `1440p` is `1440/2560`, and `4k` is `2160/3840`, preserving input
+aspect ratio. Use `--max-edge` to override the preset long-edge cap. Use
+`--models-dir` (alias: `--model-dir`) to choose where SeedVR2 downloads/loads
+its DiT/VAE weights; when omitted, SeedVR2 keeps its upstream default. Advanced
+controls include `--model`, `--batch-size`, `--chunk-size`, `--temporal-overlap`,
+`--cuda-device`, `--blocks-to-swap`, and `--video-backend`. If the input MP4 has
+an audio track, the output muxes it into the upscaled MP4 (`audio_muxed=true`);
 inputs without audio remain silent.
 
 ### Seedance 2.0 API Video

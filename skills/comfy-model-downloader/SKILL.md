@@ -32,6 +32,9 @@ prefer `uv run comfy-models`; outside the repo, use the installed CLI.
 Do not map Seedance 2.0 API requests to downloads. `videogen.seedance2-t2v`,
 `videogen.seedance2-r2v`, and `videogen.seedance2-flf2v` use the remote
 `seedance2-api` profile and require `COMFY_ORG_API_KEY`, not local model files.
+Do not map SeedVR2 upscale requests to downloads either. `videogen.seedvr2-upscale`
+uses the `seedvr2` profile and the pinned SeedVR2 upstream CLI auto-downloads
+its own model files.
 Do not map Grok Imagine API requests to downloads either. `imagegen.grok-generate`
 and `imagegen.grok-edit` use the remote `grok-imagine-api` profile.
 Ideogram 4 is local and should be downloaded with `imagegen.ideogram4-generate`

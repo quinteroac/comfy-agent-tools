@@ -7,6 +7,7 @@ import contextlib
 import json
 import os
 from pathlib import Path
+import tempfile
 from typing import Any
 
 from comfy_agent_tools.loras import extra_loras_json, parse_extra_lora
@@ -14,9 +15,11 @@ from comfy_agent_tools.media import write_run_manifest
 from comfy_agent_tools.videogen.artifacts import (
     frame_metadata,
     make_video_path,
+    remux_video_with_source_audio,
     save_mp4,
     save_mp4_with_audio,
     save_mp4_with_source_audio,
+    video_metadata,
 )
 from comfy_agent_tools.videogen.config import (
     DEFAULT_CFG,
@@ -120,6 +123,18 @@ from comfy_agent_tools.videogen.rtx_upscale import (
     RTX_RESOLUTION_PRESETS,
     RTXUpscaleConfig,
     run_rtx_upscale_video,
+)
+from comfy_agent_tools.videogen.seedvr2_upscale import (
+    DEFAULT_SEEDVR2_BATCH_SIZE,
+    DEFAULT_SEEDVR2_COLOR_CORRECTION,
+    DEFAULT_SEEDVR2_MODEL,
+    DEFAULT_SEEDVR2_RESOLUTION,
+    DEFAULT_SEEDVR2_VIDEO_BACKEND,
+    SEEDVR2_COLOR_CORRECTION_MODES,
+    SEEDVR2_RESOLUTION_PRESETS,
+    SEEDVR2_VIDEO_BACKENDS,
+    SeedVR2UpscaleConfig,
+    run_seedvr2_upscale_video,
 )
 from comfy_agent_tools.profiles import ProfileError, ResolvedProfile, resolve_capability
 
@@ -473,6 +488,46 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show RTX VSR runtime output while running.",
     )
 
+    seedvr2_upscale = subparsers.add_parser(
+        "seedvr2-upscale",
+        help="Upscale an input video with SeedVR2.",
+    )
+    seedvr2_upscale.add_argument("--input-video", type=_path, required=True)
+    seedvr2_upscale.add_argument("--out", type=_path, default=DEFAULT_OUT)
+    seedvr2_upscale.add_argument(
+        "--no-manifest",
+        action="store_true",
+        help="Do not write a comfy-media run manifest for this generation.",
+    )
+    seedvr2_upscale.add_argument(
+        "--resolution",
+        default=None,
+        choices=sorted(SEEDVR2_RESOLUTION_PRESETS),
+        help=f"Target short-edge preset, preserving input aspect ratio. Defaults to {DEFAULT_SEEDVR2_RESOLUTION}.",
+    )
+    seedvr2_upscale.add_argument("--max-edge", type=int, default=None, help="Maximum output edge. Defaults from the resolution preset.")
+    seedvr2_upscale.add_argument("--model", default=None)
+    seedvr2_upscale.add_argument(
+        "--model-dir",
+        "--models-dir",
+        dest="model_dir",
+        type=_path,
+        default=None,
+        help="Directory where SeedVR2 downloads/loads its model files. Defaults to the upstream SeedVR2 cache.",
+    )
+    seedvr2_upscale.add_argument("--batch-size", type=int, default=None)
+    seedvr2_upscale.add_argument("--chunk-size", type=int, default=None)
+    seedvr2_upscale.add_argument("--temporal-overlap", type=int, default=None)
+    seedvr2_upscale.add_argument("--cuda-device", default=None)
+    seedvr2_upscale.add_argument("--blocks-to-swap", type=int, default=None)
+    seedvr2_upscale.add_argument("--color-correction", default=None, choices=SEEDVR2_COLOR_CORRECTION_MODES)
+    seedvr2_upscale.add_argument("--video-backend", default=None, choices=SEEDVR2_VIDEO_BACKENDS)
+    seedvr2_upscale.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show SeedVR2 runtime output while running.",
+    )
+
     return parser
 
 
@@ -544,6 +599,40 @@ def _rtx_upscale_config(args: argparse.Namespace, profile: ResolvedProfile) -> R
         scale=args.scale,
         quality=args.quality if args.quality is not None else str(profile.defaults.get("quality", DEFAULT_RTX_QUALITY)),
         chunk_size=args.chunk_size if args.chunk_size is not None else int(profile.defaults.get("chunk_size", 8)),
+    )
+
+
+def _seedvr2_upscale_config(args: argparse.Namespace, profile: ResolvedProfile) -> SeedVR2UpscaleConfig:
+    resolution = args.resolution if args.resolution is not None else str(profile.defaults.get("resolution", DEFAULT_SEEDVR2_RESOLUTION))
+    model_dir = args.model_dir if args.model_dir is not None else profile.defaults.get("model_dir")
+    return SeedVR2UpscaleConfig(
+        resolution=resolution,
+        max_edge=args.max_edge,
+        model=args.model if args.model is not None else str(profile.defaults.get("model", DEFAULT_SEEDVR2_MODEL)),
+        model_dir=Path(model_dir) if model_dir is not None else None,
+        batch_size=args.batch_size if args.batch_size is not None else int(profile.defaults.get("batch_size", DEFAULT_SEEDVR2_BATCH_SIZE)),
+        chunk_size=args.chunk_size if args.chunk_size is not None else int(profile.defaults.get("chunk_size", 0)),
+        temporal_overlap=(
+            args.temporal_overlap
+            if args.temporal_overlap is not None
+            else int(profile.defaults.get("temporal_overlap", 0))
+        ),
+        cuda_device=args.cuda_device if args.cuda_device is not None else profile.defaults.get("cuda_device"),
+        blocks_to_swap=(
+            args.blocks_to_swap
+            if args.blocks_to_swap is not None
+            else int(profile.defaults.get("blocks_to_swap", 0))
+        ),
+        color_correction=(
+            args.color_correction
+            if args.color_correction is not None
+            else str(profile.defaults.get("color_correction", DEFAULT_SEEDVR2_COLOR_CORRECTION))
+        ),
+        video_backend=(
+            args.video_backend
+            if args.video_backend is not None
+            else str(profile.defaults.get("video_backend", DEFAULT_SEEDVR2_VIDEO_BACKEND))
+        ),
     )
 
 
@@ -1123,6 +1212,47 @@ def _rtx_upscale_success(
     }
 
 
+def _seedvr2_upscale_success(
+    *,
+    artifact: Path,
+    result: dict[str, Any],
+    meta: dict[str, Any],
+    config: SeedVR2UpscaleConfig,
+    profile: ResolvedProfile,
+    input_video: Path,
+    audio_muxed: bool,
+) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "kind": "video",
+        "mode": "seedvr2-upscale",
+        "artifacts": [str(artifact)],
+        "input_video": str(input_video),
+        "width": meta["width"],
+        "height": meta["height"],
+        "frames": meta["frames"],
+        "fps": meta["fps"],
+        "duration_seconds": meta["duration_seconds"],
+        "target": result["target"],
+        "short_edge": result["short_edge"],
+        "max_edge": result["max_edge"],
+        "model": config.model,
+        "model_dir": str(config.model_dir) if config.model_dir is not None else None,
+        "batch_size": config.batch_size,
+        "chunk_size": config.chunk_size,
+        "temporal_overlap": config.temporal_overlap,
+        "blocks_to_swap": config.blocks_to_swap,
+        "color_correction": config.color_correction,
+        "video_backend": config.video_backend,
+        "upstream_commit": result["upstream_commit"],
+        "audio_muxed": audio_muxed,
+        "capability": profile.capability,
+        "model_profile": profile.name,
+        "architecture": profile.architecture,
+        "resolved_models": {},
+    }
+
+
 def _resolved_video_models(config: VideogenConfig) -> dict[str, str]:
     return {
         "checkpoint": str(config.resolve_model_path(config.checkpoint)),
@@ -1246,6 +1376,12 @@ def _write_result_video_with_source_audio(
     return path, audio_muxed
 
 
+def _write_existing_video_with_source_audio(source_video_artifact: Path, source_audio_video: Path, out_dir: Path, *, prefix: str) -> tuple[Path, bool]:
+    path = make_video_path(out_dir, prefix=prefix)
+    audio_muxed = remux_video_with_source_audio(source_video_artifact, source_audio_video, path)
+    return path, audio_muxed
+
+
 def run_command(args: argparse.Namespace) -> dict[str, Any]:
     """Run a parsed comfy-videogen command and return its JSON payload."""
     profile, _source = resolve_capability(_capability(args.command))
@@ -1266,6 +1402,35 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
         return _rtx_upscale_success(
             artifact=artifact,
             result=result,
+            config=config,
+            profile=profile,
+            input_video=args.input_video,
+            audio_muxed=audio_muxed,
+        )
+
+    if args.command == "seedvr2-upscale":
+        if not args.input_video.is_file():
+            raise FileNotFoundError(f"input video not found: {args.input_video}")
+        config = _seedvr2_upscale_config(args, profile)
+        with tempfile.TemporaryDirectory(prefix="comfy-seedvr2-") as temp_dir:
+            temp_video = Path(temp_dir) / "seedvr2-upscaled.mp4"
+            result = run_seedvr2_upscale_video(
+                video=args.input_video,
+                output=temp_video,
+                config=config,
+                verbose=args.verbose,
+            )
+            artifact, audio_muxed = _write_existing_video_with_source_audio(
+                temp_video,
+                args.input_video,
+                args.out,
+                prefix="comfy-videogen-seedvr2-upscale",
+            )
+        meta = video_metadata(artifact)
+        return _seedvr2_upscale_success(
+            artifact=artifact,
+            result=result,
+            meta=meta,
             config=config,
             profile=profile,
             input_video=args.input_video,

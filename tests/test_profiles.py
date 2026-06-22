@@ -143,6 +143,15 @@ def test_builtin_profiles_separate_architecture_and_profile() -> None:
     assert rtx["defaults"]["resolution"] == "1080p"
     assert rtx["defaults"]["quality"] == "ULTRA"
 
+    seedvr2 = BUILTIN_PROFILES["seedvr2"]
+    assert seedvr2["architecture"] == "seedvr2"
+    assert seedvr2["supports"] == ["videogen.seedvr2-upscale"]
+    assert seedvr2["models"] == {}
+    assert seedvr2["defaults"]["resolution"] == "1080p"
+    assert seedvr2["defaults"]["model"] == "seedvr2_ema_3b_fp8_e4m3fn.safetensors"
+    assert seedvr2["defaults"]["batch_size"] == 5
+    assert seedvr2["defaults"]["auto_download"] is True
+
     grok = BUILTIN_PROFILES["grok-imagine-api"]
     assert grok["architecture"] == "grok-imagine-api"
     assert grok["models"] == {}
@@ -164,6 +173,7 @@ def test_builtin_defaults_point_to_supported_profiles() -> None:
     assert BUILTIN_DEFAULTS["videogen.wan22-video-audio"] == "wan22-dasiwa-littledemon-v2-video-audio"
     assert BUILTIN_DEFAULTS["videogen.wan22-bernini"] == "wan22-bernini"
     assert BUILTIN_DEFAULTS["videogen.rtx-upscale"] == "rtx-vsr"
+    assert BUILTIN_DEFAULTS["videogen.seedvr2-upscale"] == "seedvr2"
     assert BUILTIN_DEFAULTS["imagegen.grok-generate"] == "grok-imagine-api"
     assert BUILTIN_DEFAULTS["imagegen.grok-edit"] == "grok-imagine-api"
     assert BUILTIN_DEFAULTS["imagegen.ideogram4-generate"] == "ideogram4-fp8"

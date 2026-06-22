@@ -17,6 +17,7 @@ from comfy_agent_tools.loras import ExtraLora
 from comfy_agent_tools.videogen import ltx23, wan22
 from comfy_agent_tools.videogen.rtx_upscale import RTXUpscaleConfig, target_size
 from comfy_agent_tools.videogen.seedance2 import _disable_api_node_progress_display
+from comfy_agent_tools.videogen.seedvr2_upscale import SeedVR2UpscaleConfig, preset_values
 
 
 def _frames() -> list[Image.Image]:
@@ -129,6 +130,51 @@ def test_parser_accepts_rtx_upscale_presets(tmp_path: Path) -> None:
     assert args.verbose is True
 
 
+def test_parser_accepts_seedvr2_upscale_options(tmp_path: Path) -> None:
+    args = videogen.build_parser().parse_args(
+        [
+            "seedvr2-upscale",
+            "--input-video",
+            str(tmp_path / "input.mp4"),
+            "--resolution",
+            "4k",
+            "--max-edge",
+            "4096",
+            "--model",
+            "seedvr2_ema_3b_fp16.safetensors",
+            "--models-dir",
+            str(tmp_path / "models" / "SEEDVR2"),
+            "--batch-size",
+            "9",
+            "--chunk-size",
+            "99",
+            "--temporal-overlap",
+            "3",
+            "--cuda-device",
+            "0,1",
+            "--blocks-to-swap",
+            "12",
+            "--video-backend",
+            "opencv",
+            "--verbose",
+        ]
+    )
+
+    assert args.command == "seedvr2-upscale"
+    assert args.input_video == tmp_path / "input.mp4"
+    assert args.resolution == "4k"
+    assert args.max_edge == 4096
+    assert args.model == "seedvr2_ema_3b_fp16.safetensors"
+    assert args.model_dir == tmp_path / "models" / "SEEDVR2"
+    assert args.batch_size == 9
+    assert args.chunk_size == 99
+    assert args.temporal_overlap == 3
+    assert args.cuda_device == "0,1"
+    assert args.blocks_to_swap == 12
+    assert args.video_backend == "opencv"
+    assert args.verbose is True
+
+
 def test_rtx_target_size_presets_and_custom_values() -> None:
     assert target_size(RTXUpscaleConfig(resolution="720p"), input_width=640, input_height=360) == (
         (1280, 720),
@@ -162,6 +208,15 @@ def test_rtx_target_size_rejects_conflicting_modes() -> None:
         target_size(RTXUpscaleConfig(resolution="720p", scale=2.0), input_width=640, input_height=360)
     with pytest.raises(ValueError, match="resolution cannot be combined"):
         target_size(RTXUpscaleConfig(resolution="720p", width=1920, height=1080), input_width=640, input_height=360)
+
+
+def test_seedvr2_preset_values() -> None:
+    assert preset_values("720p") == (720, 1280)
+    assert preset_values("1080p") == (1080, 1920)
+    assert preset_values("4k") == (2160, 3840)
+
+    with pytest.raises(ValueError, match="unsupported SeedVR2"):
+        preset_values("8k")
 
 
 def test_parser_ia2av_defaults(tmp_path: Path) -> None:
@@ -484,6 +539,114 @@ def test_rtx_upscale_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys
     assert payload["capability"] == "videogen.rtx-upscale"
     assert payload["model_profile"] == "rtx-vsr"
     assert payload["architecture"] == "rtx-vsr"
+    assert payload["resolved_models"] == {}
+    assert Path(payload["artifacts"][0]).is_file()
+    assert Path(payload["manifests"][0]).is_file()
+
+
+def test_seedvr2_upscale_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    input_video = tmp_path / "input.mp4"
+    input_video.write_bytes(b"mp4")
+
+    def fake_run_seedvr2_upscale_video(
+        *,
+        video: Path,
+        output: Path,
+        config: SeedVR2UpscaleConfig,
+        verbose: bool,
+    ) -> dict[str, object]:
+        assert video == input_video
+        assert output.name == "seedvr2-upscaled.mp4"
+        assert config.resolution == "720p"
+        assert config.model == "seedvr2_ema_3b_fp16.safetensors"
+        assert config.model_dir == tmp_path / "seedvr2-models"
+        assert config.batch_size == 9
+        assert config.chunk_size == 33
+        assert config.temporal_overlap == 3
+        assert config.cuda_device == "0"
+        assert config.blocks_to_swap == 8
+        assert config.video_backend == "opencv"
+        assert verbose is True
+        output.write_bytes(b"seedvr2 mp4")
+        return {
+            "artifact": output,
+            "target": "720p",
+            "short_edge": 720,
+            "max_edge": 1280,
+            "model": config.model,
+            "model_dir": str(config.model_dir),
+            "batch_size": config.batch_size,
+            "chunk_size": config.chunk_size,
+            "temporal_overlap": config.temporal_overlap,
+            "color_correction": config.color_correction,
+            "video_backend": config.video_backend,
+            "upstream_commit": "4490bd1f482e026674543386bb2a4d176da245b9",
+        }
+
+    monkeypatch.setattr(videogen, "run_seedvr2_upscale_video", fake_run_seedvr2_upscale_video)
+    def fake_remux(video: Path, source_video: Path, path: Path) -> bool:
+        Path(path).write_bytes(Path(video).read_bytes())
+        return True
+
+    monkeypatch.setattr(videogen, "remux_video_with_source_audio", fake_remux)
+    monkeypatch.setattr(
+        videogen,
+        "video_metadata",
+        lambda path: {"width": 1280, "height": 720, "frames": 16, "fps": 16, "duration_seconds": 1.0},
+    )
+
+    rc = videogen.main(
+        [
+            "seedvr2-upscale",
+            "--input-video",
+            str(input_video),
+            "--resolution",
+            "720p",
+            "--model",
+            "seedvr2_ema_3b_fp16.safetensors",
+            "--model-dir",
+            str(tmp_path / "seedvr2-models"),
+            "--batch-size",
+            "9",
+            "--chunk-size",
+            "33",
+            "--temporal-overlap",
+            "3",
+            "--cuda-device",
+            "0",
+            "--blocks-to-swap",
+            "8",
+            "--video-backend",
+            "opencv",
+            "--verbose",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["kind"] == "video"
+    assert payload["mode"] == "seedvr2-upscale"
+    assert payload["input_video"] == str(input_video)
+    assert payload["width"] == 1280
+    assert payload["height"] == 720
+    assert payload["frames"] == 16
+    assert payload["fps"] == 16
+    assert payload["target"] == "720p"
+    assert payload["short_edge"] == 720
+    assert payload["max_edge"] == 1280
+    assert payload["model"] == "seedvr2_ema_3b_fp16.safetensors"
+    assert payload["batch_size"] == 9
+    assert payload["chunk_size"] == 33
+    assert payload["temporal_overlap"] == 3
+    assert payload["blocks_to_swap"] == 8
+    assert payload["video_backend"] == "opencv"
+    assert payload["audio_muxed"] is True
+    assert payload["capability"] == "videogen.seedvr2-upscale"
+    assert payload["model_profile"] == "seedvr2"
+    assert payload["architecture"] == "seedvr2"
     assert payload["resolved_models"] == {}
     assert Path(payload["artifacts"][0]).is_file()
     assert Path(payload["manifests"][0]).is_file()

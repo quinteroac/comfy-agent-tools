@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from fractions import Fraction
 from pathlib import Path
+import shutil
+import subprocess
 from typing import Any
 from uuid import uuid4
 
@@ -31,6 +33,32 @@ def frame_metadata(frames: list[Any], fps: int) -> dict[str, Any]:
         "fps": fps,
         "duration_seconds": len(frames) / fps if fps else None,
     }
+
+
+def video_metadata(path: str | Path) -> dict[str, Any]:
+    """Return simple metadata for an existing video file."""
+    import av
+
+    with av.open(str(path)) as container:
+        stream = next((s for s in container.streams.video), None)
+        if stream is None:
+            raise ValueError("video does not contain a video stream")
+        fps = _stream_fps(stream)
+        frames = int(stream.frames or 0)
+        duration_seconds = None
+        if stream.duration is not None and stream.time_base is not None:
+            duration_seconds = float(stream.duration * stream.time_base)
+        elif container.duration is not None:
+            duration_seconds = float(container.duration / av.time_base)
+        if frames <= 0 and duration_seconds is not None:
+            frames = max(1, int(round(duration_seconds * fps)))
+        return {
+            "width": int(stream.width),
+            "height": int(stream.height),
+            "frames": frames,
+            "fps": fps,
+            "duration_seconds": duration_seconds,
+        }
 
 
 def save_mp4(frames: list[Any], path: str | Path, fps: int) -> None:
@@ -185,6 +213,47 @@ def save_mp4_with_source_audio(frames: list[Any], source_video: str | Path, path
     return audio_muxed
 
 
+def remux_video_with_source_audio(video: str | Path, source_video: str | Path, path: str | Path) -> bool:
+    """Copy an existing video stream and mux audio from a source video when present."""
+    import av
+
+    video_path = Path(video)
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with av.open(str(source_video)) as source:
+        source_audio = next((stream for stream in source.streams.audio), None)
+        if source_audio is None:
+            shutil.copyfile(video_path, output_path)
+            return False
+
+    if shutil.which("ffmpeg") is None:
+        raise RuntimeError("ffmpeg is required to mux source audio into the upscaled video")
+
+    command = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(video_path),
+        "-i",
+        str(source_video),
+        "-map",
+        "0:v:0",
+        "-map",
+        "1:a:0",
+        "-c:v",
+        "copy",
+        "-c:a",
+        "aac",
+        "-shortest",
+        str(output_path),
+    ]
+    completed = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True, check=False)
+    if completed.returncode != 0:
+        raise RuntimeError(f"audio mux failed: {completed.stderr.strip()}")
+    return True
+
+
 def _audio_to_numpy(waveform: Any) -> Any:
     import numpy as np
 
@@ -208,6 +277,15 @@ def _audio_to_numpy(waveform: Any) -> Any:
     if array.shape[0] > 2:
         array = array[:2]
     return np.clip(array, -1.0, 1.0)
+
+
+def _stream_fps(stream: Any) -> int:
+    rate = stream.average_rate or stream.base_rate
+    if isinstance(rate, Fraction) and rate.denominator:
+        return max(1, int(round(float(rate))))
+    if rate:
+        return max(1, int(round(float(rate))))
+    return 24
 
 
 def _audio_frames(waveform: Any, sample_rate: int, layout: str) -> list[Any]:
