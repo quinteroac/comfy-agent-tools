@@ -63,6 +63,22 @@ from comfy_agent_tools.imagegen.ideogram4 import (
     load_prompt_from_args,
     run_ideogram4_t2i,
 )
+from comfy_agent_tools.imagegen.krea2 import run_krea2_t2i
+from comfy_agent_tools.imagegen.krea2_config import (
+    DEFAULT_KREA2_CFG,
+    DEFAULT_KREA2_CLIP,
+    DEFAULT_KREA2_DENOISE,
+    DEFAULT_KREA2_HEIGHT,
+    DEFAULT_KREA2_REBALANCE_MULTIPLIER,
+    DEFAULT_KREA2_SAMPLER,
+    DEFAULT_KREA2_SCHEDULER,
+    DEFAULT_KREA2_SEED,
+    DEFAULT_KREA2_STEPS,
+    DEFAULT_KREA2_UNET,
+    DEFAULT_KREA2_VAE,
+    DEFAULT_KREA2_WIDTH,
+    Krea2Config,
+)
 from comfy_agent_tools.imagegen.qwen import run_qwen_edit
 from comfy_agent_tools.imagegen.upscale import run_upscale
 from comfy_agent_tools.media import write_run_manifest
@@ -200,6 +216,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write the generated structured Ideogram prompt JSON to this path.",
     )
 
+    krea2 = subparsers.add_parser("krea2-generate", help="Generate local Krea2 Turbo images.")
+    add_common(krea2)
+    krea2.add_argument("--prompt", required=True)
+    krea2.add_argument("--width", type=int, default=None)
+    krea2.add_argument("--height", type=int, default=None)
+    krea2.add_argument("--steps", type=int, default=None)
+    krea2.add_argument("--cfg", type=float, default=None)
+    krea2.add_argument("--seed", type=int, default=None)
+    krea2.add_argument("--sampler", default=None)
+    krea2.add_argument("--scheduler", default=None)
+    krea2.add_argument("--rebalance-multiplier", type=float, default=None, help="Krea2 conditioning rebalance multiplier.")
+    krea2.add_argument("--unet", type=_path, default=None)
+    krea2.add_argument("--clip", type=_path, default=None)
+    krea2.add_argument("--vae", type=_path, default=None)
+
     return parser
 
 
@@ -278,6 +309,26 @@ def _ideogram4_config(args: argparse.Namespace, profile: ResolvedProfile) -> Ide
         std=args.std if args.std is not None else float(profile.defaults.get("std", DEFAULT_IDEOGRAM4_STD)),
         sampler=args.sampler if args.sampler is not None else str(profile.defaults.get("sampler", DEFAULT_IDEOGRAM4_SAMPLER)),
         extra_loras=list(args.extra_lora or []),
+    )
+
+
+def _krea2_config(args: argparse.Namespace, profile: ResolvedProfile) -> Krea2Config:
+    return Krea2Config(
+        models_dir=args.models_dir if args.models_dir is not None else profile.models_dir,
+        unet=args.unet if args.unet is not None else profile.models.get("unet", DEFAULT_KREA2_UNET),
+        clip=args.clip if args.clip is not None else profile.models.get("clip", DEFAULT_KREA2_CLIP),
+        vae=args.vae if args.vae is not None else profile.models.get("vae", DEFAULT_KREA2_VAE),
+        steps=args.steps if args.steps is not None else int(profile.defaults.get("steps", DEFAULT_KREA2_STEPS)),
+        cfg=args.cfg if args.cfg is not None else float(profile.defaults.get("cfg", DEFAULT_KREA2_CFG)),
+        sampler=args.sampler if args.sampler is not None else str(profile.defaults.get("sampler", DEFAULT_KREA2_SAMPLER)),
+        scheduler=args.scheduler if args.scheduler is not None else str(profile.defaults.get("scheduler", DEFAULT_KREA2_SCHEDULER)),
+        seed=args.seed if args.seed is not None else int(profile.defaults.get("seed", DEFAULT_KREA2_SEED)),
+        denoise=float(profile.defaults.get("denoise", DEFAULT_KREA2_DENOISE)),
+        rebalance_multiplier=(
+            args.rebalance_multiplier
+            if args.rebalance_multiplier is not None
+            else float(profile.defaults.get("rebalance_multiplier", DEFAULT_KREA2_REBALANCE_MULTIPLIER))
+        ),
     )
 
 
@@ -388,6 +439,47 @@ def _ideogram4_success(
     if prompt_json is not None:
         payload["prompt_json"] = str(prompt_json)
     return payload
+
+
+def _krea2_success(
+    *,
+    artifacts: list[Path],
+    images: list[object],
+    config: Krea2Config,
+    profile: ResolvedProfile,
+    requested_width: int,
+    requested_height: int,
+) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "kind": "image",
+        "mode": "krea2-generate",
+        "artifacts": [str(path) for path in artifacts],
+        "seed": config.seed,
+        "model": config.unet.name,
+        "steps": config.steps,
+        "cfg": config.cfg,
+        "sampler": config.sampler,
+        "scheduler": config.scheduler,
+        "denoise": config.denoise,
+        "rebalance_multiplier": config.rebalance_multiplier,
+        "requested_width": requested_width,
+        "requested_height": requested_height,
+        "outputs": [_image_metadata(image) for image in images],
+        "capability": profile.capability,
+        "model_profile": profile.name,
+        "architecture": profile.architecture,
+        "models_dir": str(config.models_dir),
+        "resolved_models": _resolved_krea2_models(config),
+    }
+
+
+def _resolved_krea2_models(config: Krea2Config) -> dict[str, str]:
+    return {
+        "unet": str(config.resolve_model_path(config.unet)),
+        "clip": str(config.resolve_model_path(config.clip)),
+        "vae": str(config.resolve_model_path(config.vae)),
+    }
 
 
 def _error(*, mode: str, error: Exception) -> dict[str, Any]:
@@ -520,6 +612,27 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
             config=config,
             profile=profile,
             prompt_json=prompt_json,
+        )
+
+    if args.command == "krea2-generate":
+        config = _krea2_config(args, profile)
+        width = args.width if args.width is not None else int(profile.defaults.get("width", DEFAULT_KREA2_WIDTH))
+        height = args.height if args.height is not None else int(profile.defaults.get("height", DEFAULT_KREA2_HEIGHT))
+        with _maybe_silence(not args.verbose):
+            images = run_krea2_t2i(
+                prompt=args.prompt,
+                width=width,
+                height=height,
+                config=config,
+            )
+        artifacts = save_images(images, args.out, prefix="comfy-imagegen-krea2-generate")
+        return _krea2_success(
+            artifacts=artifacts,
+            images=images,
+            config=config,
+            profile=profile,
+            requested_width=width,
+            requested_height=height,
         )
 
     config = _config(args, profile)

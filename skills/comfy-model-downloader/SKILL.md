@@ -17,6 +17,7 @@ prefer `uv run comfy-models`; outside the repo, use the installed CLI.
 - Image generation: `imagegen.generate`
 - Image editing: `imagegen.edit`
 - Ideogram 4 local generation: `imagegen.ideogram4-generate`
+- Krea2 Turbo local generation: `imagegen.krea2-generate`
 - Image upscale: `imagegen.upscale`
 - Text to video: `videogen.t2v`
 - Image to video: `videogen.i2v`
@@ -70,6 +71,7 @@ uv run comfy-models validate-profile anima-base
 - `qwen-edit2511`: Qwen Image Edit 2511 generation/editing.
 - `flux-klein-9b-snofs`: FLUX.2 Klein 9B FP8 generation/editing with SNOFS.
 - `ideogram4-fp8`: local Ideogram 4 FP8 text-to-image with structured JSON/bbox prompting.
+- `krea2-turbo`: Krea2 Turbo FP8 text-to-image with Qwen3-VL text encoder and conditioning rebalance.
 - `clear-reality`: ClearReality image upscaling.
 - `ltx23-10eros`: LTX 2.3 video and IA2AV.
 - `ltx23-dasiwa-golden-lace-v3`: Dasiwa LTX 2.3 Golden Lace v3 video and IA2AV.

@@ -98,6 +98,28 @@ def test_models_download_ideogram4_dry_run_includes_fp8_files(
     assert not (tmp_path / "models").exists()
 
 
+def test_models_download_krea2_dry_run_includes_turbo_files(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: MagicMock
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    models.main(["set-models-dir", str(tmp_path / "models")])
+    capsys.readouterr()
+
+    rc = models.main(["download", "imagegen.krea2-generate", "--dry-run"])
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["dry_run"] is True
+    assert payload["model_profile"] == "krea2-turbo"
+    assert payload["architecture"] == "krea2"
+    assert set(payload["sources"]) == {"huggingface"}
+    assert str(tmp_path / "models/diffusion_models/krea2_turbo_fp8_scaled.safetensors") in payload["planned"]
+    assert str(tmp_path / "models/text_encoders/qwen3vl_4b_fp8_scaled.safetensors") in payload["planned"]
+    assert str(tmp_path / "models/vae/qwen_image_vae.safetensors") in payload["planned"]
+    assert not (tmp_path / "models").exists()
+
+
 def test_models_download_imagedescribe_reports_local_model(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: MagicMock
 ) -> None:

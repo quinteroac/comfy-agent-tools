@@ -194,6 +194,23 @@ DOWNLOAD_REGISTRY: dict[str, dict[str, DownloadSource]] = {
             token_env="HF_TOKEN",
         ),
     },
+    "krea2-turbo": {
+        "unet": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Krea-2",
+            filename="diffusion_models/krea2_turbo_fp8_scaled.safetensors",
+        ),
+        "clip": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Krea-2",
+            filename="text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+        ),
+        "vae": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Krea-2",
+            filename="vae/qwen_image_vae.safetensors",
+        ),
+    },
     "clear-reality": {
         "upscaler": DownloadSource(
             kind="hf",

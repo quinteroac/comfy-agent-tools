@@ -44,7 +44,7 @@ Python CLIs on demand, initialize local config if needed, and validate models.
 
 ## What You Get
 
-- `comfy-imagegen`: image generation, Ideogram 4 structured prompting, image editing, upscaling, and remote Grok Imagine.
+- `comfy-imagegen`: image generation, Ideogram 4 structured prompting, Krea2 Turbo, image editing, upscaling, and remote Grok Imagine.
 - `comfy-imagedescribe`: local Qwen3-VL 2B Instruct image description, captioning, tagging, and visual QA.
 - `comfy-videogen`: local LTX 2.3/WAN 2.2 video plus remote Seedance 2.0 API video.
 - `comfy-bernini-videoedit`: Bernini WAN 2.2 video edit workflows for V2V, RV2V, VV2V planning, and R2V.
@@ -103,10 +103,11 @@ uv run comfy-models validate
 ```
 
 The Python runtime dependency is `comfy-diffusion[video,audio]` pinned to
-`v2.4.2` or newer for LTX 2.3 HDR IC-LoRA helpers, Ideogram 4, Bernini video
-editing, and the VAE decode fix required by LTX 2.3 video. ComfyUI runtime
-packages are pinned directly from the ComfyUI `0.24.1` requirements vendored by
-`comfy-diffusion`, because the media extras are required during runtime startup,
+`v2.4.5` or newer for LTX 2.3 HDR IC-LoRA helpers, Ideogram 4, Bernini video
+editing, the VAE decode fix required by LTX 2.3 video, and the Krea2 Turbo
+pipeline. ComfyUI runtime packages are pinned directly from the ComfyUI
+`0.24.1` requirements vendored by `comfy-diffusion`, because the media extras
+are required during runtime startup,
 video generation writes MP4 files with audio, and music generation uses audio
 helpers.
 
@@ -187,6 +188,7 @@ absent, the CLIs use built-in defaults:
 | `imagegen.grok-generate` | `grok-imagine-api` | `grok-imagine-api` |
 | `imagegen.grok-edit` | `grok-imagine-api` | `grok-imagine-api` |
 | `imagegen.ideogram4-generate` | `ideogram4-fp8` | `ideogram4` |
+| `imagegen.krea2-generate` | `krea2-turbo` | `krea2` |
 | `videogen.t2v` | `ltx23-10eros` | `ltx23` |
 | `videogen.i2v` | `ltx23-10eros` | `ltx23` |
 | `videogen.flf2v` | `ltx23-10eros` | `ltx23` |
@@ -239,7 +241,7 @@ profile uses `steps=4`, `cfg=1.0`, `sampler=euler`, `scheduler=simple`, and
 The `wan22-bernini` profile uses the Bernini WAN 2.2 video-edit UNets plus the
 LightX2V LoRA and the NSFW WAN UMT5 text encoder. It supports source-video
 editing, reference-guided generation, and multi-reference conditioning through
-`comfy-diffusion` v2.4.2 or newer.
+`comfy-diffusion` v2.4.5 or newer.
 The `wan22-dasiwa-littledemon-v2-video-audio` profile is the default for
 `videogen.wan22-video-audio`; it reuses the Dasiwa S2V model for 16 fps
 video+audio processing with 77-frame chunks and 4-frame crossfade overlap.
@@ -437,6 +439,34 @@ coordinates. `--prompt`, `--style-aesthetics`, `--style-lighting`,
 `--style-photo` or `--style-art-style`, plus at least one `--object` or `--text`
 element. Add `--output-json PATH` to write the structured prompt JSON that the
 CLI sent to Ideogram 4.
+
+### Krea2 Turbo Images
+
+Krea2 Turbo runs locally through `comfy-diffusion` (v2.4.5+) and writes PNG
+files. Download only its profile when needed:
+
+```bash
+uv run comfy-models download imagegen.krea2-generate --dry-run
+uv run comfy-models download imagegen.krea2-generate --yes
+```
+
+Generate an image:
+
+```bash
+uv run comfy-imagegen krea2-generate \
+  --prompt "a cinematic portrait of an astronaut floating in a nebula, dramatic rim light" \
+  --width 1024 \
+  --height 1024 \
+  --steps 8 \
+  --cfg 1 \
+  --rebalance-multiplier 4.0 \
+  --out outputs
+```
+
+Krea2 Turbo defaults to `steps=8`, `cfg=1.0`, `sampler=euler`, `scheduler=simple`,
+`rebalance_multiplier=4.0`, and `seed=0`. The `--rebalance-multiplier` controls
+the Krea2 conditioning rebalance applied before sampling; lower it for more
+literal prompt adherence or raise it for more creative interpretation.
 
 ## Image Editing And Upscale
 

@@ -51,6 +51,15 @@ def test_builtin_profiles_separate_architecture_and_profile() -> None:
     assert ideogram4["models"]["unet"] == "diffusion_models/ideogram4_fp8_scaled.safetensors"
     assert ideogram4["models"]["uncond_unet"] == "diffusion_models/ideogram4_unconditional_fp8_scaled.safetensors"
 
+    krea2 = BUILTIN_PROFILES["krea2-turbo"]
+    assert krea2["architecture"] == "krea2"
+    assert krea2["supports"] == ["imagegen.krea2-generate"]
+    assert krea2["models"]["unet"] == "diffusion_models/krea2_turbo_fp8_scaled.safetensors"
+    assert krea2["models"]["clip"] == "text_encoders/qwen3vl_4b_fp8_scaled.safetensors"
+    assert krea2["models"]["vae"] == "vae/qwen_image_vae.safetensors"
+    assert krea2["defaults"]["steps"] == 8
+    assert krea2["defaults"]["rebalance_multiplier"] == 4.0
+
     wan22 = BUILTIN_PROFILES["wan22-i2v"]
     assert wan22["architecture"] == "wan22"
     assert wan22["supports"] == ["videogen.wan22-i2v", "videogen.wan22-flf2v"]
@@ -184,6 +193,7 @@ def test_builtin_defaults_point_to_supported_profiles() -> None:
     assert BUILTIN_DEFAULTS["imagegen.grok-generate"] == "grok-imagine-api"
     assert BUILTIN_DEFAULTS["imagegen.grok-edit"] == "grok-imagine-api"
     assert BUILTIN_DEFAULTS["imagegen.ideogram4-generate"] == "ideogram4-fp8"
+    assert BUILTIN_DEFAULTS["imagegen.krea2-generate"] == "krea2-turbo"
     assert BUILTIN_DEFAULTS["imagedescribe.describe"] == "qwen3vl-2b-instruct"
     for capability, profile_name in BUILTIN_DEFAULTS.items():
         profile = resolve_profile(profile_name, config)

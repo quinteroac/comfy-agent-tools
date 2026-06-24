@@ -9,6 +9,11 @@ and uses semantic versioning once releases are tagged.
 
 ### Added
 
+- Add `comfy-imagegen krea2-generate` command for local Krea2 Turbo
+  text-to-image generation, backed by the new `comfy-diffusion` v2.4.5 Krea2
+  pipeline, plus the `krea2-turbo` profile, `imagegen.krea2-generate`
+  capability, `krea2` architecture, downloader entry, and skill/README updates.
+- Bump the `comfy-diffusion` runtime pin from v2.4.4 to v2.4.5.
 - Add `comfy-imagedescribe` CLI with a `describe` command for local image
   description, captioning, tagging, and visual QA using the Qwen3-VL 2B
   Instruct vision-language model (loaded with `transformers` from a HuggingFace

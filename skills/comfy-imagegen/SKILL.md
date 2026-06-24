@@ -1,6 +1,6 @@
 ---
 name: comfy-imagegen
-description: Generate, edit, or upscale raster images with comfy-diffusion, including local Anima Base v1.0 with turbo LoRA, Qwen Image Edit 2511, FLUX.2 Klein 9B SNOFS, local Ideogram 4 structured prompt/bbox generation, ClearReality, and remote Grok Imagine API nodes. Use when the user wants image generation or image editing from the current machine with outputs saved into the workspace. Do not use for hosted OpenAI image generation, vector/SVG work, video, music, voice, model downloads, custom node installation, or ComfyUI server workflows.
+description: Generate, edit, or upscale raster images with comfy-diffusion, including local Anima Base v1.0 with turbo LoRA, Qwen Image Edit 2511, FLUX.2 Klein 9B SNOFS, local Ideogram 4 structured prompt/bbox generation, local Krea2 Turbo, ClearReality, and remote Grok Imagine API nodes. Use when the user wants image generation or image editing from the current machine with outputs saved into the workspace. Do not use for hosted OpenAI image generation, vector/SVG work, video, music, voice, model downloads, custom node installation, or ComfyUI server workflows.
 ---
 
 # comfy-imagegen
@@ -32,7 +32,7 @@ checkpoint/fine-tune/default, use `comfy-model-onboarding` first.
 
 If model validation fails with `missing_model_file`, use `comfy-model-downloader`:
 `imagegen.generate` for the active generation profile, `imagegen.edit` for the
-active edit profile, `imagegen.ideogram4-generate` for Ideogram 4, or
+active edit profile, `imagegen.ideogram4-generate` for Ideogram 4, `imagegen.krea2-generate` for Krea2 Turbo, or
 `imagegen.upscale` for ClearReality upscale.
 
 If the user asks to use or organize a LoRA by name or purpose, use
@@ -50,6 +50,9 @@ chosen file with `--extra-lora`.
 - `upscale`: input image to 4x upscale with ClearReality.
 - `ideogram4-generate`: local Ideogram 4 text-to-image. Use this for poster,
   typography, graphic design, color palette, and bbox/layout-controlled images.
+- `krea2-generate`: local Krea2 Turbo text-to-image. Use this for fast, high-
+  fidelity prompt-following generation with a Qwen3-VL text encoder and the
+  Krea2 conditioning rebalance.
 - `grok-generate`: remote Grok Imagine text prompt to PNG through Comfy API
   nodes. Requires `COMFY_ORG_API_KEY`, not local model files.
 - `grok-edit`: remote Grok Imagine input image plus prompt to PNG through Comfy
@@ -122,6 +125,19 @@ uv run comfy-imagegen ideogram4-generate \
   --object "420,120,900,880|A golden saxophone centered in the lower half." \
   --text "80,120,220,880|JAZZ NIGHT|Large condensed yellow headline." \
   --output-json outputs/ideogram4-poster-prompt.json \
+  --out outputs
+```
+
+Krea2 Turbo:
+
+```bash
+uv run comfy-imagegen krea2-generate \
+  --prompt "a cinematic portrait of an astronaut floating in a nebula, dramatic rim light" \
+  --width 1024 \
+  --height 1024 \
+  --steps 8 \
+  --cfg 1 \
+  --rebalance-multiplier 4.0 \
   --out outputs
 ```
 
@@ -221,12 +237,17 @@ conditioning, `Flux2Scheduler`, `CFGGuider`, and `SamplerCustomAdvanced`.
 - Ideogram text encoder: `text_encoders/qwen3vl_8b_fp8_scaled.safetensors`
 - Ideogram VAE: `vae/flux2-vae.safetensors`
 - Ideogram params: `steps=20`, `cfg=7.0`, `cfg_override_value=3.0`, `sampler=euler`, `seed=0`
+- Krea2 profile: `krea2-turbo`
+- Krea2 diffusion model: `diffusion_models/krea2_turbo_fp8_scaled.safetensors`
+- Krea2 text encoder: `text_encoders/qwen3vl_4b_fp8_scaled.safetensors`
+- Krea2 VAE: `vae/qwen_image_vae.safetensors`
+- Krea2 params: `steps=8`, `cfg=1.0`, `sampler=euler`, `scheduler=simple`, `rebalance_multiplier=4.0`, `seed=0`
 - Upscaler: `upscale_models/4x-ClearRealityV1.pth`
 - Grok profile: `grok-imagine-api`
 - Grok provider: `comfy-api`
 - Grok model: `grok-imagine-image`
 - Grok params: `resolution=1K`, `aspect_ratio=1:1`, `number_of_images=1`, `seed=0`
-- Dependency: `comfy-diffusion[video,audio]` v2.3.0 or newer plus the vendored
+- Dependency: `comfy-diffusion[video,audio]` v2.4.5 or newer plus the vendored
   ComfyUI requirements
 
 The Anima turbo LoRA expects `cfg=1.0`; increasing CFG can degrade or break the

@@ -1122,3 +1122,181 @@ def test_upscale_success_metadata(monkeypatch: MagicMock, tmp_path: Path, capsys
     assert payload["model_profile"] == "clear-reality"
     assert payload["architecture"] == "upscale-model"
     assert payload["outputs"] == [{"width": 16, "height": 16, "mode": "RGB"}]
+
+
+def test_parser_krea2_generate_defaults() -> None:
+    args = imagegen.build_parser().parse_args(["krea2-generate", "--prompt", "hi"])
+
+    assert args.command == "krea2-generate"
+    assert args.prompt == "hi"
+    assert args.models_dir is None
+    assert args.unet is None
+    assert args.clip is None
+    assert args.vae is None
+    assert args.width is None
+    assert args.height is None
+    assert args.steps is None
+    assert args.cfg is None
+    assert args.seed is None
+    assert args.sampler is None
+    assert args.scheduler is None
+    assert args.rebalance_multiplier is None
+    assert args.verbose is False
+    assert args.no_manifest is False
+
+
+def test_parser_krea2_generate_overrides() -> None:
+    args = imagegen.build_parser().parse_args(
+        [
+            "krea2-generate",
+            "--prompt",
+            "hi",
+            "--width",
+            "768",
+            "--height",
+            "512",
+            "--steps",
+            "6",
+            "--cfg",
+            "1.5",
+            "--seed",
+            "42",
+            "--sampler",
+            "euler",
+            "--scheduler",
+            "normal",
+            "--rebalance-multiplier",
+            "3.0",
+            "--verbose",
+        ]
+    )
+
+    assert args.width == 768
+    assert args.height == 512
+    assert args.steps == 6
+    assert args.cfg == 1.5
+    assert args.seed == 42
+    assert args.sampler == "euler"
+    assert args.scheduler == "normal"
+    assert args.rebalance_multiplier == 3.0
+    assert args.verbose is True
+
+
+def test_krea2_generate_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_run_krea2_t2i(*, prompt: str, width: int, height: int, config: object) -> list[Image.Image]:
+        seen["prompt"] = prompt
+        seen["width"] = width
+        seen["height"] = height
+        seen["steps"] = config.steps
+        seen["cfg"] = config.cfg
+        seen["rebalance_multiplier"] = config.rebalance_multiplier
+        seen["unet"] = config.unet
+        seen["clip"] = config.clip
+        seen["vae"] = config.vae
+        return [Image.new("RGB", (24, 16), "purple")]
+
+    monkeypatch.setattr(imagegen, "run_krea2_t2i", fake_run_krea2_t2i)
+
+    rc = imagegen.main(
+        [
+            "krea2-generate",
+            "--prompt",
+            "a cinematic portrait",
+            "--models-dir",
+            str(tmp_path / "models"),
+            "--width",
+            "768",
+            "--height",
+            "512",
+            "--steps",
+            "6",
+            "--cfg",
+            "1.5",
+            "--seed",
+            "42",
+            "--rebalance-multiplier",
+            "3.0",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    assert seen["prompt"] == "a cinematic portrait"
+    assert seen["width"] == 768
+    assert seen["height"] == 512
+    assert seen["steps"] == 6
+    assert seen["cfg"] == 1.5
+    assert seen["rebalance_multiplier"] == 3.0
+    assert seen["unet"] == Path("diffusion_models/krea2_turbo_fp8_scaled.safetensors")
+    assert seen["clip"] == Path("text_encoders/qwen3vl_4b_fp8_scaled.safetensors")
+    assert seen["vae"] == Path("vae/qwen_image_vae.safetensors")
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["mode"] == "krea2-generate"
+    assert payload["capability"] == "imagegen.krea2-generate"
+    assert payload["model_profile"] == "krea2-turbo"
+    assert payload["architecture"] == "krea2"
+    assert payload["seed"] == 42
+    assert payload["steps"] == 6
+    assert payload["cfg"] == 1.5
+    assert payload["rebalance_multiplier"] == 3.0
+    assert payload["requested_width"] == 768
+    assert payload["requested_height"] == 512
+    assert payload["resolved_models"]["unet"].endswith("diffusion_models/krea2_turbo_fp8_scaled.safetensors")
+    assert payload["resolved_models"]["clip"].endswith("text_encoders/qwen3vl_4b_fp8_scaled.safetensors")
+    assert payload["resolved_models"]["vae"].endswith("vae/qwen_image_vae.safetensors")
+    assert payload["outputs"] == [{"width": 24, "height": 16, "mode": "RGB"}]
+    assert Path(payload["artifacts"][0]).is_file()
+    assert Path(payload["manifests"][0]).is_file()
+
+
+def test_krea2_generate_suppresses_output_by_default(
+    monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock
+) -> None:
+    def noisy_run(*, prompt: str, width: int, height: int, config: object) -> list[Image.Image]:
+        print("progress should not leak")
+        return [Image.new("RGB", (8, 8), "red")]
+
+    monkeypatch.setattr(imagegen, "run_krea2_t2i", noisy_run)
+
+    rc = imagegen.main(["krea2-generate", "--prompt", "quiet", "--out", str(tmp_path)])
+
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert "progress should not leak" not in captured.out
+    assert json.loads(captured.out)["ok"] is True
+
+
+def test_krea2_generate_missing_model_returns_json(
+    monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock
+) -> None:
+    def fail(*, prompt: str, width: int, height: int, config: object) -> list[Image.Image]:
+        raise FileNotFoundError("unet model file not found: missing.safetensors")
+
+    monkeypatch.setattr(imagegen, "run_krea2_t2i", fail)
+
+    rc = imagegen.main(["krea2-generate", "--prompt", "fail", "--out", str(tmp_path)])
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["mode"] == "krea2-generate"
+    assert payload["error_type"] == "not_found"
+
+
+def test_krea2_generate_runtime_error_returns_json(
+    monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock
+) -> None:
+    def fail(*, prompt: str, width: int, height: int, config: object) -> list[Image.Image]:
+        raise RuntimeError("ComfyUI runtime not available: missing dependency")
+
+    monkeypatch.setattr(imagegen, "run_krea2_t2i", fail)
+
+    rc = imagegen.main(["krea2-generate", "--prompt", "fail", "--out", str(tmp_path)])
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["error_type"] == "runtime"
