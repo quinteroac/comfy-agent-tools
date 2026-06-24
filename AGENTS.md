@@ -79,6 +79,7 @@ Current skills:
 
 - `comfy-tools-setup`: installs/validates the Python CLIs.
 - `comfy-imagegen`: local image generation/edit/upscale.
+- `comfy-imagedescribe`: local Qwen3-VL 2B Instruct image description/captioning/visual QA.
 - `comfy-videogen`: local LTX 2.3/WAN 2.2 video generation and remote Seedance 2.0 API video.
 - `comfy-bernini-videoedit`: Bernini WAN 2.2 video edit workflows.
 - `comfy-motion-track-control`: LTX 2.3 Motion Track IC-LoRA control video workflows.
@@ -99,6 +100,7 @@ The repo should not download models automatically. Built-in defaults include:
 - WAN text video: WAN 2.2 T2V profile
 - motion-track video: LTX 2.3 10Eros plus Motion Track IC-LoRA
 - music: ACE-Step 1.5 base
+- image description: Qwen3-VL 2B Instruct (HuggingFace model directory)
 - remote video API: Seedance 2.0 via `COMFY_ORG_API_KEY`
 
 Use `comfy-models` for persistent profile/default changes. Keep architecture and

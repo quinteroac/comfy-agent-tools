@@ -64,6 +64,7 @@ dev = [
 
 [project.scripts]
 comfy-imagegen = "comfy_agent_tools.cli.imagegen:main"
+comfy-imagedescribe = "comfy_agent_tools.cli.imagedescribe:main"
 comfy-videogen = "comfy_agent_tools.cli.videogen:main"
 comfy-musicgen = "comfy_agent_tools.cli.musicgen:main"
 comfy-models = "comfy_agent_tools.cli.models:main"

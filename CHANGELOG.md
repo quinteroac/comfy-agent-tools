@@ -7,6 +7,16 @@ and uses semantic versioning once releases are tagged.
 
 ## [Unreleased]
 
+### Added
+
+- Add `comfy-imagedescribe` CLI with a `describe` command for local image
+  description, captioning, tagging, and visual QA using the Qwen3-VL 2B
+  Instruct vision-language model (loaded with `transformers` from a HuggingFace
+  model directory), plus the `qwen3vl-2b-instruct` profile,
+  `imagedescribe.describe` capability, `qwen3-vl` architecture, and
+  `comfy-imagedescribe` skill. The model is a local HuggingFace directory, not a
+  single-file download, so it is not distributed by `comfy-models download`.
+
 ### Fixed
 
 - Fix headless Comfy API node reference-image uploads by disabling progress UI

@@ -119,6 +119,24 @@ def test_comfy_musicgen_skill_frontmatter() -> None:
     assert "uv run comfy-media index --out outputs" in content
 
 
+def test_comfy_imagedescribe_skill_frontmatter() -> None:
+    skill_path = Path("skills/comfy-imagedescribe/SKILL.md")
+    content = skill_path.read_text(encoding="utf-8")
+
+    assert content.startswith("---\n")
+    frontmatter = content.split("---", 2)[1]
+    assert "name: comfy-imagedescribe" in frontmatter
+    assert "description:" in frontmatter
+    assert "Qwen3-VL-2B-Instruct" in content
+    assert "LLM/Qwen-VL/Qwen3-VL-2B-Instruct" in content
+    assert "imagedescribe.describe" in content
+    assert "Qwen3-VL 2B" in content
+    assert "comfy-tools-setup" in content
+    assert "uv run comfy-imagedescribe describe" in content
+    assert "uv run comfy-media gallery --out outputs" in content
+    assert "uv run comfy-media index --out outputs" in content
+
+
 def test_comfy_media_skill_frontmatter() -> None:
     skill_path = Path("skills/comfy-media/SKILL.md")
     content = skill_path.read_text(encoding="utf-8")

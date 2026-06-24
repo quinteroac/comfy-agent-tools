@@ -159,6 +159,13 @@ def test_builtin_profiles_separate_architecture_and_profile() -> None:
     assert grok["defaults"]["model"] == "grok-imagine-image"
     assert grok["supports"] == ["imagegen.grok-generate", "imagegen.grok-edit"]
 
+    qwen3vl = BUILTIN_PROFILES["qwen3vl-2b-instruct"]
+    assert qwen3vl["architecture"] == "qwen3-vl"
+    assert qwen3vl["supports"] == ["imagedescribe.describe"]
+    assert qwen3vl["models"] == {}
+    assert qwen3vl["defaults"]["llm"] == "LLM/Qwen-VL/Qwen3-VL-2B-Instruct"
+    assert qwen3vl["defaults"]["max_length"] == 512
+
 
 def test_builtin_defaults_point_to_supported_profiles() -> None:
     config = default_config()
@@ -177,6 +184,7 @@ def test_builtin_defaults_point_to_supported_profiles() -> None:
     assert BUILTIN_DEFAULTS["imagegen.grok-generate"] == "grok-imagine-api"
     assert BUILTIN_DEFAULTS["imagegen.grok-edit"] == "grok-imagine-api"
     assert BUILTIN_DEFAULTS["imagegen.ideogram4-generate"] == "ideogram4-fp8"
+    assert BUILTIN_DEFAULTS["imagedescribe.describe"] == "qwen3vl-2b-instruct"
     for capability, profile_name in BUILTIN_DEFAULTS.items():
         profile = resolve_profile(profile_name, config)
         assert capability in profile["supports"]

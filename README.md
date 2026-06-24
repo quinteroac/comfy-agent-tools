@@ -45,6 +45,7 @@ Python CLIs on demand, initialize local config if needed, and validate models.
 ## What You Get
 
 - `comfy-imagegen`: image generation, Ideogram 4 structured prompting, image editing, upscaling, and remote Grok Imagine.
+- `comfy-imagedescribe`: local Qwen3-VL 2B Instruct image description, captioning, tagging, and visual QA.
 - `comfy-videogen`: local LTX 2.3/WAN 2.2 video plus remote Seedance 2.0 API video.
 - `comfy-bernini-videoedit`: Bernini WAN 2.2 video edit workflows for V2V, RV2V, VV2V planning, and R2V.
 - `comfy-motion-track-control`: LTX 2.3 HDR IC-LoRA guidance.
@@ -203,6 +204,7 @@ absent, the CLIs use built-in defaults:
 | `videogen.seedance2-r2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-flf2v` | `seedance2-api` | `seedance2-api` |
 | `musicgen.generate` | `ace15-base` | `ace-step-1.5` |
+| `imagedescribe.describe` | `qwen3vl-2b-instruct` | `qwen3-vl` |
 
 `ltx23` is the architecture/adapter; `ltx23-10eros` is the default built-in
 profile validated for that architecture. The optional
@@ -815,6 +817,52 @@ Current music defaults favor quality over speed:
 `--prompt` maps to ACE-Step music tags. Use structured lyrics with `[verse]`,
 `[chorus]`, `[bridge]`, and `[instrumental]`. Set `--language` explicitly when
 lyrics are not English.
+
+## Image Description
+
+`comfy-imagedescribe` describes images with the local Qwen3-VL 2B Instruct
+vision-language model (a HuggingFace model directory under
+`LLM/Qwen-VL/Qwen3-VL-2B-Instruct`, loaded with `transformers`). It is quiet by
+default and prints final JSON only; pass `--verbose` to show runtime logs.
+
+Describe an image in detail:
+
+```bash
+uv run comfy-imagedescribe describe \
+  --input outputs/comfy-imagegen-generate-example.png \
+  --prompt "Describe this image in detail." \
+  --out outputs
+```
+
+Short caption:
+
+```bash
+uv run comfy-imagedescribe describe \
+  --input outputs/comfy-imagegen-generate-example.png \
+  --prompt "Write a concise one-sentence caption for this image." \
+  --max-length 128 \
+  --out outputs
+```
+
+Visual QA:
+
+```bash
+uv run comfy-imagedescribe describe \
+  --input outputs/comfy-imagegen-generate-example.png \
+  --prompt "What is the dominant color palette, and how many people are visible?" \
+  --out outputs
+```
+
+Current description defaults:
+
+- `max_length=512`
+- `temperature=0.7`, `top_k=64`, `top_p=0.95`, `min_p=0.05`
+- `repetition_penalty=1.05`
+- `do_sample=true`, `seed=0`
+
+Read the generated text from the `description` field of the JSON response. Pass
+`--greedy` for reproducible descriptions; raise `--max-length` for long-form
+output and lower it for short captions or tags.
 
 ## JSON Output
 

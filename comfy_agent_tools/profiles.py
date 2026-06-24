@@ -34,6 +34,7 @@ BUILTIN_DEFAULTS: dict[str, str] = {
     "imagegen.grok-generate": "grok-imagine-api",
     "imagegen.grok-edit": "grok-imagine-api",
     "imagegen.ideogram4-generate": "ideogram4-fp8",
+    "imagedescribe.describe": "qwen3vl-2b-instruct",
     "musicgen.generate": "ace15-base",
 }
 
@@ -457,6 +458,22 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
             "scheduler": "simple",
         },
     },
+    "qwen3vl-2b-instruct": {
+        "label": "Qwen3-VL 2B Instruct (HuggingFace)",
+        "architecture": "qwen3-vl",
+        "supports": ["imagedescribe.describe"],
+        "models": {},
+        "defaults": {
+            "llm": "LLM/Qwen-VL/Qwen3-VL-2B-Instruct",
+            "max_length": 512,
+            "temperature": 0.7,
+            "top_k": 64,
+            "top_p": 0.95,
+            "min_p": 0.05,
+            "repetition_penalty": 1.05,
+            "do_sample": True,
+        },
+    },
     "seedance2-api": {
         "label": "ByteDance Seedance 2.0 API",
         "architecture": "seedance2-api",
@@ -533,6 +550,7 @@ SUPPORTED_ARCHITECTURES = {
     "ace-step-1.5",
     "seedance2-api",
     "grok-imagine-api",
+    "qwen3-vl",
 }
 
 

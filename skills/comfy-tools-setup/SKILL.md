@@ -1,6 +1,6 @@
 ---
 name: comfy-tools-setup
-description: Bootstrap and validate the comfy-agent-tools Python CLIs for agent use. Use when the user asks to setup, install, update, or diagnose comfy-agent-tools; when a required CLI such as comfy-imagegen, comfy-videogen, comfy-musicgen, or comfy-models is missing; or before another comfy skill runs a CLI on a new machine.
+description: Bootstrap and validate the comfy-agent-tools Python CLIs for agent use. Use when the user asks to setup, install, update, or diagnose comfy-agent-tools; when a required CLI such as comfy-imagegen, comfy-imagedescribe, comfy-videogen, comfy-musicgen, or comfy-models is missing; or before another comfy skill runs a CLI on a new machine.
 ---
 
 # comfy-tools-setup
@@ -53,6 +53,7 @@ Validate that the expected commands exist:
 
 ```bash
 command -v comfy-imagegen
+command -v comfy-imagedescribe
 command -v comfy-videogen
 command -v comfy-musicgen
 command -v comfy-models

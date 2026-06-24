@@ -98,6 +98,22 @@ def test_models_download_ideogram4_dry_run_includes_fp8_files(
     assert not (tmp_path / "models").exists()
 
 
+def test_models_download_imagedescribe_reports_local_model(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: MagicMock
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    models.main(["set-models-dir", str(tmp_path / "models")])
+    capsys.readouterr()
+
+    rc = models.main(["download", "imagedescribe.describe", "--dry-run"])
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["error_type"] == "download_unsupported_source"
+    assert "does not use local downloadable model files" in payload["error"]
+
+
 def test_models_download_dasiwa_ltx23_dry_run_includes_civitai_checkpoint(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: MagicMock
 ) -> None:

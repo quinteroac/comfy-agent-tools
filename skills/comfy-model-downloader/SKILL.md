@@ -28,6 +28,7 @@ prefer `uv run comfy-models`; outside the repo, use the installed CLI.
 - WAN 2.2 video plus audio: `videogen.wan22-video-audio`
 - WAN 2.2 Bernini video edit: `videogen.wan22-bernini`
 - Music generation: `musicgen.generate`
+- Image description: `imagedescribe.describe` (local HuggingFace model directory, not a single-file download)
 
 Do not map Seedance 2.0 API requests to downloads. `videogen.seedance2-t2v`,
 `videogen.seedance2-r2v`, and `videogen.seedance2-flf2v` use the remote
@@ -80,6 +81,7 @@ uv run comfy-models validate-profile anima-base
 - `wan22-dasiwa-littledemon-v2-s2v`: Dasiwa LittleDemon v2 S2V, 4-step profile.
 - `wan22-dasiwa-littledemon-v2-video-audio`: Dasiwa LittleDemon v2 S2V for 16 fps video+audio, audio-driven, and external-mask lipsync.
 - `ace15-base`: ACE-Step 1.5 music generation.
+- `qwen3vl-2b-instruct`: Qwen3-VL 2B Instruct image description (local HuggingFace model directory; not distributed by the downloader).
 
 `seedance2-api` is intentionally excluded: it is a remote Comfy API profile, not
 a downloadable model profile. `grok-imagine-api` is excluded for the same reason.
