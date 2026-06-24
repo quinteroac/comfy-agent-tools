@@ -35,6 +35,7 @@ BUILTIN_DEFAULTS: dict[str, str] = {
     "imagegen.grok-edit": "grok-imagine-api",
     "imagegen.ideogram4-generate": "ideogram4-fp8",
     "imagegen.krea2-generate": "krea2-turbo",
+    "imagegen.rtx-upscale": "rtx-vsr",
     "imagedescribe.describe": "qwen3vl-2b-instruct",
     "musicgen.generate": "ace15-base",
 }
@@ -515,7 +516,7 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
     "rtx-vsr": {
         "label": "NVIDIA RTX Video Super Resolution",
         "architecture": "rtx-vsr",
-        "supports": ["videogen.rtx-upscale"],
+        "supports": ["videogen.rtx-upscale", "imagegen.rtx-upscale"],
         "models": {},
         "defaults": {
             "resolution": "1080p",

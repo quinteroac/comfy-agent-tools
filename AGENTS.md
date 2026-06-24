@@ -78,7 +78,7 @@ When editing any skill:
 Current skills:
 
 - `comfy-tools-setup`: installs/validates the Python CLIs.
-- `comfy-imagegen`: local image generation/edit/upscale, including Krea2 Turbo.
+- `comfy-imagegen`: local image generation/edit/upscale, including Krea2 Turbo and NVIDIA RTX image upscale.
 - `comfy-imagedescribe`: local Qwen3-VL 2B Instruct image description/captioning/visual QA.
 - `comfy-videogen`: local LTX 2.3/WAN 2.2 video generation and remote Seedance 2.0 API video.
 - `comfy-bernini-videoedit`: Bernini WAN 2.2 video edit workflows.

@@ -25,6 +25,8 @@ def test_comfy_imagegen_skill_frontmatter() -> None:
     assert "krea2-turbo" in content
     assert "krea2_turbo_fp8_scaled.safetensors" in content
     assert "uv run comfy-imagegen krea2-generate" in content
+    assert "rtx-upscale" in content
+    assert "uv run comfy-imagegen rtx-upscale" in content
     assert "uv run comfy-media gallery --out outputs" in content
     assert "uv run comfy-media index --out outputs" in content
 

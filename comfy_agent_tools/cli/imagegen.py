@@ -64,6 +64,14 @@ from comfy_agent_tools.imagegen.ideogram4 import (
     run_ideogram4_t2i,
 )
 from comfy_agent_tools.imagegen.krea2 import run_krea2_t2i
+from comfy_agent_tools.imagegen.rtx_upscale import (
+    DEFAULT_RTX_IMAGE_QUALITY,
+    DEFAULT_RTX_IMAGE_RESOLUTION,
+    RTX_IMAGE_QUALITY_LEVELS,
+    RTX_IMAGE_RESOLUTION_PRESETS,
+    RTXImageUpscaleConfig,
+    run_rtx_upscale_image,
+)
 from comfy_agent_tools.imagegen.krea2_config import (
     DEFAULT_KREA2_CFG,
     DEFAULT_KREA2_CLIP,
@@ -144,6 +152,33 @@ def build_parser() -> argparse.ArgumentParser:
     add_common(upscale)
     upscale.add_argument("--input", type=_path, required=True)
     upscale.add_argument("--upscaler", type=_path, default=None)
+
+    rtx_upscale = subparsers.add_parser(
+        "rtx-upscale",
+        help="Upscale an input image with NVIDIA RTX Video Super Resolution.",
+    )
+    rtx_upscale.add_argument("--input", type=_path, required=True)
+    rtx_upscale.add_argument("--out", type=_path, default=DEFAULT_OUT)
+    rtx_upscale.add_argument(
+        "--no-manifest",
+        action="store_true",
+        help="Do not write a comfy-media run manifest for this generation.",
+    )
+    rtx_upscale.add_argument(
+        "--resolution",
+        default=None,
+        choices=sorted(RTX_IMAGE_RESOLUTION_PRESETS),
+        help=f"Target output resolution, preserving input aspect ratio. Defaults to {DEFAULT_RTX_IMAGE_RESOLUTION}.",
+    )
+    rtx_upscale.add_argument("--width", type=int, default=None, help="Custom target width. Requires --height.")
+    rtx_upscale.add_argument("--height", type=int, default=None, help="Custom target height. Requires --width.")
+    rtx_upscale.add_argument("--scale", type=float, default=None, help="Scale input dimensions by 1.0-4.0.")
+    rtx_upscale.add_argument("--quality", default=None, choices=RTX_IMAGE_QUALITY_LEVELS)
+    rtx_upscale.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show RTX runtime output while running.",
+    )
 
     def add_grok_common(subparser: argparse.ArgumentParser, *, edit_mode: bool = False) -> None:
         subparser.add_argument("--out", type=_path, default=DEFAULT_OUT)
@@ -332,6 +367,23 @@ def _krea2_config(args: argparse.Namespace, profile: ResolvedProfile) -> Krea2Co
     )
 
 
+def _rtx_image_config(args: argparse.Namespace, profile: ResolvedProfile) -> RTXImageUpscaleConfig:
+    resolution: str | None
+    if args.resolution is not None:
+        resolution = args.resolution
+    elif args.scale is not None or args.width is not None or args.height is not None:
+        resolution = None
+    else:
+        resolution = str(profile.defaults.get("resolution", DEFAULT_RTX_IMAGE_RESOLUTION))
+    return RTXImageUpscaleConfig(
+        resolution=resolution,
+        width=args.width,
+        height=args.height,
+        scale=args.scale,
+        quality=args.quality if args.quality is not None else str(profile.defaults.get("quality", DEFAULT_RTX_IMAGE_QUALITY)),
+    )
+
+
 def _success(
     *,
     mode: str,
@@ -506,6 +558,35 @@ def _image_metadata(image: object) -> dict[str, Any]:
     }
 
 
+def _rtx_image_success(
+    *,
+    artifacts: list[Path],
+    images: list[object],
+    result: dict[str, Any],
+    config: RTXImageUpscaleConfig,
+    profile: ResolvedProfile,
+    input_path: Path,
+) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "kind": "image",
+        "mode": "rtx-upscale",
+        "artifacts": [str(path) for path in artifacts],
+        "input": str(input_path),
+        "input_width": result["input_width"],
+        "input_height": result["input_height"],
+        "target": result["target"],
+        "target_width": result["target_width"],
+        "target_height": result["target_height"],
+        "quality": config.quality,
+        "outputs": [_image_metadata(image) for image in images],
+        "capability": profile.capability,
+        "model_profile": profile.name,
+        "architecture": profile.architecture,
+        "resolved_models": {},
+    }
+
+
 def _resolved_image_models(config: ImagegenConfig, *, upscaled: bool) -> dict[str, str]:
     models = {
         "unet": config.resolve_model_path(config.unet),
@@ -633,6 +714,24 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
             profile=profile,
             requested_width=width,
             requested_height=height,
+        )
+
+    if args.command == "rtx-upscale":
+        if not args.input.is_file():
+            raise FileNotFoundError(f"input image not found: {args.input}")
+        rtx_config = _rtx_image_config(args, profile)
+        image = load_rgb_image(args.input)
+        with _maybe_silence(not args.verbose):
+            result = run_rtx_upscale_image(image=image, config=rtx_config)
+        images = [result["image"]]
+        artifacts = save_images(images, args.out, prefix="comfy-imagegen-rtx-upscale")
+        return _rtx_image_success(
+            artifacts=artifacts,
+            images=images,
+            result=result,
+            config=rtx_config,
+            profile=profile,
+            input_path=args.input,
         )
 
     config = _config(args, profile)

@@ -44,7 +44,7 @@ Python CLIs on demand, initialize local config if needed, and validate models.
 
 ## What You Get
 
-- `comfy-imagegen`: image generation, Ideogram 4 structured prompting, Krea2 Turbo, image editing, upscaling, and remote Grok Imagine.
+- `comfy-imagegen`: image generation, Ideogram 4 structured prompting, Krea2 Turbo, image editing, upscaling (ClearReality and NVIDIA RTX), and remote Grok Imagine.
 - `comfy-imagedescribe`: local Qwen3-VL 2B Instruct image description, captioning, tagging, and visual QA.
 - `comfy-videogen`: local LTX 2.3/WAN 2.2 video plus remote Seedance 2.0 API video.
 - `comfy-bernini-videoedit`: Bernini WAN 2.2 video edit workflows for V2V, RV2V, VV2V planning, and R2V.
@@ -189,6 +189,7 @@ absent, the CLIs use built-in defaults:
 | `imagegen.grok-edit` | `grok-imagine-api` | `grok-imagine-api` |
 | `imagegen.ideogram4-generate` | `ideogram4-fp8` | `ideogram4` |
 | `imagegen.krea2-generate` | `krea2-turbo` | `krea2` |
+| `imagegen.rtx-upscale` | `rtx-vsr` | `rtx-vsr` |
 | `videogen.t2v` | `ltx23-10eros` | `ltx23` |
 | `videogen.i2v` | `ltx23-10eros` | `ltx23` |
 | `videogen.flf2v` | `ltx23-10eros` | `ltx23` |
@@ -491,6 +492,31 @@ uv run comfy-imagegen upscale \
   --input outputs/comfy-imagegen-edit-example.png \
   --out outputs
 ```
+
+### NVIDIA RTX Image Upscale
+
+`comfy-imagegen rtx-upscale` upscales a still image with NVIDIA RTX Video Super
+Resolution (the same `nvvfx.VideoSuperRes` effect used for video). It requires an
+NVIDIA RTX GPU and the `nvidia-vfx` package. Target a common resolution, a scale
+factor, or a custom size:
+
+```bash
+uv run comfy-imagegen rtx-upscale \
+  --input outputs/comfy-imagegen-edit-example.png \
+  --resolution 4k \
+  --quality ULTRA \
+  --out outputs
+```
+
+```bash
+uv run comfy-imagegen rtx-upscale --input outputs/example.png --scale 2.0 --out outputs
+uv run comfy-imagegen rtx-upscale --input outputs/example.png --width 2560 --height 1440 --out outputs
+```
+
+Use exactly one of `--resolution` (`480p`, `720p`, `1080p`, `1440p`, `4k`, `8k`),
+`--scale` (1.0-4.0), or `--width`/`--height` (together). The aspect ratio is
+preserved for `--resolution` and `--scale`. Quality presets are `LOW`, `MEDIUM`,
+`HIGH`, and `ULTRA` (default `ULTRA`).
 
 Qwen Image Edit may rescale internally, so final dimensions can differ from the
 input or requested canvas. Read the final JSON metadata for actual dimensions.

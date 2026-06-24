@@ -48,6 +48,9 @@ chosen file with `--extra-lora`.
   When the active profile is `flux-klein-9b-snofs`, use FLUX.2 Klein 9B plus
   SNOFS for single-reference editing.
 - `upscale`: input image to 4x upscale with ClearReality.
+- `rtx-upscale`: input image to a target resolution (480p/720p/1080p/1440p/4k/8k),
+  custom width/height, or 1.0-4.0 scale with NVIDIA RTX Video Super Resolution.
+  Requires an NVIDIA RTX GPU and the `nvidia-vfx` package.
 - `ideogram4-generate`: local Ideogram 4 text-to-image. Use this for poster,
   typography, graphic design, color palette, and bbox/layout-controlled images.
 - `krea2-generate`: local Krea2 Turbo text-to-image. Use this for fast, high-
@@ -92,6 +95,29 @@ uv run comfy-imagegen upscale \
   --input path/to/input.png \
   --out outputs
 ```
+
+RTX upscale to a target resolution:
+
+```bash
+uv run comfy-imagegen rtx-upscale \
+  --input path/to/input.png \
+  --resolution 4k \
+  --quality ULTRA \
+  --out outputs
+```
+
+RTX upscale by scale factor or custom size (requires an NVIDIA RTX GPU and
+`nvidia-vfx`):
+
+```bash
+uv run comfy-imagegen rtx-upscale --input path/to/input.png --scale 2.0 --out outputs
+uv run comfy-imagegen rtx-upscale --input path/to/input.png --width 2560 --height 1440 --out outputs
+```
+
+Use exactly one of `--resolution`, `--scale`, or `--width`/`--height`. The
+aspect ratio is preserved for `--resolution` and `--scale`; `--width` and
+`--height` must be provided together. Quality presets are `LOW`, `MEDIUM`,
+`HIGH`, and `ULTRA` (default `ULTRA`).
 
 Ideogram 4:
 
@@ -243,6 +269,9 @@ conditioning, `Flux2Scheduler`, `CFGGuider`, and `SamplerCustomAdvanced`.
 - Krea2 VAE: `vae/qwen_image_vae.safetensors`
 - Krea2 params: `steps=8`, `cfg=1.0`, `sampler=euler`, `scheduler=simple`, `rebalance_multiplier=4.0`, `seed=0`
 - Upscaler: `upscale_models/4x-ClearRealityV1.pth`
+- RTX upscale profile: `rtx-vsr` (shared with `videogen.rtx-upscale`)
+- RTX upscale params: `resolution=1080p`, `quality=ULTRA`; presets `480p`, `720p`, `1080p`, `1440p`, `4k`, `8k`; `--scale` 1.0-4.0
+- RTX upscale dependency: `nvidia-vfx` plus a CUDA-capable NVIDIA RTX GPU
 - Grok profile: `grok-imagine-api`
 - Grok provider: `comfy-api`
 - Grok model: `grok-imagine-image`

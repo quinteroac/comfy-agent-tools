@@ -9,6 +9,11 @@ and uses semantic versioning once releases are tagged.
 
 ### Added
 
+- Add `comfy-imagegen rtx-upscale` command to upscale still images with NVIDIA
+  RTX Video Super Resolution (`nvvfx.VideoSuperRes`) to common resolutions
+  (480p/720p/1080p/1440p/4k/8k), a 1.0-4.0 scale factor, or custom
+  width/height, reusing the `rtx-vsr` profile via the new `imagegen.rtx-upscale`
+  capability.
 - Add `comfy-imagegen krea2-generate` command for local Krea2 Turbo
   text-to-image generation, backed by the new `comfy-diffusion` v2.4.5 Krea2
   pipeline, plus the `krea2-turbo` profile, `imagegen.krea2-generate`

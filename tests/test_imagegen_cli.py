@@ -1300,3 +1300,119 @@ def test_krea2_generate_runtime_error_returns_json(
     assert rc == 1
     payload = json.loads(capsys.readouterr().out)
     assert payload["error_type"] == "runtime"
+
+
+def test_parser_rtx_upscale_defaults() -> None:
+    args = imagegen.build_parser().parse_args(["rtx-upscale", "--input", "img.png"])
+
+    assert args.command == "rtx-upscale"
+    assert args.input == Path("img.png")
+    assert args.resolution is None
+    assert args.width is None
+    assert args.height is None
+    assert args.scale is None
+    assert args.quality is None
+    assert args.verbose is False
+    assert args.no_manifest is False
+
+
+def test_parser_rtx_upscale_overrides() -> None:
+    args = imagegen.build_parser().parse_args(
+        [
+            "rtx-upscale",
+            "--input",
+            "img.png",
+            "--resolution",
+            "4k",
+            "--quality",
+            "HIGH",
+            "--verbose",
+        ]
+    )
+
+    assert args.resolution == "4k"
+    assert args.quality == "HIGH"
+    assert args.verbose is True
+
+
+def test_rtx_upscale_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    input_path = tmp_path / "input.png"
+    Image.new("RGB", (480, 270), "blue").save(input_path)
+    seen: dict[str, object] = {}
+
+    def fake_run_rtx(*, image: Image.Image, config: object) -> dict[str, object]:
+        seen["quality"] = config.quality
+        return {
+            "image": Image.new("RGB", (1920, 1080), "blue"),
+            "input_width": 480,
+            "input_height": 270,
+            "target": "1080p",
+            "target_width": 1920,
+            "target_height": 1080,
+            "quality": config.quality,
+        }
+
+    monkeypatch.setattr(imagegen, "run_rtx_upscale_image", fake_run_rtx)
+
+    rc = imagegen.main(
+        [
+            "rtx-upscale",
+            "--input",
+            str(input_path),
+            "--resolution",
+            "4k",
+            "--quality",
+            "HIGH",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    assert seen["quality"] == "HIGH"
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["mode"] == "rtx-upscale"
+    assert payload["capability"] == "imagegen.rtx-upscale"
+    assert payload["model_profile"] == "rtx-vsr"
+    assert payload["architecture"] == "rtx-vsr"
+    assert payload["input_width"] == 480
+    assert payload["input_height"] == 270
+    assert payload["target_width"] == 1920
+    assert payload["target_height"] == 1080
+    assert payload["quality"] == "HIGH"
+    assert payload["outputs"] == [{"width": 1920, "height": 1080, "mode": "RGB"}]
+    assert Path(payload["artifacts"][0]).is_file()
+    assert Path(payload["manifests"][0]).is_file()
+
+
+def test_rtx_upscale_missing_input_returns_json(
+    monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock
+) -> None:
+    monkeypatch.setattr(imagegen, "run_rtx_upscale_image", lambda *, image, config: {})
+
+    rc = imagegen.main(["rtx-upscale", "--input", str(tmp_path / "missing.png"), "--out", str(tmp_path)])
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["mode"] == "rtx-upscale"
+    assert payload["error_type"] == "not_found"
+
+
+def test_rtx_upscale_missing_dependency_returns_json(
+    monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock
+) -> None:
+    input_path = tmp_path / "input.png"
+    Image.new("RGB", (8, 8), "red").save(input_path)
+
+    def fail(*, image: Image.Image, config: object) -> dict[str, object]:
+        raise ModuleNotFoundError("nvidia-vfx is required for RTX image upscaling")
+
+    monkeypatch.setattr(imagegen, "run_rtx_upscale_image", fail)
+
+    rc = imagegen.main(["rtx-upscale", "--input", str(input_path), "--out", str(tmp_path)])
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["error_type"] == "missing_dependency"
