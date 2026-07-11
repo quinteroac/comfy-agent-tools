@@ -211,6 +211,21 @@ DOWNLOAD_REGISTRY: dict[str, dict[str, DownloadSource]] = {
             filename="vae/qwen_image_vae.safetensors",
         ),
     },
+    "krea2-turbo-int4-fast": {
+        # This optimized INT4 checkpoint is intentionally local-only: it is
+        # supplied by the user and is not published by the official Krea-2 repo.
+        "unet": DownloadSource(kind="local"),
+        "clip": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Krea-2",
+            filename="text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+        ),
+        "vae": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/Krea-2",
+            filename="vae/qwen_image_vae.safetensors",
+        ),
+    },
     "clear-reality": {
         "upscaler": DownloadSource(
             kind="hf",

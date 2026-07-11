@@ -60,6 +60,12 @@ def test_builtin_profiles_separate_architecture_and_profile() -> None:
     assert krea2["defaults"]["steps"] == 8
     assert krea2["defaults"]["rebalance_multiplier"] == 4.0
 
+    krea2_int4 = BUILTIN_PROFILES["krea2-turbo-int4-fast"]
+    assert krea2_int4["architecture"] == "krea2"
+    assert krea2_int4["supports"] == ["imagegen.krea2-generate"]
+    assert krea2_int4["models"]["unet"] == "diffusion_models/krea2_turbo_convrot_int4_fast.safetensors"
+    assert krea2_int4["defaults"]["steps"] == 8
+
     wan22 = BUILTIN_PROFILES["wan22-i2v"]
     assert wan22["architecture"] == "wan22"
     assert wan22["supports"] == ["videogen.wan22-i2v", "videogen.wan22-flf2v"]

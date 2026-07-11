@@ -168,6 +168,26 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
             "seed": 0,
         },
     },
+    "krea2-turbo-int4-fast": {
+        "label": "Krea2 Turbo INT4 Fast",
+        "architecture": "krea2",
+        "supports": ["imagegen.krea2-generate"],
+        "models": {
+            "unet": "diffusion_models/krea2_turbo_convrot_int4_fast.safetensors",
+            "clip": "text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+            "vae": "vae/qwen_image_vae.safetensors",
+        },
+        "defaults": {
+            "width": 1024,
+            "height": 1024,
+            "steps": 8,
+            "cfg": 1.0,
+            "sampler": "euler",
+            "scheduler": "simple",
+            "rebalance_multiplier": 4.0,
+            "seed": 0,
+        },
+    },
     "ltx23-10eros": {
         "label": "10Eros LTX 2.3",
         "architecture": "ltx23",

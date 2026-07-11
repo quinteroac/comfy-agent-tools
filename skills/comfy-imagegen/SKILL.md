@@ -158,6 +158,7 @@ Krea2 Turbo:
 
 ```bash
 uv run comfy-imagegen krea2-generate \
+  --profile krea2-turbo-int4-fast \
   --prompt "a cinematic portrait of an astronaut floating in a nebula, dramatic rim light" \
   --width 1024 \
   --height 1024 \

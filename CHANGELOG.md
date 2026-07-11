@@ -9,6 +9,11 @@ and uses semantic versioning once releases are tagged.
 
 ### Added
 
+- Add the local `krea2-turbo-int4-fast` Krea2 Turbo profile for
+  `krea2_turbo_convrot_int4_fast.safetensors`.
+- Add `--profile` to `comfy-imagegen krea2-generate` for per-invocation Krea2
+  profile selection without changing the default.
+
 - Add `comfy-imagegen rtx-upscale` command to upscale still images with NVIDIA
   RTX Video Super Resolution (`nvvfx.VideoSuperRes`) to common resolutions
   (480p/720p/1080p/1440p/4k/8k), a 1.0-4.0 scale factor, or custom
@@ -26,6 +31,11 @@ and uses semantic versioning once releases are tagged.
   `imagedescribe.describe` capability, `qwen3-vl` architecture, and
   `comfy-imagedescribe` skill. The model is a local HuggingFace directory, not a
   single-file download, so it is not distributed by `comfy-models download`.
+
+### Changed
+
+- Bump `comfy-diffusion` to v2.5.0 and align direct ComfyUI runtime
+  dependencies with its vendored runtime, enabling INT8/INT4 model loading.
 
 ### Fixed
 

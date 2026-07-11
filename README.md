@@ -103,10 +103,11 @@ uv run comfy-models validate
 ```
 
 The Python runtime dependency is `comfy-diffusion[video,audio]` pinned to
-`v2.4.5` or newer for LTX 2.3 HDR IC-LoRA helpers, Ideogram 4, Bernini video
-editing, the VAE decode fix required by LTX 2.3 video, and the Krea2 Turbo
-pipeline. ComfyUI runtime packages are pinned directly from the ComfyUI
-`0.24.1` requirements vendored by `comfy-diffusion`, because the media extras
+`v2.5.0` for the current vendored ComfyUI runtime, including INT8/INT4 model
+loading, plus LTX 2.3 HDR IC-LoRA helpers, Ideogram 4, Bernini video editing,
+the VAE decode fix required by LTX 2.3 video, and the Krea2 Turbo pipeline.
+ComfyUI runtime packages are pinned directly from the requirements vendored by
+`comfy-diffusion`, because the media extras
 are required during runtime startup,
 video generation writes MP4 files with audio, and music generation uses audio
 helpers.
@@ -468,6 +469,26 @@ Krea2 Turbo defaults to `steps=8`, `cfg=1.0`, `sampler=euler`, `scheduler=simple
 `rebalance_multiplier=4.0`, and `seed=0`. The `--rebalance-multiplier` controls
 the Krea2 conditioning rebalance applied before sampling; lower it for more
 literal prompt adherence or raise it for more creative interpretation.
+
+For the local `diffusion_models/krea2_turbo_convrot_int4_fast.safetensors`
+checkpoint, select the `krea2-turbo-int4-fast` profile:
+
+```bash
+uv run comfy-models set-default imagegen.krea2-generate krea2-turbo-int4-fast
+uv run comfy-models validate-profile krea2-turbo-int4-fast
+```
+
+Or select it for one generation without changing the default:
+
+```bash
+uv run comfy-imagegen krea2-generate \
+  --profile krea2-turbo-int4-fast \
+  --prompt "a cinematic portrait of an astronaut" \
+  --out outputs
+```
+
+The INT4 checkpoint is local-only, so `comfy-models download-profile` does not
+download it; it can still download the shared text encoder and VAE if needed.
 
 ## Image Editing And Upscale
 
