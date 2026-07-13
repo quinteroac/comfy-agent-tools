@@ -41,6 +41,7 @@ Only configure these architectures in v1:
 - `anima`: base profile `anima-base`, capability `imagegen.generate`.
 - `flux-klein`: base profile `flux-klein-9b-snofs`, capabilities `imagegen.generate`, `imagegen.edit`.
 - `ideogram4`: base profile `ideogram4-fp8`, capability `imagegen.ideogram4-generate`.
+- `krea2`: base profile `krea2-turbo`, optional local `krea2-turbo-int4-fast` profile, capability `imagegen.krea2-generate`.
 - `upscale-model`: base profile `clear-reality`, capability `imagegen.upscale`.
 - `ltx23`: base profile `ltx23-10eros`, optional Dasiwa profile `ltx23-dasiwa-golden-lace-v3`, capabilities `videogen.t2v`, `videogen.i2v`, `videogen.flf2v`, `videogen.ia2av`.
 - `wan22`: base profiles `wan22-t2v`, `wan22-i2v`, `wan22-s2v`, and `wan22-bernini`, optional Dasiwa profiles `wan22-dasiwa-tastysin-t2v`, `wan22-dasiwa-boundbite-t2v`, `wan22-dasiwa-tastysin-i2v`, `wan22-dasiwa-boundbite-i2v`, `wan22-dasiwa-littledemon-v2-s2v`, and `wan22-dasiwa-littledemon-v2-video-audio`, capabilities `videogen.wan22-t2v`, `videogen.wan22-i2v`, `videogen.wan22-flf2v`, `videogen.wan22-s2v`, `videogen.wan22-video-audio`, `videogen.wan22-bernini`.

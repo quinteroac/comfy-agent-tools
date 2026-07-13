@@ -1129,6 +1129,7 @@ def test_parser_krea2_generate_defaults() -> None:
 
     assert args.command == "krea2-generate"
     assert args.prompt == "hi"
+    assert args.profile is None
     assert args.models_dir is None
     assert args.unet is None
     assert args.clip is None
@@ -1151,6 +1152,8 @@ def test_parser_krea2_generate_overrides() -> None:
             "krea2-generate",
             "--prompt",
             "hi",
+            "--profile",
+            "krea2-turbo-int4-fast",
             "--width",
             "768",
             "--height",
@@ -1172,6 +1175,7 @@ def test_parser_krea2_generate_overrides() -> None:
     )
 
     assert args.width == 768
+    assert args.profile == "krea2-turbo-int4-fast"
     assert args.height == 512
     assert args.steps == 6
     assert args.cfg == 1.5
@@ -1251,6 +1255,36 @@ def test_krea2_generate_success_json(monkeypatch: MagicMock, tmp_path: Path, cap
     assert payload["outputs"] == [{"width": 24, "height": 16, "mode": "RGB"}]
     assert Path(payload["artifacts"][0]).is_file()
     assert Path(payload["manifests"][0]).is_file()
+
+
+def test_krea2_generate_selects_one_off_int4_profile(
+    monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock
+) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_run_krea2_t2i(*, prompt: str, width: int, height: int, config: object) -> list[Image.Image]:
+        seen["unet"] = config.unet
+        return [Image.new("RGB", (16, 16), "purple")]
+
+    monkeypatch.setattr(imagegen, "run_krea2_t2i", fake_run_krea2_t2i)
+
+    rc = imagegen.main(
+        [
+            "krea2-generate",
+            "--profile",
+            "krea2-turbo-int4-fast",
+            "--prompt",
+            "an int4 smoke test",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    assert seen["unet"] == Path("diffusion_models/krea2_turbo_convrot_int4_fast.safetensors")
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["model_profile"] == "krea2-turbo-int4-fast"
+    assert payload["resolved_models"]["unet"].endswith("krea2_turbo_convrot_int4_fast.safetensors")
 
 
 def test_krea2_generate_suppresses_output_by_default(

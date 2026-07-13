@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "comfy-agent-tools"
-version = "0.1.0"
+version = "0.1.1"
 description = "Local Codex skills and CLI tools powered by comfy-diffusion."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -14,12 +14,12 @@ dependencies = [
     "alembic>=1.13",
     "av>=16.0.0",
     "blake3",
-    "comfy-aimdo==0.4.8",
-    "comfy-diffusion[video,audio] @ git+https://github.com/quinteroac/comfy-diffusion.git@v2.4.5",
-    "comfy-kitchen==0.2.10",
-    "comfyui-embedded-docs==0.5.2",
+    "comfy-aimdo==0.4.10",
+    "comfy-diffusion[video,audio] @ git+https://github.com/quinteroac/comfy-diffusion.git@v2.5.0",
+    "comfy-kitchen>=0.2.18",
+    "comfyui-embedded-docs==0.5.5",
     "comfyui-frontend-package==1.44.19",
-    "comfyui-workflow-templates==0.9.98",
+    "comfyui-workflow-templates==0.10.3",
     "diffusers>=0.33.1",
     "einops",
     "filelock",

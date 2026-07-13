@@ -90,7 +90,14 @@ from comfy_agent_tools.imagegen.krea2_config import (
 from comfy_agent_tools.imagegen.qwen import run_qwen_edit
 from comfy_agent_tools.imagegen.upscale import run_upscale
 from comfy_agent_tools.media import write_run_manifest
-from comfy_agent_tools.profiles import ProfileError, ResolvedProfile, resolve_capability
+from comfy_agent_tools.profiles import (
+    ProfileError,
+    ResolvedProfile,
+    load_config,
+    make_resolved_profile,
+    resolve_capability,
+    resolve_profile,
+)
 
 
 def _path(value: str) -> Path:
@@ -253,6 +260,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     krea2 = subparsers.add_parser("krea2-generate", help="Generate local Krea2 Turbo images.")
     add_common(krea2)
+    krea2.add_argument("--profile", default=None, help="Krea2 model profile to use for this invocation.")
     krea2.add_argument("--prompt", required=True)
     krea2.add_argument("--width", type=int, default=None)
     krea2.add_argument("--height", type=int, default=None)
@@ -649,7 +657,11 @@ def _maybe_silence(enabled: bool) -> Any:
 
 def run_command(args: argparse.Namespace) -> dict[str, Any]:
     """Run a parsed comfy-imagegen command and return its JSON payload."""
-    profile, _source = resolve_capability(_capability(args.command))
+    capability = _capability(args.command)
+    if args.command == "krea2-generate" and args.profile is not None:
+        profile = _resolve_krea2_profile(args.profile, capability)
+    else:
+        profile, _source = resolve_capability(capability)
 
     if args.command == "grok-generate":
         config = _grok_config(args, profile)
@@ -822,6 +834,13 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
         )
 
     raise ValueError(f"unknown command: {args.command}")
+
+
+def _resolve_krea2_profile(name: str, capability: str) -> ResolvedProfile:
+    """Resolve a one-off Krea2 profile without changing persistent defaults."""
+    config, _source = load_config()
+    raw = resolve_profile(name, config)
+    return make_resolved_profile(capability, name, raw, config)
 
 
 def main(argv: list[str] | None = None) -> int:
