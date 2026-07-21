@@ -28,6 +28,22 @@ def test_parser_generate_defaults() -> None:
     assert args.no_manifest is False
 
 
+def test_parser_krea2_generate_accepts_extra_loras() -> None:
+    args = imagegen.build_parser().parse_args(
+        [
+            "krea2-generate",
+            "--prompt",
+            "hello",
+            "--extra-lora",
+            "loras/krea2/sayaka.safetensors:0.75",
+        ]
+    )
+
+    assert args.extra_lora[0].path == Path("loras/krea2/sayaka.safetensors")
+    assert args.extra_lora[0].strength_model == 0.75
+    assert args.extra_lora[0].strength_clip == 0.0
+
+
 def test_parser_edit_accepts_optional_dimensions(tmp_path: Path) -> None:
     args = imagegen.build_parser().parse_args(
         [
@@ -1189,6 +1205,10 @@ def test_parser_krea2_generate_overrides() -> None:
 def test_krea2_generate_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
     seen: dict[str, object] = {}
 
+    lora_path = tmp_path / "models" / "loras" / "krea2" / "sayaka.safetensors"
+    lora_path.parent.mkdir(parents=True)
+    lora_path.write_bytes(b"fake")
+
     def fake_run_krea2_t2i(*, prompt: str, width: int, height: int, config: object) -> list[Image.Image]:
         seen["prompt"] = prompt
         seen["width"] = width
@@ -1199,6 +1219,7 @@ def test_krea2_generate_success_json(monkeypatch: MagicMock, tmp_path: Path, cap
         seen["unet"] = config.unet
         seen["clip"] = config.clip
         seen["vae"] = config.vae
+        seen["extra_loras"] = config.extra_loras
         return [Image.new("RGB", (24, 16), "purple")]
 
     monkeypatch.setattr(imagegen, "run_krea2_t2i", fake_run_krea2_t2i)
@@ -1222,6 +1243,8 @@ def test_krea2_generate_success_json(monkeypatch: MagicMock, tmp_path: Path, cap
             "42",
             "--rebalance-multiplier",
             "3.0",
+            "--extra-lora",
+            "loras/krea2/sayaka.safetensors:0.75:0.1",
             "--out",
             str(tmp_path),
         ]
@@ -1237,6 +1260,9 @@ def test_krea2_generate_success_json(monkeypatch: MagicMock, tmp_path: Path, cap
     assert seen["unet"] == Path("diffusion_models/krea2_turbo_fp8_scaled.safetensors")
     assert seen["clip"] == Path("text_encoders/qwen3vl_4b_fp8_scaled.safetensors")
     assert seen["vae"] == Path("vae/qwen_image_vae.safetensors")
+    assert seen["extra_loras"][0].path == Path("loras/krea2/sayaka.safetensors")
+    assert seen["extra_loras"][0].strength_model == 0.75
+    assert seen["extra_loras"][0].strength_clip == 0.1
     payload = json.loads(capsys.readouterr().out)
     assert payload["ok"] is True
     assert payload["mode"] == "krea2-generate"
@@ -1252,6 +1278,11 @@ def test_krea2_generate_success_json(monkeypatch: MagicMock, tmp_path: Path, cap
     assert payload["resolved_models"]["unet"].endswith("diffusion_models/krea2_turbo_fp8_scaled.safetensors")
     assert payload["resolved_models"]["clip"].endswith("text_encoders/qwen3vl_4b_fp8_scaled.safetensors")
     assert payload["resolved_models"]["vae"].endswith("vae/qwen_image_vae.safetensors")
+    assert payload["extra_loras"] == [{
+        "path": str(lora_path),
+        "strength_model": 0.75,
+        "strength_clip": 0.1,
+    }]
     assert payload["outputs"] == [{"width": 24, "height": 16, "mode": "RGB"}]
     assert Path(payload["artifacts"][0]).is_file()
     assert Path(payload["manifests"][0]).is_file()

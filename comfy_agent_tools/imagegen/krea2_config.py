@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from comfy_agent_tools.loras import ExtraLora, resolve_extra_loras
+
 DEFAULT_MODELS_DIR = Path("/mnt/models/comfyui")
 DEFAULT_UNET = Path("diffusion_models/krea2_turbo_fp8_scaled.safetensors")
 DEFAULT_CLIP = Path("text_encoders/qwen3vl_4b_fp8_scaled.safetensors")
@@ -50,9 +52,15 @@ class Krea2Config:
     seed: int = DEFAULT_SEED
     denoise: float = DEFAULT_DENOISE
     rebalance_multiplier: float = DEFAULT_REBALANCE_MULTIPLIER
+    extra_loras: list[ExtraLora] | None = None
 
     def resolve_model_path(self, path: Path) -> Path:
         """Resolve a model path relative to models_dir when needed."""
         if path.is_absolute():
             return path
         return self.models_dir / path
+
+    @property
+    def resolved_extra_loras(self) -> list[ExtraLora]:
+        """Return validated extra LoRAs, or an empty list."""
+        return resolve_extra_loras(self.models_dir, self.extra_loras or [])
