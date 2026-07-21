@@ -7,6 +7,12 @@ and uses semantic versioning once releases are tagged.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-07-20
+
+### Changed
+
+- Bump the package version after merging Krea2 LoRA support into `main`.
+
 ### Added
 
 - Add repeatable `--extra-lora` support to `comfy-imagegen krea2-generate`, applying LoRAs to both the Krea2 diffusion model and text encoder.
