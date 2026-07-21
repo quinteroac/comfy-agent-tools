@@ -9,6 +9,7 @@ and uses semantic versioning once releases are tagged.
 
 ### Added
 
+- Add repeatable `--extra-lora` support to `comfy-imagegen krea2-generate`, applying LoRAs to both the Krea2 diffusion model and text encoder.
 - Add the local `krea2-turbo-int4-fast` Krea2 Turbo profile for
   `krea2_turbo_convrot_int4_fast.safetensors`.
 - Add `--profile` to `comfy-imagegen krea2-generate` for per-invocation Krea2

@@ -273,6 +273,13 @@ def build_parser() -> argparse.ArgumentParser:
     krea2.add_argument("--unet", type=_path, default=None)
     krea2.add_argument("--clip", type=_path, default=None)
     krea2.add_argument("--vae", type=_path, default=None)
+    krea2.add_argument(
+        "--extra-lora",
+        action="append",
+        type=parse_extra_lora,
+        default=[],
+        help="Apply an extra LoRA as PATH[:MODEL_STRENGTH[:CLIP_STRENGTH]]. Repeatable.",
+    )
 
     return parser
 
@@ -372,6 +379,7 @@ def _krea2_config(args: argparse.Namespace, profile: ResolvedProfile) -> Krea2Co
             if args.rebalance_multiplier is not None
             else float(profile.defaults.get("rebalance_multiplier", DEFAULT_KREA2_REBALANCE_MULTIPLIER))
         ),
+        extra_loras=list(args.extra_lora or []),
     )
 
 
@@ -531,6 +539,7 @@ def _krea2_success(
         "architecture": profile.architecture,
         "models_dir": str(config.models_dir),
         "resolved_models": _resolved_krea2_models(config),
+        "extra_loras": extra_loras_json(config.models_dir, config.extra_loras or []),
     }
 
 
