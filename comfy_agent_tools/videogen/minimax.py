@@ -132,7 +132,7 @@ def _run_fl2va(
         if runtime.get("error"):
             raise RuntimeError(f"ComfyUI runtime not available: {runtime['error']}")
         comfy_root = ensure_comfyui_on_path()
-        from comfy_extras.nodes_minimax_h3 import MiniMaxH3ImageToVideo
+        from comfy_extras.nodes_minimax_h3 import MiniMaxH3ImageToVideo, _resize
     except Exception as exc:
         if isinstance(exc, RuntimeError) and "runtime not available" in str(exc):
             raise
@@ -140,22 +140,37 @@ def _run_fl2va(
 
     models_root = Path(config.models_dir)
     manager = ModelManager(models_root)
-    model = manager.load_unet(_resolve_path(models_root, config.fl2va_unet))
+    first_tensor = load_image(first_image)[0] if first_image is not None else None
+    preencoded_keyframe = None
+    if first_tensor is not None:
+        # Encode the keyframe before loading the 15 GB Qwen3-VL text encoder.
+        # This avoids overlapping the image VAE and CLIP allocations on 16 GB
+        # GPUs. The node below receives a tiny adapter that reuses this latent.
+        conditioning_vae = manager.load_vae(
+            _resolve_path(models_root, config.video_vae or Path("vae/minimax/minimax_h3_video_vae_fp16.safetensors"))
+        )
+        resized = _resize(first_tensor[:1], config.width, config.height, "disabled")
+        preencoded_keyframe = conditioning_vae.encode(resized)
+        del conditioning_vae, resized
+        try:
+            import torch
+
+            torch.cuda.empty_cache()
+        except Exception:
+            pass
+
     clip = manager.load_clip(
         _resolve_path(models_root, config.text_encoder or Path("text_encoders/minimax/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors")),
         clip_type="minimax",
     )
-    video_vae = manager.load_vae(
-        _resolve_path(models_root, config.video_vae or Path("vae/minimax/minimax_h3_video_vae_fp16.safetensors"))
-    )
-    audio_vae = manager.load_vae(
-        _resolve_path(models_root, config.audio_vae or Path("vae/minimax/minimax_h3_audio_vae_fp32.safetensors"))
-    )
 
-    first_tensor = load_image(first_image)[0] if first_image is not None else None
+    class _PreencodedVAE:
+        def encode(self, _image: Any) -> Any:
+            return preencoded_keyframe
+
     node_result = MiniMaxH3ImageToVideo.execute(
         clip=clip,
-        vae=video_vae,
+        vae=_PreencodedVAE() if preencoded_keyframe is not None else None,
         prompt=prompt,
         width=config.width,
         height=config.height,
@@ -163,6 +178,11 @@ def _run_fl2va(
         first_frame=first_tensor,
     )
     positive, latent = getattr(node_result, "result", node_result)
+    # The FL2VA checkpoint nearly fills a 16 GB card. The conditioning node
+    # only needs CLIP/VAE, so release those references before loading the UNet
+    # for sampling and reload the VAEs for the final decode.
+    del clip, first_tensor, preencoded_keyframe
+    model = manager.load_unet(_resolve_path(models_root, config.fl2va_unet))
     guider = basic_guider(model, positive)
     sampled = sample_custom(
         random_noise(config.seed),
@@ -172,6 +192,12 @@ def _run_fl2va(
         latent_image=latent,
     )[1]
     audio_samples = sampled["samples"].unbind()[-1]
+    video_vae = manager.load_vae(
+        _resolve_path(models_root, config.video_vae or Path("vae/minimax/minimax_h3_video_vae_fp16.safetensors"))
+    )
+    audio_vae = manager.load_vae(
+        _resolve_path(models_root, config.audio_vae or Path("vae/minimax/minimax_h3_audio_vae_fp32.safetensors"))
+    )
     audio = vae_decode_audio(audio_vae, {"samples": audio_samples})
     if audio.ndim == 3 and audio.shape[1] > 8 and audio.shape[-1] <= 8:
         audio = audio.movedim(-1, 1)
