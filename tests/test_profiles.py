@@ -216,8 +216,14 @@ def test_builtin_defaults_point_to_supported_profiles() -> None:
 def test_minimax_h3_profile() -> None:
     profile = BUILTIN_PROFILES["minimax-h3"]
     assert profile["architecture"] == "minimax-h3"
-    assert profile["supports"] == ["videogen.minimax-h3-r2v"]
-    assert set(profile["models"]) == {"unet", "text_encoder", "audio_vae", "video_vae"}
+    assert profile["supports"] == [
+        "videogen.minimax-h3-t2v",
+        "videogen.minimax-h3-i2v",
+        "videogen.minimax-h3-r2v",
+    ]
+    assert set(profile["models"]) == {"unet", "fl2va_unet", "text_encoder", "audio_vae", "video_vae"}
+    assert BUILTIN_DEFAULTS["videogen.minimax-h3-t2v"] == "minimax-h3"
+    assert BUILTIN_DEFAULTS["videogen.minimax-h3-i2v"] == "minimax-h3"
     assert BUILTIN_DEFAULTS["videogen.minimax-h3-r2v"] == "minimax-h3"
 
 

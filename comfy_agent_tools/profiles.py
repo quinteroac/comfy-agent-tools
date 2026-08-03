@@ -31,6 +31,8 @@ BUILTIN_DEFAULTS: dict[str, str] = {
     "videogen.seedance2-t2v": "seedance2-api",
     "videogen.seedance2-r2v": "seedance2-api",
     "videogen.seedance2-flf2v": "seedance2-api",
+    "videogen.minimax-h3-t2v": "minimax-h3",
+    "videogen.minimax-h3-i2v": "minimax-h3",
     "videogen.minimax-h3-r2v": "minimax-h3",
     "imagegen.grok-generate": "grok-imagine-api",
     "imagegen.grok-edit": "grok-imagine-api",
@@ -537,9 +539,14 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
     "minimax-h3": {
         "label": "MiniMax H3 local reference-to-video",
         "architecture": "minimax-h3",
-        "supports": ["videogen.minimax-h3-r2v"],
+        "supports": [
+            "videogen.minimax-h3-t2v",
+            "videogen.minimax-h3-i2v",
+            "videogen.minimax-h3-r2v",
+        ],
         "models": {
             "unet": "diffusion_models/minimax/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+            "fl2va_unet": "diffusion_models/minimax/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
             "text_encoder": "text_encoders/minimax/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
             "audio_vae": "vae/minimax/minimax_h3_audio_vae_fp32.safetensors",
             "video_vae": "vae/minimax/minimax_h3_video_vae_fp16.safetensors",

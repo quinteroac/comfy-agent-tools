@@ -209,6 +209,8 @@ absent, the CLIs use built-in defaults:
 | `videogen.seedance2-t2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-r2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-flf2v` | `seedance2-api` | `seedance2-api` |
+| `videogen.minimax-h3-t2v` | `minimax-h3` | `minimax-h3` |
+| `videogen.minimax-h3-i2v` | `minimax-h3` | `minimax-h3` |
 | `videogen.minimax-h3-r2v` | `minimax-h3` | `minimax-h3` |
 | `musicgen.generate` | `ace15-base` | `ace-step-1.5` |
 | `imagedescribe.describe` | `qwen3vl-2b-instruct` | `qwen3-vl` |
@@ -809,9 +811,29 @@ inputs without audio remain silent.
 
 ### MiniMax H3 Local Video
 
-`comfy-diffusion` 2.6.0 adds the local MiniMax H3 reference-to-video pipeline.
-It accepts one or more reference images and writes an MP4 with synchronized
-native audio. Download only its profile when the model files are not present:
+`comfy-diffusion` 2.6.0 adds local MiniMax H3 text-to-video, image-to-video, and
+reference-to-video pipelines. All modes write an MP4 with synchronized native
+audio. Download only its profile when the model files are not present:
+
+Text to video:
+
+```bash
+uv run comfy-models download videogen.minimax-h3-t2v --yes
+uv run comfy-videogen minimax-h3-t2v \
+  --prompt "A cinematic aerial shot of a misty mountain valley at sunrise, with wind and distant birds." \
+  --out outputs
+```
+
+Image to video:
+
+```bash
+uv run comfy-videogen minimax-h3-i2v \
+  --input first-frame.png \
+  --prompt "Slow camera push-in, subtle natural motion, and synchronized ambient sound." \
+  --out outputs
+```
+
+Reference image to video:
 
 ```bash
 uv run comfy-models download videogen.minimax-h3-r2v --yes
@@ -824,7 +846,9 @@ uv run comfy-videogen minimax-h3-r2v \
 Repeat `--input` for additional references and address them as `<Picture 1>`,
 `<Picture 2>`, etc. The default profile uses a 1344x768 canvas, 124 requested
 frames, 20 steps, and `ref_image_size=match`; H3 adjusts frame count to its
-valid frame grid.
+valid frame grid. T2V and I2V use
+`diffusion_models/minimax/minimax_h3_fl2va_pruned_int8_convrot.safetensors`;
+R2V uses the `ref2va` checkpoint.
 
 ### Seedance 2.0 API Video
 

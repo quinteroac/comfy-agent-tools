@@ -494,6 +494,15 @@ def test_parser_minimax_h3_accepts_repeated_reference_images(tmp_path: Path) -> 
     assert args.ref_image_size == "max"
 
 
+def test_parser_minimax_h3_t2v_and_i2v() -> None:
+    parser = videogen.build_parser()
+    t2v = parser.parse_args(["minimax-h3-t2v", "--prompt", "animate a landscape"])
+    i2v = parser.parse_args(["minimax-h3-i2v", "--input", "image.png", "--prompt", "slow camera move"])
+    assert t2v.command == "minimax-h3-t2v"
+    assert i2v.command == "minimax-h3-i2v"
+    assert i2v.input == Path("image.png")
+
+
 def test_rtx_upscale_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
     input_video = tmp_path / "input.mp4"
     input_video.write_bytes(b"mp4")

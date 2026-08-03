@@ -23,6 +23,9 @@ prefer `uv run comfy-models`; outside the repo, use the installed CLI.
 - Image to video: `videogen.i2v`
 - First/last frame video: `videogen.flf2v`
 - Image plus audio to video: `videogen.ia2av`
+- MiniMax H3 text to video: `videogen.minimax-h3-t2v`
+- MiniMax H3 image to video: `videogen.minimax-h3-i2v`
+- MiniMax H3 reference to video: `videogen.minimax-h3-r2v`
 - WAN 2.2 image to video: `videogen.wan22-i2v`
 - WAN 2.2 first/last frame video: `videogen.wan22-flf2v`
 - WAN 2.2 sound to video: `videogen.wan22-s2v`
@@ -82,6 +85,7 @@ uv run comfy-models validate-profile anima-base
 - `wan22-s2v`: WAN 2.2 sound-to-video with wav2vec2 audio encoder.
 - `wan22-dasiwa-littledemon-v2-s2v`: Dasiwa LittleDemon v2 S2V, 4-step profile.
 - `wan22-dasiwa-littledemon-v2-video-audio`: Dasiwa LittleDemon v2 S2V for 16 fps video+audio, audio-driven, and external-mask lipsync.
+- `minimax-h3`: MiniMax H3 T2V/I2V/R2V with synchronized native audio.
 - `ace15-base`: ACE-Step 1.5 music generation.
 - `qwen3vl-2b-instruct`: Qwen3-VL 2B Instruct image description (local HuggingFace model directory; not distributed by the downloader).
 

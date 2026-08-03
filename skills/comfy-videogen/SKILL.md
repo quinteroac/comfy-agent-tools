@@ -1,12 +1,12 @@
 ---
 name: comfy-videogen
-description: Generate or post-process MP4 videos with comfy-diffusion using local LTX 2.3, local WAN 2.2, NVIDIA RTX Video Super Resolution, local SeedVR2 video upscaling, or remote ByteDance Seedance 2.0 API nodes. Use when the user wants local GPU-backed text-to-video, image-to-video, image+audio-to-video, video+audio processing, first/last-frame video generation, WAN 2.2 image/first-last-frame/sound-to-video/video+audio/Bernini video editing, LTX motion-track IC-LoRA control, RTX or SeedVR2 upscaling to target resolutions such as 720p/1080p/4k, or Seedance 2.0 API text/reference/first-last-frame video saved into the workspace. Do not use for image-only generation, music-only generation, voice generation, model downloads, ComfyUI server workflows, UI work, custom node installation, or non-Seedance hosted video APIs.
+description: Generate or post-process MP4 videos with comfy-diffusion using local LTX 2.3, local WAN 2.2, MiniMax H3, NVIDIA RTX Video Super Resolution, local SeedVR2 video upscaling, or remote ByteDance Seedance 2.0 API nodes. Use when the user wants local GPU-backed text-to-video, image-to-video, image+audio-to-video, video+audio processing, first/last-frame video generation, MiniMax H3 T2V/I2V/R2V, WAN 2.2 image/first-last-frame/sound-to-video/video+audio/Bernini video editing, LTX motion-track IC-LoRA control, RTX or SeedVR2 upscaling to target resolutions such as 720p/1080p/4k, or Seedance 2.0 API text/reference/first-last-frame video saved into the workspace. Do not use for image-only generation, music-only generation, voice generation, model downloads, ComfyUI server workflows, UI work, custom node installation, or non-Seedance hosted video APIs.
 ---
 
 # comfy-videogen
 
 Use this skill for video generation and video upscaling through the
-`comfy-videogen` CLI. Local LTX 2.3 and WAN 2.2 modes use model files under
+`comfy-videogen` CLI. Local LTX 2.3, WAN 2.2, and MiniMax H3 modes use model files under
 `/mnt/models/comfyui`. RTX upscaling uses `nvidia-vfx`, not model files.
 SeedVR2 upscaling uses its pinned upstream CLI and auto-downloads its own model
 files. Remote Seedance 2.0 modes use ComfyUI API Nodes vendored by
@@ -78,6 +78,9 @@ file only to modes that support ad hoc LoRA insertion.
 - `motion-track`: input image plus motion-track control video plus prompt to MP4
   with audio. Use `comfy-motion-track-control` for IC-LoRA setup and control
   video preparation.
+- `minimax-h3-t2v`: local MiniMax H3 text prompt to MP4 with synchronized native audio.
+- `minimax-h3-i2v`: local MiniMax H3 first image plus prompt to MP4 with synchronized native audio.
+- `minimax-h3-r2v`: local MiniMax H3 one or more reference images plus prompt to MP4 with synchronized native audio. Address references as `<Picture 1>`, `<Picture 2>`, etc.
 - `rtx-upscale`: existing MP4 to upscaled MP4 with NVIDIA RTX Video Super
   Resolution. Preserves input audio when present. Use for target presets such
   as `720p`, `1080p`, and `4k`.

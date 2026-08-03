@@ -45,6 +45,9 @@ def test_comfy_videogen_skill_frontmatter() -> None:
     assert "ltx-2.3-spatial-upscaler-x2-1.1.safetensors" in content
     assert "ia2av" in content
     assert "seedance2-t2v" in content
+    assert "minimax-h3-t2v" in content
+    assert "minimax-h3-i2v" in content
+    assert "minimax-h3-r2v" in content
     assert "Seedance 2.0" in content
     assert "wan22-t2v" in content
     assert "wan22-s2v" in content

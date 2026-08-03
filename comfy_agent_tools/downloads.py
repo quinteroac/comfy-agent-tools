@@ -572,6 +572,11 @@ DOWNLOAD_REGISTRY: dict[str, dict[str, DownloadSource]] = {
             repo_id="Comfy-Org/MiniMax-H3",
             filename="diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
         ),
+        "fl2va_unet": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/MiniMax-H3",
+            filename="diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        ),
         "text_encoder": DownloadSource(
             kind="hf",
             repo_id="Comfy-Org/MiniMax-H3",

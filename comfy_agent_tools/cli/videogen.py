@@ -119,12 +119,16 @@ from comfy_agent_tools.videogen.seedance2 import (
 from comfy_agent_tools.videogen.minimax import (
     DEFAULT_MINIMAX_HEIGHT,
     DEFAULT_MINIMAX_LENGTH,
+    DEFAULT_MINIMAX_FL2VA_UNET,
+    DEFAULT_MINIMAX_REF2VA_UNET,
     DEFAULT_MINIMAX_REF_IMAGE_SIZE,
     DEFAULT_MINIMAX_SEED,
     DEFAULT_MINIMAX_STEPS,
     DEFAULT_MINIMAX_WIDTH,
     MiniMaxH3Config,
+    run_i2v as run_minimax_h3_i2v,
     run_r2v as run_minimax_h3_r2v,
+    run_t2v as run_minimax_h3_t2v,
 )
 from comfy_agent_tools.videogen.rtx_upscale import (
     DEFAULT_RTX_QUALITY,
@@ -470,26 +474,44 @@ def build_parser() -> argparse.ArgumentParser:
     seedance2_flf2v.add_argument("--last", type=_path, required=True)
     seedance2_flf2v.add_argument("--prompt", required=True)
 
+    def add_minimax_h3_common(subparser: argparse.ArgumentParser) -> None:
+        subparser.add_argument("--models-dir", type=_path, default=None)
+        subparser.add_argument("--out", type=_path, default=DEFAULT_OUT)
+        subparser.add_argument("--no-manifest", action="store_true")
+        subparser.add_argument("--width", type=int, default=None)
+        subparser.add_argument("--height", type=int, default=None)
+        subparser.add_argument("--length", type=int, default=None, help="Frame count; H3 snaps it to its 17k+5 grid.")
+        subparser.add_argument("--steps", type=int, default=None)
+        subparser.add_argument("--seed", type=int, default=None)
+        subparser.add_argument("--unet", type=_path, default=None, help="Optional FL2VA checkpoint override.")
+        subparser.add_argument("--text-encoder", type=_path, default=None)
+        subparser.add_argument("--audio-vae", type=_path, default=None)
+        subparser.add_argument("--video-vae", type=_path, default=None)
+        subparser.add_argument("--verbose", action="store_true")
+
     minimax_h3 = subparsers.add_parser(
         "minimax-h3-r2v",
         help="Generate a local MiniMax H3 video with synchronized audio from reference images.",
     )
-    minimax_h3.add_argument("--models-dir", type=_path, default=None)
-    minimax_h3.add_argument("--out", type=_path, default=DEFAULT_OUT)
-    minimax_h3.add_argument("--no-manifest", action="store_true")
+    add_minimax_h3_common(minimax_h3)
     minimax_h3.add_argument("--input", type=_path, action="append", required=True, help="Reference image; repeat for multiple images.")
     minimax_h3.add_argument("--prompt", required=True)
-    minimax_h3.add_argument("--width", type=int, default=None)
-    minimax_h3.add_argument("--height", type=int, default=None)
-    minimax_h3.add_argument("--length", type=int, default=None, help="Frame count; H3 snaps it to its 17k+5 grid.")
-    minimax_h3.add_argument("--steps", type=int, default=None)
-    minimax_h3.add_argument("--seed", type=int, default=None)
     minimax_h3.add_argument("--ref-image-size", choices=["match", "max"], default=None)
-    minimax_h3.add_argument("--unet", type=_path, default=None)
-    minimax_h3.add_argument("--text-encoder", type=_path, default=None)
-    minimax_h3.add_argument("--audio-vae", type=_path, default=None)
-    minimax_h3.add_argument("--video-vae", type=_path, default=None)
-    minimax_h3.add_argument("--verbose", action="store_true")
+
+    minimax_h3_t2v = subparsers.add_parser(
+        "minimax-h3-t2v",
+        help="Generate a local MiniMax H3 text-to-video with synchronized audio.",
+    )
+    add_minimax_h3_common(minimax_h3_t2v)
+    minimax_h3_t2v.add_argument("--prompt", required=True)
+
+    minimax_h3_i2v = subparsers.add_parser(
+        "minimax-h3-i2v",
+        help="Generate a local MiniMax H3 image-to-video with synchronized audio.",
+    )
+    add_minimax_h3_common(minimax_h3_i2v)
+    minimax_h3_i2v.add_argument("--input", type=_path, required=True)
+    minimax_h3_i2v.add_argument("--prompt", required=True)
 
     rtx_upscale = subparsers.add_parser(
         "rtx-upscale",
@@ -617,6 +639,7 @@ def _seedance2_config(args: argparse.Namespace, profile: ResolvedProfile) -> See
 def _minimax_h3_config(args: argparse.Namespace, profile: ResolvedProfile) -> MiniMaxH3Config:
     models = profile.models
     defaults = profile.defaults
+    fl2va = args.command in {"minimax-h3-t2v", "minimax-h3-i2v"}
     return MiniMaxH3Config(
         models_dir=args.models_dir if args.models_dir is not None else profile.models_dir,
         width=args.width if args.width is not None else int(defaults.get("width", DEFAULT_MINIMAX_WIDTH)),
@@ -624,23 +647,32 @@ def _minimax_h3_config(args: argparse.Namespace, profile: ResolvedProfile) -> Mi
         length=args.length if args.length is not None else int(defaults.get("length", DEFAULT_MINIMAX_LENGTH)),
         steps=args.steps if args.steps is not None else int(defaults.get("steps", DEFAULT_MINIMAX_STEPS)),
         seed=args.seed if args.seed is not None else int(defaults.get("seed", DEFAULT_MINIMAX_SEED)),
-        ref_image_size=args.ref_image_size if args.ref_image_size is not None else str(defaults.get("ref_image_size", DEFAULT_MINIMAX_REF_IMAGE_SIZE)),
-        unet=args.unet if args.unet is not None else models.get("unet"),
+        ref_image_size=getattr(args, "ref_image_size", None) or str(defaults.get("ref_image_size", DEFAULT_MINIMAX_REF_IMAGE_SIZE)),
+        unet=args.unet if args.unet is not None and not fl2va else models.get("unet", DEFAULT_MINIMAX_REF2VA_UNET),
+        fl2va_unet=args.unet if args.unet is not None else models.get("fl2va_unet", DEFAULT_MINIMAX_FL2VA_UNET),
         text_encoder=args.text_encoder if args.text_encoder is not None else models.get("text_encoder"),
         audio_vae=args.audio_vae if args.audio_vae is not None else models.get("audio_vae"),
         video_vae=args.video_vae if args.video_vae is not None else models.get("video_vae"),
     )
 
 
-def _minimax_h3_success(*, artifact: Path, config: MiniMaxH3Config, profile: ResolvedProfile, images: list[Path], prompt: str) -> dict[str, Any]:
+def _minimax_h3_success(
+    *,
+    mode: str,
+    artifact: Path,
+    config: MiniMaxH3Config,
+    profile: ResolvedProfile,
+    prompt: str,
+    input_path: Path | None = None,
+    images: list[Path] | None = None,
+) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "ok": True,
         "kind": "video",
-        "mode": "minimax-h3-r2v",
+        "mode": mode,
         "provider": "local",
         "audio_muxed": True,
         "artifacts": [str(artifact)],
-        "reference_images": [str(path) for path in images],
         "prompt": prompt,
         "width": config.width,
         "height": config.height,
@@ -650,6 +682,10 @@ def _minimax_h3_success(*, artifact: Path, config: MiniMaxH3Config, profile: Res
         "ref_image_size": config.ref_image_size,
         **profile.metadata(),
     }
+    if input_path is not None:
+        payload["input"] = str(input_path)
+    if images is not None:
+        payload["reference_images"] = [str(path) for path in images]
     return payload
 
 
@@ -1456,11 +1492,39 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
     """Run a parsed comfy-videogen command and return its JSON payload."""
     profile, _source = resolve_capability(_capability(args.command))
 
+    if args.command == "minimax-h3-t2v":
+        config = _minimax_h3_config(args, profile)
+        with _maybe_silence(not args.verbose):
+            result = run_minimax_h3_t2v(prompt=args.prompt, config=config, out_dir=args.out)
+        return _minimax_h3_success(
+            mode=args.command,
+            artifact=result["artifact"],
+            config=config,
+            profile=profile,
+            prompt=args.prompt,
+        )
+
+    if args.command == "minimax-h3-i2v":
+        if not args.input.is_file():
+            raise FileNotFoundError(f"input image not found: {args.input}")
+        config = _minimax_h3_config(args, profile)
+        with _maybe_silence(not args.verbose):
+            result = run_minimax_h3_i2v(image=args.input, prompt=args.prompt, config=config, out_dir=args.out)
+        return _minimax_h3_success(
+            mode=args.command,
+            artifact=result["artifact"],
+            config=config,
+            profile=profile,
+            prompt=args.prompt,
+            input_path=args.input,
+        )
+
     if args.command == "minimax-h3-r2v":
         config = _minimax_h3_config(args, profile)
         with _maybe_silence(not args.verbose):
             result = run_minimax_h3_r2v(images=args.input, prompt=args.prompt, config=config, out_dir=args.out)
         return _minimax_h3_success(
+            mode=args.command,
             artifact=result["artifact"],
             config=config,
             profile=profile,
