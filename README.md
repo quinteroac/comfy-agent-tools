@@ -9,9 +9,10 @@ the agent how to install or update the Python tools with `uv`, validate the loca
 runtime, initialize model profiles, and run generation commands.
 
 Local model files are not distributed with this repo. Local Anima, Qwen,
-Ideogram 4, LTX, ACE-Step, and upscaler profiles use model files under the
-user's configured `models_dir`; remote API profiles such as Seedance 2.0 and
-Grok Imagine use provider credentials instead of local weights.
+Ideogram 4, Krea2, LTX, MiniMax H3, ACE-Step, and upscaler profiles use model
+files under the user's configured `models_dir`; remote API profiles such as
+Seedance 2.0 and Grok Imagine use provider credentials instead of local
+weights.
 
 Contributions use fork-based pull requests. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -44,7 +45,7 @@ Python CLIs on demand, initialize local config if needed, and validate models.
 
 ## What You Get
 
-- `comfy-imagegen`: image generation, Ideogram 4 structured prompting, Krea2 Turbo, image editing, upscaling (ClearReality and NVIDIA RTX), and remote Grok Imagine.
+- `comfy-imagegen`: image generation, Ideogram 4 structured prompting, Krea2 Turbo (FP8 and INT4), image editing, upscaling (ClearReality and NVIDIA RTX), and remote Grok Imagine.
 - `comfy-imagedescribe`: local Qwen3-VL 2B Instruct image description, captioning, tagging, and visual QA.
 - `comfy-videogen`: local LTX 2.3/WAN 2.2/MiniMax H3 video plus remote Seedance 2.0 API video.
 - `comfy-bernini-videoedit`: Bernini WAN 2.2 video edit workflows for V2V, RV2V, VV2V planning, and R2V.
@@ -103,9 +104,10 @@ uv run comfy-models validate
 ```
 
 The Python runtime dependency is `comfy-diffusion[video,audio]` pinned to
-`v2.5.0` for the current vendored ComfyUI runtime, including INT8/INT4 model
-loading, plus LTX 2.3 HDR IC-LoRA helpers, Ideogram 4, Bernini video editing,
-the VAE decode fix required by LTX 2.3 video, and the Krea2 Turbo pipeline.
+`v2.6.0` for the current vendored ComfyUI runtime, including MiniMax H3,
+INT8/INT4 model loading, LTX 2.3 HDR IC-LoRA helpers, Ideogram 4, Bernini video
+editing, the VAE decode fix required by LTX 2.3 video, and the Krea2 Turbo
+pipeline. `comfy-kitchen>=0.2.26` is required by the v2.6.0 runtime.
 ComfyUI runtime packages are pinned directly from the requirements vendored by
 `comfy-diffusion`, because the media extras
 are required during runtime startup,
@@ -207,6 +209,7 @@ absent, the CLIs use built-in defaults:
 | `videogen.seedance2-t2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-r2v` | `seedance2-api` | `seedance2-api` |
 | `videogen.seedance2-flf2v` | `seedance2-api` | `seedance2-api` |
+| `videogen.minimax-h3-r2v` | `minimax-h3` | `minimax-h3` |
 | `musicgen.generate` | `ace15-base` | `ace-step-1.5` |
 | `imagedescribe.describe` | `qwen3vl-2b-instruct` | `qwen3-vl` |
 
@@ -445,7 +448,9 @@ CLI sent to Ideogram 4.
 ### Krea2 Turbo Images
 
 Krea2 Turbo runs locally through `comfy-diffusion` (v2.4.5+) and writes PNG
-files. Download only its profile when needed:
+files. The `imagegen.krea2-generate` capability supports the downloadable
+`krea2-turbo` FP8 profile and the local-only `krea2-turbo-int4-fast` profile.
+Download only the shared model files for the active profile when needed:
 
 ```bash
 uv run comfy-models download imagegen.krea2-generate --dry-run
