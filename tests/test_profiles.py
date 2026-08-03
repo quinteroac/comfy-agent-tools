@@ -213,6 +213,14 @@ def test_builtin_defaults_point_to_supported_profiles() -> None:
         assert capability in profile["supports"]
 
 
+def test_minimax_h3_profile() -> None:
+    profile = BUILTIN_PROFILES["minimax-h3"]
+    assert profile["architecture"] == "minimax-h3"
+    assert profile["supports"] == ["videogen.minimax-h3-r2v"]
+    assert set(profile["models"]) == {"unet", "text_encoder", "audio_vae", "video_vae"}
+    assert BUILTIN_DEFAULTS["videogen.minimax-h3-r2v"] == "minimax-h3"
+
+
 def test_inherited_ltx_profile_overrides_checkpoint_only() -> None:
     config = default_config()
     config["profiles"] = {

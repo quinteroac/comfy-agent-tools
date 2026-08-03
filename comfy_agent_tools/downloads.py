@@ -566,6 +566,28 @@ DOWNLOAD_REGISTRY: dict[str, dict[str, DownloadSource]] = {
             filename="split_files/vae/ace_1.5_vae.safetensors",
         ),
     },
+    "minimax-h3": {
+        "unet": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/MiniMax-H3",
+            filename="diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+        ),
+        "text_encoder": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/MiniMax-H3",
+            filename="text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+        ),
+        "audio_vae": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/MiniMax-H3",
+            filename="vae/minimax_h3_audio_vae_fp32.safetensors",
+        ),
+        "video_vae": DownloadSource(
+            kind="hf",
+            repo_id="Comfy-Org/MiniMax-H3",
+            filename="vae/minimax_h3_video_vae_fp16.safetensors",
+        ),
+    },
 }
 
 

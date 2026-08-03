@@ -479,6 +479,21 @@ def test_parser_seedance2_accepts_verbose_and_no_audio() -> None:
     assert args.verbose is True
 
 
+def test_parser_minimax_h3_accepts_repeated_reference_images(tmp_path: Path) -> None:
+    args = videogen.build_parser().parse_args(
+        [
+            "minimax-h3-r2v",
+            "--input", str(tmp_path / "one.png"),
+            "--input", str(tmp_path / "two.png"),
+            "--prompt", "Use <Picture 1> and <Picture 2>.",
+            "--ref-image-size", "max",
+        ]
+    )
+    assert args.command == "minimax-h3-r2v"
+    assert args.input == [tmp_path / "one.png", tmp_path / "two.png"]
+    assert args.ref_image_size == "max"
+
+
 def test_rtx_upscale_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
     input_video = tmp_path / "input.mp4"
     input_video.write_bytes(b"mp4")

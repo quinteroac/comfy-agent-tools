@@ -46,7 +46,7 @@ Python CLIs on demand, initialize local config if needed, and validate models.
 
 - `comfy-imagegen`: image generation, Ideogram 4 structured prompting, Krea2 Turbo, image editing, upscaling (ClearReality and NVIDIA RTX), and remote Grok Imagine.
 - `comfy-imagedescribe`: local Qwen3-VL 2B Instruct image description, captioning, tagging, and visual QA.
-- `comfy-videogen`: local LTX 2.3/WAN 2.2 video plus remote Seedance 2.0 API video.
+- `comfy-videogen`: local LTX 2.3/WAN 2.2/MiniMax H3 video plus remote Seedance 2.0 API video.
 - `comfy-bernini-videoedit`: Bernini WAN 2.2 video edit workflows for V2V, RV2V, VV2V planning, and R2V.
 - `comfy-motion-track-control`: LTX 2.3 HDR IC-LoRA guidance.
 - `comfy-musicgen`: ACE-Step 1.5 music generation to WAV.
@@ -801,6 +801,25 @@ controls include `--model`, `--batch-size`, `--chunk-size`, `--temporal-overlap`
 `--cuda-device`, `--blocks-to-swap`, and `--video-backend`. If the input MP4 has
 an audio track, the output muxes it into the upscaled MP4 (`audio_muxed=true`);
 inputs without audio remain silent.
+
+### MiniMax H3 Local Video
+
+`comfy-diffusion` 2.6.0 adds the local MiniMax H3 reference-to-video pipeline.
+It accepts one or more reference images and writes an MP4 with synchronized
+native audio. Download only its profile when the model files are not present:
+
+```bash
+uv run comfy-models download videogen.minimax-h3-r2v --yes
+uv run comfy-videogen minimax-h3-r2v \
+  --input reference.png \
+  --prompt "Use <Picture 1> as the character reference; a cinematic walk through rain with natural dialogue and ambience." \
+  --out outputs
+```
+
+Repeat `--input` for additional references and address them as `<Picture 1>`,
+`<Picture 2>`, etc. The default profile uses a 1344x768 canvas, 124 requested
+frames, 20 steps, and `ref_image_size=match`; H3 adjusts frame count to its
+valid frame grid.
 
 ### Seedance 2.0 API Video
 

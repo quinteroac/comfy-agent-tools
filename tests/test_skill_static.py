@@ -66,6 +66,15 @@ def test_comfy_videogen_skill_frontmatter() -> None:
     assert "uv run comfy-media index --out outputs" in content
 
 
+def test_comfy_minimax_videogen_skill_frontmatter() -> None:
+    content = Path("skills/comfy-minimax-videogen/SKILL.md").read_text(encoding="utf-8")
+    assert content.startswith("---\n")
+    assert "name: comfy-minimax-videogen" in content
+    assert "minimax-h3-r2v" in content
+    assert "comfy-diffusion` 2.6.0" in content
+    assert "<Picture 1>" in content
+
+
 def test_comfy_bernini_videoedit_skill_frontmatter() -> None:
     skill_path = Path("skills/comfy-bernini-videoedit/SKILL.md")
     content = skill_path.read_text(encoding="utf-8")

@@ -1,4 +1,4 @@
-"""CLI for local LTX 2.3, WAN 2.2, and remote Seedance 2.0 video generation."""
+"""CLI for local LTX/WAN/MiniMax and remote video generation."""
 
 from __future__ import annotations
 
@@ -115,6 +115,16 @@ from comfy_agent_tools.videogen.seedance2 import (
     run_flf2v as run_seedance2_flf2v,
     run_r2v as run_seedance2_r2v,
     run_t2v as run_seedance2_t2v,
+)
+from comfy_agent_tools.videogen.minimax import (
+    DEFAULT_MINIMAX_HEIGHT,
+    DEFAULT_MINIMAX_LENGTH,
+    DEFAULT_MINIMAX_REF_IMAGE_SIZE,
+    DEFAULT_MINIMAX_SEED,
+    DEFAULT_MINIMAX_STEPS,
+    DEFAULT_MINIMAX_WIDTH,
+    MiniMaxH3Config,
+    run_r2v as run_minimax_h3_r2v,
 )
 from comfy_agent_tools.videogen.rtx_upscale import (
     DEFAULT_RTX_QUALITY,
@@ -460,6 +470,27 @@ def build_parser() -> argparse.ArgumentParser:
     seedance2_flf2v.add_argument("--last", type=_path, required=True)
     seedance2_flf2v.add_argument("--prompt", required=True)
 
+    minimax_h3 = subparsers.add_parser(
+        "minimax-h3-r2v",
+        help="Generate a local MiniMax H3 video with synchronized audio from reference images.",
+    )
+    minimax_h3.add_argument("--models-dir", type=_path, default=None)
+    minimax_h3.add_argument("--out", type=_path, default=DEFAULT_OUT)
+    minimax_h3.add_argument("--no-manifest", action="store_true")
+    minimax_h3.add_argument("--input", type=_path, action="append", required=True, help="Reference image; repeat for multiple images.")
+    minimax_h3.add_argument("--prompt", required=True)
+    minimax_h3.add_argument("--width", type=int, default=None)
+    minimax_h3.add_argument("--height", type=int, default=None)
+    minimax_h3.add_argument("--length", type=int, default=None, help="Frame count; H3 snaps it to its 17k+5 grid.")
+    minimax_h3.add_argument("--steps", type=int, default=None)
+    minimax_h3.add_argument("--seed", type=int, default=None)
+    minimax_h3.add_argument("--ref-image-size", choices=["match", "max"], default=None)
+    minimax_h3.add_argument("--unet", type=_path, default=None)
+    minimax_h3.add_argument("--text-encoder", type=_path, default=None)
+    minimax_h3.add_argument("--audio-vae", type=_path, default=None)
+    minimax_h3.add_argument("--video-vae", type=_path, default=None)
+    minimax_h3.add_argument("--verbose", action="store_true")
+
     rtx_upscale = subparsers.add_parser(
         "rtx-upscale",
         help="Upscale an input video with NVIDIA RTX Video Super Resolution.",
@@ -581,6 +612,45 @@ def _seedance2_config(args: argparse.Namespace, profile: ResolvedProfile) -> See
         watermark=args.watermark if args.watermark is not None else bool(profile.defaults.get("watermark", DEFAULT_SEEDANCE2_WATERMARK)),
         seed=args.seed if args.seed is not None else int(profile.defaults.get("seed", DEFAULT_SEEDANCE2_SEED)),
     )
+
+
+def _minimax_h3_config(args: argparse.Namespace, profile: ResolvedProfile) -> MiniMaxH3Config:
+    models = profile.models
+    defaults = profile.defaults
+    return MiniMaxH3Config(
+        models_dir=args.models_dir if args.models_dir is not None else profile.models_dir,
+        width=args.width if args.width is not None else int(defaults.get("width", DEFAULT_MINIMAX_WIDTH)),
+        height=args.height if args.height is not None else int(defaults.get("height", DEFAULT_MINIMAX_HEIGHT)),
+        length=args.length if args.length is not None else int(defaults.get("length", DEFAULT_MINIMAX_LENGTH)),
+        steps=args.steps if args.steps is not None else int(defaults.get("steps", DEFAULT_MINIMAX_STEPS)),
+        seed=args.seed if args.seed is not None else int(defaults.get("seed", DEFAULT_MINIMAX_SEED)),
+        ref_image_size=args.ref_image_size if args.ref_image_size is not None else str(defaults.get("ref_image_size", DEFAULT_MINIMAX_REF_IMAGE_SIZE)),
+        unet=args.unet if args.unet is not None else models.get("unet"),
+        text_encoder=args.text_encoder if args.text_encoder is not None else models.get("text_encoder"),
+        audio_vae=args.audio_vae if args.audio_vae is not None else models.get("audio_vae"),
+        video_vae=args.video_vae if args.video_vae is not None else models.get("video_vae"),
+    )
+
+
+def _minimax_h3_success(*, artifact: Path, config: MiniMaxH3Config, profile: ResolvedProfile, images: list[Path], prompt: str) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "ok": True,
+        "kind": "video",
+        "mode": "minimax-h3-r2v",
+        "provider": "local",
+        "audio_muxed": True,
+        "artifacts": [str(artifact)],
+        "reference_images": [str(path) for path in images],
+        "prompt": prompt,
+        "width": config.width,
+        "height": config.height,
+        "frames_requested": config.length,
+        "steps": config.steps,
+        "seed": config.seed,
+        "ref_image_size": config.ref_image_size,
+        **profile.metadata(),
+    }
+    return payload
 
 
 def _rtx_upscale_config(args: argparse.Namespace, profile: ResolvedProfile) -> RTXUpscaleConfig:
@@ -1385,6 +1455,18 @@ def _write_existing_video_with_source_audio(source_video_artifact: Path, source_
 def run_command(args: argparse.Namespace) -> dict[str, Any]:
     """Run a parsed comfy-videogen command and return its JSON payload."""
     profile, _source = resolve_capability(_capability(args.command))
+
+    if args.command == "minimax-h3-r2v":
+        config = _minimax_h3_config(args, profile)
+        with _maybe_silence(not args.verbose):
+            result = run_minimax_h3_r2v(images=args.input, prompt=args.prompt, config=config, out_dir=args.out)
+        return _minimax_h3_success(
+            artifact=result["artifact"],
+            config=config,
+            profile=profile,
+            images=args.input,
+            prompt=args.prompt,
+        )
 
     if args.command == "rtx-upscale":
         if not args.input_video.is_file():

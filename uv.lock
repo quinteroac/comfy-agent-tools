@@ -446,8 +446,8 @@ requires-dist = [
     { name = "av", specifier = ">=16.0.0" },
     { name = "blake3" },
     { name = "comfy-aimdo", specifier = "==0.4.10" },
-    { name = "comfy-diffusion", extras = ["video", "audio"], git = "https://github.com/quinteroac/comfy-diffusion.git?rev=v2.5.0" },
-    { name = "comfy-kitchen", specifier = ">=0.2.18" },
+    { name = "comfy-diffusion", extras = ["video", "audio"], git = "https://github.com/quinteroac/comfy-diffusion.git?rev=v2.6.0" },
+    { name = "comfy-kitchen", specifier = ">=0.2.26" },
     { name = "comfyui-embedded-docs", specifier = "==0.5.5" },
     { name = "comfyui-frontend-package", specifier = "==1.44.19" },
     { name = "comfyui-workflow-templates", specifier = "==0.10.3" },
@@ -504,8 +504,8 @@ wheels = [
 
 [[package]]
 name = "comfy-diffusion"
-version = "2.5.0"
-source = { git = "https://github.com/quinteroac/comfy-diffusion.git?rev=v2.5.0#542284ef9fca7f2a0543ddf2e623e5b61d43af00" }
+version = "2.6.0"
+source = { git = "https://github.com/quinteroac/comfy-diffusion.git?rev=v2.6.0#fb17e07db7687bed5230e35e5c32f113a8b8b577" }
 dependencies = [
     { name = "einops" },
     { name = "huggingface-hub" },
@@ -533,13 +533,14 @@ video = [
 
 [[package]]
 name = "comfy-kitchen"
-version = "0.2.18"
+version = "0.2.26"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/96/62/e220adeb4ecc8c997bf9ca021f1c98dc5b7cfd9d856f3f62313a465ffd5b/comfy_kitchen-0.2.18-cp312-abi3-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:321b23d836f12efe7cc3acdfc21cb65f7a074437a6b71c31fdfa34c874225a98", size = 15474393, upload-time = "2026-07-10T02:54:09.339Z" },
-    { url = "https://files.pythonhosted.org/packages/8e/ee/cbdabbbbce5fd4415dc574d29d9b5111e54f3f17e272998c42b56c6d972d/comfy_kitchen-0.2.18-cp312-abi3-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:90f7ba3e2aef197c16e89a5f0c1e12b10e8eb160c2791373505b1c8476d062b7", size = 15508172, upload-time = "2026-07-10T02:54:11.486Z" },
-    { url = "https://files.pythonhosted.org/packages/e2/0c/9c3c769ab5b9868b8feef7b810c7d2c7271feba468ed9da8f2b69805cf66/comfy_kitchen-0.2.18-cp312-abi3-win_amd64.whl", hash = "sha256:e8dfc8404d5920f24f03d21e87b3485298b71a6d96ce9aec9829e10185537b6d", size = 10600803, upload-time = "2026-07-10T02:54:13.563Z" },
-    { url = "https://files.pythonhosted.org/packages/c8/1f/a14c4f4efaf87ca013fb2078c0d22fc8c01d71a5f675541c7e97952f1cce/comfy_kitchen-0.2.18-py3-none-any.whl", hash = "sha256:9ad86327e08316138b648a5032a22d97c85a5939b2f0319bf7188b197a1dc350", size = 117008, upload-time = "2026-07-10T02:54:15.514Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/e0/093be9143ef7b66ee794e9a46b3c9dfe75ab522bf8a9d6e906a8aeb0c67a/comfy_kitchen-0.2.26-cp312-abi3-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:680754fc60f995a2b59ff7efd1b90fabd4d03e8ee0c226e01d18a303e5217c44", size = 40613544, upload-time = "2026-08-01T18:29:06.403Z" },
+    { url = "https://files.pythonhosted.org/packages/60/46/812a577d85dd0c8a182e924b66d9253fe8fb9e3b33f18d7623c096e034c9/comfy_kitchen-0.2.26-cp312-abi3-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:028c91e909fea253e28d0e1eb2340d5a8652bc39546cdec53e38809b3c08c998", size = 45469581, upload-time = "2026-08-01T18:29:09.206Z" },
+    { url = "https://files.pythonhosted.org/packages/ef/10/c3430997c661ac765950f442b73d3aac818b0d1e7f47e6c23016df527daa/comfy_kitchen-0.2.26-cp312-abi3-win_amd64.whl", hash = "sha256:180805950c7c691c11a184c78503af251bec9dfe7141cdde6f4f48ac76962ade", size = 32772415, upload-time = "2026-08-01T18:29:11.938Z" },
+    { url = "https://files.pythonhosted.org/packages/0c/dc/20df403e061f2bacaba417dbfb5d5ca9715e297d5f3002e411ae771c20bc/comfy_kitchen-0.2.26-cp312-abi3-win_arm64.whl", hash = "sha256:1387f9039d6a159537ee11200ca3fd8c24d58fd443c230f91becd0b2f654868a", size = 5538466, upload-time = "2026-08-01T18:29:15.336Z" },
+    { url = "https://files.pythonhosted.org/packages/07/7f/43b622cdc4132ecf47300b5a516a5d186f0466dc74c246ba8077e372d8e7/comfy_kitchen-0.2.26-py3-none-any.whl", hash = "sha256:c945f5be80d4fd1280c22f7219b496f3c1b42b268c59bfe0a7b8d83f6a3f0636", size = 147435, upload-time = "2026-08-01T18:29:16.817Z" },
 ]
 
 [[package]]
