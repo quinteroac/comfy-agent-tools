@@ -118,6 +118,9 @@ from comfy_agent_tools.videogen.seedance2 import (
 )
 from comfy_agent_tools.videogen.minimax import (
     DEFAULT_MINIMAX_HEIGHT,
+    DEFAULT_MINIMAX_EASYCACHE_END_PERCENT,
+    DEFAULT_MINIMAX_EASYCACHE_REUSE_THRESHOLD,
+    DEFAULT_MINIMAX_EASYCACHE_START_PERCENT,
     DEFAULT_MINIMAX_LENGTH,
     DEFAULT_MINIMAX_FL2VA_UNET,
     DEFAULT_MINIMAX_REF2VA_UNET,
@@ -487,6 +490,16 @@ def build_parser() -> argparse.ArgumentParser:
         subparser.add_argument("--text-encoder", type=_path, default=None)
         subparser.add_argument("--audio-vae", type=_path, default=None)
         subparser.add_argument("--video-vae", type=_path, default=None)
+        subparser.add_argument(
+            "--sageattention", "--sage-attention",
+            dest="sage_attention", action=argparse.BooleanOptionalAction, default=None,
+            help="Enable SageAttention for H3 (requires the sageattention package).",
+        )
+        subparser.add_argument(
+            "--easycache", "--easy-cache",
+            dest="easycache", action=argparse.BooleanOptionalAction, default=None,
+            help="Enable EasyCache for H3; this can reduce render time with some quality loss.",
+        )
         subparser.add_argument("--verbose", action="store_true")
 
     minimax_h3 = subparsers.add_parser(
@@ -653,6 +666,11 @@ def _minimax_h3_config(args: argparse.Namespace, profile: ResolvedProfile) -> Mi
         text_encoder=args.text_encoder if args.text_encoder is not None else models.get("text_encoder"),
         audio_vae=args.audio_vae if args.audio_vae is not None else models.get("audio_vae"),
         video_vae=args.video_vae if args.video_vae is not None else models.get("video_vae"),
+        sage_attention=args.sage_attention if args.sage_attention is not None else bool(defaults.get("sage_attention", False)),
+        easycache=args.easycache if args.easycache is not None else bool(defaults.get("easycache", False)),
+        easycache_reuse_threshold=float(defaults.get("easycache_reuse_threshold", DEFAULT_MINIMAX_EASYCACHE_REUSE_THRESHOLD)),
+        easycache_start_percent=float(defaults.get("easycache_start_percent", DEFAULT_MINIMAX_EASYCACHE_START_PERCENT)),
+        easycache_end_percent=float(defaults.get("easycache_end_percent", DEFAULT_MINIMAX_EASYCACHE_END_PERCENT)),
     )
 
 
@@ -680,6 +698,8 @@ def _minimax_h3_success(
         "steps": config.steps,
         "seed": config.seed,
         "ref_image_size": config.ref_image_size,
+        "sage_attention": config.sage_attention,
+        "easycache": config.easycache,
         **profile.metadata(),
     }
     if input_path is not None:
