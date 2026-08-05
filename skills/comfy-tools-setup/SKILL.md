@@ -59,6 +59,23 @@ command -v comfy-musicgen
 command -v comfy-models
 ```
 
+When `comfy-minimax-modal` is requested, also check for Modal:
+
+```bash
+command -v modal
+```
+
+If it is missing, install only the Modal CLI with:
+
+```bash
+uv tool install modal
+```
+
+Validate the active Modal profile with `modal profile current`. If no profile
+is configured, use `modal token new` or ask the user to provide
+`MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` through their environment. Never
+write Modal credentials to the repository.
+
 ## Model Config
 
 If `.comfy-agent-tools.json` is missing in the current project, ask the user

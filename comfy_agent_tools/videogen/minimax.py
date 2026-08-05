@@ -15,7 +15,7 @@ DEFAULT_MINIMAX_STEPS = 20
 DEFAULT_MINIMAX_SEED = 0
 DEFAULT_MINIMAX_REF_IMAGE_SIZE = "match"
 DEFAULT_MINIMAX_FPS = 24
-DEFAULT_MINIMAX_EASYCACHE_REUSE_THRESHOLD = 1.06
+DEFAULT_MINIMAX_EASYCACHE_REUSE_THRESHOLD = 0.20
 DEFAULT_MINIMAX_EASYCACHE_START_PERCENT = 0.15
 DEFAULT_MINIMAX_EASYCACHE_END_PERCENT = 0.95
 DEFAULT_MINIMAX_FL2VA_UNET = Path("diffusion_models/minimax/minimax_h3_fl2va_pruned_int8_convrot.safetensors")
@@ -277,7 +277,7 @@ def _apply_easycache(model: Any, config: MiniMaxH3Config) -> Any:
         config.easycache_reuse_threshold,
         config.easycache_start_percent,
         config.easycache_end_percent,
-        subsample_factor=8,
+        subsample_factor=9,
         offload_cache_diff=False,
         output_channels=model.model.latent_format.latent_channels,
     )

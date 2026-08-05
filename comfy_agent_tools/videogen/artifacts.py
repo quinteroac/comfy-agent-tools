@@ -52,13 +52,87 @@ def video_metadata(path: str | Path) -> dict[str, Any]:
             duration_seconds = float(container.duration / av.time_base)
         if frames <= 0 and duration_seconds is not None:
             frames = max(1, int(round(duration_seconds * fps)))
-        return {
+    return {
             "width": int(stream.width),
             "height": int(stream.height),
             "frames": frames,
             "fps": fps,
             "duration_seconds": duration_seconds,
-        }
+    }
+
+
+def extract_last_video_frame(video: str | Path, path: str | Path) -> None:
+    """Extract the final decoded video frame as a PNG for H3 chaining."""
+    import av
+
+    last = None
+    with av.open(str(video)) as container:
+        for frame in container.decode(video=0):
+            last = frame
+    if last is None:
+        raise ValueError(f"video contains no decodable frames: {video}")
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    last.to_image().save(output_path, format="PNG")
+
+
+def stitch_videos(
+    videos: list[str | Path],
+    path: str | Path,
+    *,
+    fps: int = 24,
+    target_duration: float | None = None,
+) -> None:
+    """Concatenate H3 shots, removing chained seam frames and preserving audio."""
+    if not videos:
+        raise ValueError("at least one video is required")
+    if fps <= 0:
+        raise ValueError("fps must be greater than zero")
+    if shutil.which("ffmpeg") is None:
+        raise RuntimeError("ffmpeg is required to stitch multishot videos")
+
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    command = ["ffmpeg", "-y"]
+    for video in videos:
+        command.extend(["-i", str(video)])
+    filters: list[str] = []
+    for index in range(len(videos)):
+        start = 0 if index == 0 else 1 / fps
+        filters.append(
+            f"[{index}:v]trim=start={start:.8f},setpts=PTS-STARTPTS[v{index}]"
+        )
+        filters.append(
+            f"[{index}:a]atrim=start={start:.8f},asetpts=PTS-STARTPTS[a{index}]"
+        )
+    concat_inputs = "".join(f"[v{i}][a{i}]" for i in range(len(videos)))
+    filters.append(f"{concat_inputs}concat=n={len(videos)}:v=1:a=1[vcat][acat]")
+    video_output = "[vcat]"
+    audio_output = "[acat]"
+    if target_duration is not None:
+        if target_duration <= 0:
+            raise ValueError("target_duration must be greater than zero")
+        filters.append(
+            f"[vcat]trim=duration={target_duration:.8f},setpts=PTS-STARTPTS[vout]"
+        )
+        filters.append(
+            f"[acat]atrim=duration={target_duration:.8f},asetpts=PTS-STARTPTS[aout]"
+        )
+        video_output, audio_output = "[vout]", "[aout]"
+    command.extend([
+        "-filter_complex", ";".join(filters),
+        "-map", video_output,
+        "-map", audio_output,
+        "-r", str(fps),
+        "-c:v", "libx264",
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac",
+        "-shortest",
+        str(output_path),
+    ])
+    completed = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True, check=False)
+    if completed.returncode != 0:
+        raise RuntimeError(f"multishot stitching failed: {completed.stderr.strip()}")
 
 
 def save_mp4(frames: list[Any], path: str | Path, fps: int) -> None:
