@@ -503,6 +503,25 @@ def test_parser_minimax_h3_t2v_and_i2v() -> None:
     assert i2v.input == Path("image.png")
 
 
+def test_parser_minimax_h3_accepts_attention_optimizations() -> None:
+    args = videogen.build_parser().parse_args(
+        [
+            "minimax-h3-t2v",
+            "--prompt", "animate a landscape",
+            "--sage-attention",
+            "--easy-cache",
+        ]
+    )
+    assert args.sage_attention is True
+    assert args.easycache is True
+
+    disabled = videogen.build_parser().parse_args(
+        ["minimax-h3-r2v", "--input", "ref.png", "--prompt", "animate", "--no-sageattention", "--no-easycache"]
+    )
+    assert disabled.sage_attention is False
+    assert disabled.easycache is False
+
+
 def test_rtx_upscale_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
     input_video = tmp_path / "input.mp4"
     input_video.write_bytes(b"mp4")

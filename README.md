@@ -48,6 +48,7 @@ Python CLIs on demand, initialize local config if needed, and validate models.
 - `comfy-imagegen`: image generation, Ideogram 4 structured prompting, Krea2 Turbo (FP8 and INT4), image editing, upscaling (ClearReality and NVIDIA RTX), and remote Grok Imagine.
 - `comfy-imagedescribe`: local Qwen3-VL 2B Instruct image description, captioning, tagging, and visual QA.
 - `comfy-videogen`: local LTX 2.3/WAN 2.2/MiniMax H3 video plus remote Seedance 2.0 API video.
+- `comfy-minimax-modal`: autonomous MiniMax H3 preparation and execution on Modal GPUs.
 - `comfy-bernini-videoedit`: Bernini WAN 2.2 video edit workflows for V2V, RV2V, VV2V planning, and R2V.
 - `comfy-motion-track-control`: LTX 2.3 HDR IC-LoRA guidance.
 - `comfy-musicgen`: ACE-Step 1.5 music generation to WAV.
@@ -849,6 +850,68 @@ frames, 20 steps, and `ref_image_size=match`; H3 adjusts frame count to its
 valid frame grid. T2V and I2V use
 `diffusion_models/minimax/minimax_h3_fl2va_pruned_int8_convrot.safetensors`;
 R2V uses the `ref2va` checkpoint.
+
+For long-form local videos, use chained shots. The first shot is T2V; each
+following shot receives the previous final frame as I2V, duplicated seam frames
+are removed, audio is stitched, and the final MP4 is trimmed to the requested
+duration:
+
+```bash
+uv run comfy-videogen minimax-h3-multishot-t2v \
+  --prompt '{"prompts":["Shot 1: establish the scene.","Shot 2: continue the action.","Shot 3: resolve the scene."]}' \
+  --duration 30 --shot-duration 10 \
+  --sage-attention --out outputs
+```
+
+Use `--shot-duration 5` for six shots in a 30-second video, or
+`--shot-count` to force a count. Add one `--input` with
+`--first-mode i2v` to seed the first shot, or repeat `--input` with
+`--first-mode r2v` for multiple references. EasyCache remains opt-in with
+`--easycache`.
+
+### MiniMax H3 on Modal
+
+The `comfy-minimax-modal` skill runs the same MiniMax H3 pipeline on a Modal
+GPU. It can create the persistent Volume, download missing H3 files locally,
+upload only files absent from the Volume, run the selected mode, and save the
+returned MP4 under the local workspace.
+
+Install and authenticate Modal once:
+
+```bash
+uv tool install modal
+modal token new
+```
+
+The agent uses the configured `models_dir`; if it is missing, configure it with
+`comfy-models set-models-dir <models_dir>`. The default Volume is
+`comfy-minimax-h3-models` and the default GPU is `RTX-PRO-6000`:
+
+```bash
+MINIMAX_MODAL_VOLUME=my-minimax-volume \
+MINIMAX_MODAL_GPU=RTX-PRO-6000 \
+modal run modal/minimax_h3.py \
+  --mode t2v \
+  --prompt "cinematic mountain valley at sunrise" \
+  --prepare-models \
+  --out outputs
+```
+
+Use `--mode i2v --input first-frame.png` or repeat `--input` with
+`--mode r2v`. Existing Volume files are skipped; pass `--force-upload` only to
+replace them intentionally. Preparation is enabled by default; use
+`--no-prepare-models` only when the Volume is already complete. Authentication may use the local Modal profile or
+`MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET`.
+
+Modal supports the same chained-shot workflow:
+
+```bash
+modal run modal/minimax_h3.py \
+  --mode t2v --multishot \
+  --prompt '{"prompts":["Shot 1: establish the scene.","Shot 2: continue the action.","Shot 3: resolve the scene."]}' \
+  --duration 30 --shot-duration 10 \
+  --sage-attention --prepare-models --out outputs
+```
 
 ### Seedance 2.0 API Video
 

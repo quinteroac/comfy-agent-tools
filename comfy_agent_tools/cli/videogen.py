@@ -118,6 +118,9 @@ from comfy_agent_tools.videogen.seedance2 import (
 )
 from comfy_agent_tools.videogen.minimax import (
     DEFAULT_MINIMAX_HEIGHT,
+    DEFAULT_MINIMAX_EASYCACHE_END_PERCENT,
+    DEFAULT_MINIMAX_EASYCACHE_REUSE_THRESHOLD,
+    DEFAULT_MINIMAX_EASYCACHE_START_PERCENT,
     DEFAULT_MINIMAX_LENGTH,
     DEFAULT_MINIMAX_FL2VA_UNET,
     DEFAULT_MINIMAX_REF2VA_UNET,
@@ -129,6 +132,10 @@ from comfy_agent_tools.videogen.minimax import (
     run_i2v as run_minimax_h3_i2v,
     run_r2v as run_minimax_h3_r2v,
     run_t2v as run_minimax_h3_t2v,
+)
+from comfy_agent_tools.videogen.multishot import (
+    DEFAULT_MINIMAX_SHOT_DURATION,
+    run_multishot_t2v,
 )
 from comfy_agent_tools.videogen.rtx_upscale import (
     DEFAULT_RTX_QUALITY,
@@ -487,6 +494,16 @@ def build_parser() -> argparse.ArgumentParser:
         subparser.add_argument("--text-encoder", type=_path, default=None)
         subparser.add_argument("--audio-vae", type=_path, default=None)
         subparser.add_argument("--video-vae", type=_path, default=None)
+        subparser.add_argument(
+            "--sageattention", "--sage-attention",
+            dest="sage_attention", action=argparse.BooleanOptionalAction, default=None,
+            help="Enable SageAttention for H3 (requires the sageattention package).",
+        )
+        subparser.add_argument(
+            "--easycache", "--easy-cache",
+            dest="easycache", action=argparse.BooleanOptionalAction, default=None,
+            help="Enable EasyCache for H3; this can reduce render time with some quality loss.",
+        )
         subparser.add_argument("--verbose", action="store_true")
 
     minimax_h3 = subparsers.add_parser(
@@ -504,6 +521,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_minimax_h3_common(minimax_h3_t2v)
     minimax_h3_t2v.add_argument("--prompt", required=True)
+
+    minimax_h3_multishot = subparsers.add_parser(
+        "minimax-h3-multishot-t2v",
+        help="Generate a long local MiniMax H3 video as chained shots with synchronized audio.",
+    )
+    add_minimax_h3_common(minimax_h3_multishot)
+    minimax_h3_multishot.add_argument("--prompt", required=True, help="One shot prompt per --- separator; JSON prompts are also accepted.")
+    minimax_h3_multishot.add_argument("--input", type=_path, action="append", default=[], help="Optional first-shot image; repeat for R2V references.")
+    minimax_h3_multishot.add_argument(
+        "--first-mode", choices=("auto", "t2v", "i2v", "r2v"), default="auto",
+        help="First shot mode: auto infers T2V/I2V/R2V from --input.",
+    )
+    minimax_h3_multishot.add_argument("--duration", type=float, required=True, help="Target final duration in seconds.")
+    minimax_h3_multishot.add_argument(
+        "--shot-duration", type=float, default=DEFAULT_MINIMAX_SHOT_DURATION,
+        help="Approximate duration of each chained shot in seconds (default: 10).",
+    )
+    minimax_h3_multishot.add_argument(
+        "--shot-count", type=int, default=None,
+        help="Force the number of shots; otherwise duration/shot-duration is used.",
+    )
 
     minimax_h3_i2v = subparsers.add_parser(
         "minimax-h3-i2v",
@@ -585,6 +623,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _capability(command: str) -> str:
+    if command == "minimax-h3-multishot-t2v":
+        return "videogen.minimax-h3-t2v"
     return f"videogen.{command}"
 
 
@@ -639,7 +679,7 @@ def _seedance2_config(args: argparse.Namespace, profile: ResolvedProfile) -> See
 def _minimax_h3_config(args: argparse.Namespace, profile: ResolvedProfile) -> MiniMaxH3Config:
     models = profile.models
     defaults = profile.defaults
-    fl2va = args.command in {"minimax-h3-t2v", "minimax-h3-i2v"}
+    fl2va = args.command in {"minimax-h3-t2v", "minimax-h3-i2v", "minimax-h3-multishot-t2v"}
     return MiniMaxH3Config(
         models_dir=args.models_dir if args.models_dir is not None else profile.models_dir,
         width=args.width if args.width is not None else int(defaults.get("width", DEFAULT_MINIMAX_WIDTH)),
@@ -653,6 +693,11 @@ def _minimax_h3_config(args: argparse.Namespace, profile: ResolvedProfile) -> Mi
         text_encoder=args.text_encoder if args.text_encoder is not None else models.get("text_encoder"),
         audio_vae=args.audio_vae if args.audio_vae is not None else models.get("audio_vae"),
         video_vae=args.video_vae if args.video_vae is not None else models.get("video_vae"),
+        sage_attention=args.sage_attention if args.sage_attention is not None else bool(defaults.get("sage_attention", False)),
+        easycache=args.easycache if args.easycache is not None else bool(defaults.get("easycache", False)),
+        easycache_reuse_threshold=float(defaults.get("easycache_reuse_threshold", DEFAULT_MINIMAX_EASYCACHE_REUSE_THRESHOLD)),
+        easycache_start_percent=float(defaults.get("easycache_start_percent", DEFAULT_MINIMAX_EASYCACHE_START_PERCENT)),
+        easycache_end_percent=float(defaults.get("easycache_end_percent", DEFAULT_MINIMAX_EASYCACHE_END_PERCENT)),
     )
 
 
@@ -680,6 +725,8 @@ def _minimax_h3_success(
         "steps": config.steps,
         "seed": config.seed,
         "ref_image_size": config.ref_image_size,
+        "sage_attention": config.sage_attention,
+        "easycache": config.easycache,
         **profile.metadata(),
     }
     if input_path is not None:
@@ -1503,6 +1550,48 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
             profile=profile,
             prompt=args.prompt,
         )
+
+    if args.command == "minimax-h3-multishot-t2v":
+        if args.first_mode == "t2v" and args.input:
+            raise ValueError("--first-mode t2v does not accept --input")
+        if args.first_mode == "i2v" and len(args.input) != 1:
+            raise ValueError("--first-mode i2v requires exactly one --input")
+        if args.first_mode == "r2v" and not args.input:
+            raise ValueError("--first-mode r2v requires at least one --input")
+        for path in args.input:
+            if not path.is_file():
+                raise FileNotFoundError(f"input image not found: {path}")
+        config = _minimax_h3_config(args, profile)
+        with _maybe_silence(not args.verbose):
+            result = run_multishot_t2v(
+                script=args.prompt,
+                duration=args.duration,
+                shot_duration=args.shot_duration,
+                shot_count=args.shot_count,
+                frames_per_shot=args.length,
+                start_images=args.input,
+                first_mode=args.first_mode,
+                config=config,
+                out_dir=args.out,
+            )
+        payload = _minimax_h3_success(
+            mode=args.command,
+            artifact=result["artifact"],
+            config=config,
+            profile=profile,
+            prompt=args.prompt,
+        )
+        payload.update({
+            "duration": result["duration"],
+            "shot_duration": result["shot_duration"],
+            "shots": result["shots"],
+            "frames_per_shot": result["frames_per_shot"],
+            "shot_prompts": result["prompts"],
+            "frames_requested": round(float(result["duration"]) * 24),
+            "first_mode": result["first_mode"],
+            "start_images": result["start_images"],
+        })
+        return payload
 
     if args.command == "minimax-h3-i2v":
         if not args.input.is_file():

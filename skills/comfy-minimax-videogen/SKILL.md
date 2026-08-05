@@ -46,6 +46,34 @@ uv run comfy-videogen minimax-h3-i2v \
   --out outputs
 ```
 
+## Long videos with chained shots
+
+MiniMax H3 is best used as a chain of short shots. The CLI renders the first
+shot as T2V, feeds its final frame into the next shot as I2V, removes the
+duplicated seam frame, and stitches the audio. Use one prompt per shot,
+separated by `---`, and let `--duration` determine the number of shots:
+
+```bash
+uv run comfy-videogen minimax-h3-multishot-t2v \
+  --prompt '{"prompts":["Wide establishing shot of a rainy neon street.","A courier runs past the camera, then turns into a narrow alley.","The courier reaches a warm doorway and looks back at the storm."]}' \
+  --duration 30 \
+  --shot-duration 10 \
+  --width 896 --height 576 \
+  --sage-attention --easycache \
+  --out outputs
+```
+
+For example, `--duration 30 --shot-duration 5` renders six chained shots;
+`--duration 30 --shot-duration 10` renders three. The final MP4 is trimmed to
+the requested duration because H3 snaps each shot to its valid temporal grid.
+Use `--shot-count` to force a count, or provide JSON as
+`{"prompts": ["shot 1", "shot 2"]}`. Keep EasyCache opt-in because it can
+reduce quality; SageAttention is also opt-in. Add one `--input` and use
+`--first-mode i2v` to seed the first shot from an image. Repeat `--input` and
+use `--first-mode r2v` for multiple first-shot references; with `--first-mode
+auto` (the default), no input means T2V, one input means I2V, and multiple
+inputs mean R2V.
+
 Multiple reference images can be supplied by repeating `--input`. Address them
 in the prompt in the same order as the arguments: `<Picture 1>`, `<Picture 2>`,
 and so on.

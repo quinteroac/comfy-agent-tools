@@ -15,6 +15,9 @@ DEFAULT_MINIMAX_STEPS = 20
 DEFAULT_MINIMAX_SEED = 0
 DEFAULT_MINIMAX_REF_IMAGE_SIZE = "match"
 DEFAULT_MINIMAX_FPS = 24
+DEFAULT_MINIMAX_EASYCACHE_REUSE_THRESHOLD = 0.20
+DEFAULT_MINIMAX_EASYCACHE_START_PERCENT = 0.15
+DEFAULT_MINIMAX_EASYCACHE_END_PERCENT = 0.95
 DEFAULT_MINIMAX_FL2VA_UNET = Path("diffusion_models/minimax/minimax_h3_fl2va_pruned_int8_convrot.safetensors")
 DEFAULT_MINIMAX_REF2VA_UNET = Path("diffusion_models/minimax/minimax_h3_ref2va_pruned_int8_convrot.safetensors")
 
@@ -35,6 +38,11 @@ class MiniMaxH3Config:
     text_encoder: Path | None = None
     audio_vae: Path | None = None
     video_vae: Path | None = None
+    sage_attention: bool = False
+    easycache: bool = False
+    easycache_reuse_threshold: float = DEFAULT_MINIMAX_EASYCACHE_REUSE_THRESHOLD
+    easycache_start_percent: float = DEFAULT_MINIMAX_EASYCACHE_START_PERCENT
+    easycache_end_percent: float = DEFAULT_MINIMAX_EASYCACHE_END_PERCENT
 
     def validate(self) -> None:
         if self.width <= 0 or self.height <= 0:
@@ -75,22 +83,40 @@ def run_r2v(*, images: list[Path], prompt: str, config: MiniMaxH3Config, out_dir
             return None
         return path if path.is_absolute() else config.models_dir / path
 
-    result = h3.run(
-        prompt,
-        reference_images,
-        models_dir=config.models_dir,
-        width=config.width,
-        height=config.height,
-        length=config.length,
-        steps=config.steps,
-        seed=config.seed,
-        ref_image_size=config.ref_image_size,
-        unet_filename=resolved_override(config.unet),
-        text_encoder_filename=resolved_override(config.text_encoder),
-        audio_vae_filename=resolved_override(config.audio_vae),
-        video_vae_filename=resolved_override(config.video_vae),
-        output_path=artifact,
-    )
+    _configure_optimizations(config)
+    # The R2V helper owns its sampler internally. Temporarily decorating the
+    # UNet loader lets us apply the same native EasyCache patch without
+    # changing the public comfy-diffusion API.
+    original_load_unet = None
+    if config.easycache:
+        from comfy_diffusion.models import ModelManager
+
+        original_load_unet = ModelManager.load_unet
+
+        def load_unet_with_easycache(manager: Any, path: Path) -> Any:
+            return _apply_easycache(original_load_unet(manager, path), config)
+
+        ModelManager.load_unet = load_unet_with_easycache  # type: ignore[method-assign]
+    try:
+        result = h3.run(
+            prompt,
+            reference_images,
+            models_dir=config.models_dir,
+            width=config.width,
+            height=config.height,
+            length=config.length,
+            steps=config.steps,
+            seed=config.seed,
+            ref_image_size=config.ref_image_size,
+            unet_filename=resolved_override(config.unet),
+            text_encoder_filename=resolved_override(config.text_encoder),
+            audio_vae_filename=resolved_override(config.audio_vae),
+            video_vae_filename=resolved_override(config.video_vae),
+            output_path=artifact,
+        )
+    finally:
+        if original_load_unet is not None:
+            ModelManager.load_unet = original_load_unet  # type: ignore[method-assign]
     return {"artifact": artifact, "result": result}
 
 
@@ -132,6 +158,7 @@ def _run_fl2va(
         if runtime.get("error"):
             raise RuntimeError(f"ComfyUI runtime not available: {runtime['error']}")
         comfy_root = ensure_comfyui_on_path()
+        _configure_optimizations(config)
         from comfy_extras.nodes_minimax_h3 import MiniMaxH3ImageToVideo, _resize
     except Exception as exc:
         if isinstance(exc, RuntimeError) and "runtime not available" in str(exc):
@@ -183,6 +210,7 @@ def _run_fl2va(
     # for sampling and reload the VAEs for the final decode.
     del clip, first_tensor, preencoded_keyframe
     model = manager.load_unet(_resolve_path(models_root, config.fl2va_unet))
+    model = _apply_easycache(model, config)
     guider = basic_guider(model, positive)
     sampled = sample_custom(
         random_noise(config.seed),
@@ -215,3 +243,45 @@ def _run_fl2va(
 def _resolve_path(models_dir: Path, path: Path) -> Path:
     """Resolve profile-relative model paths for comfy-diffusion overrides."""
     return path if path.is_absolute() else models_dir / path
+
+
+def _configure_optimizations(config: MiniMaxH3Config) -> None:
+    """Enable H3 attention optimizations for the current ComfyUI process."""
+    if not config.sage_attention:
+        return
+    try:
+        from comfy.ldm.modules import attention
+        if not attention.SAGE_ATTENTION_IS_AVAILABLE:
+            raise RuntimeError("SageAttention is enabled but the sageattention package is not installed")
+        attention.optimized_attention = attention.attention_sage
+        attention.optimized_attention_masked = attention.attention_sage
+    except ImportError as exc:
+        raise RuntimeError("SageAttention requires the sageattention package") from exc
+
+
+def _apply_easycache(model: Any, config: MiniMaxH3Config) -> Any:
+    if not config.easycache:
+        return model
+    try:
+        import comfy.patcher_extension
+        from comfy_extras.nodes_easycache import (
+            EasyCacheHolder,
+            easycache_calc_cond_batch_wrapper,
+            easycache_forward_wrapper,
+            easycache_sample_wrapper,
+        )
+    except ImportError as exc:
+        raise RuntimeError("EasyCache is not available in the installed ComfyUI runtime") from exc
+    model = model.clone()
+    model.model_options["transformer_options"]["easycache"] = EasyCacheHolder(
+        config.easycache_reuse_threshold,
+        config.easycache_start_percent,
+        config.easycache_end_percent,
+        subsample_factor=9,
+        offload_cache_diff=False,
+        output_channels=model.model.latent_format.latent_channels,
+    )
+    model.add_wrapper_with_key(comfy.patcher_extension.WrappersMP.OUTER_SAMPLE, "easycache", easycache_sample_wrapper)
+    model.add_wrapper_with_key(comfy.patcher_extension.WrappersMP.CALC_COND_BATCH, "easycache", easycache_calc_cond_batch_wrapper)
+    model.add_wrapper_with_key(comfy.patcher_extension.WrappersMP.DIFFUSION_MODEL, "easycache", easycache_forward_wrapper)
+    return model

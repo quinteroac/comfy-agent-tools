@@ -78,6 +78,18 @@ def test_comfy_minimax_videogen_skill_frontmatter() -> None:
     assert "<Picture 1>" in content
 
 
+def test_comfy_minimax_modal_skill_frontmatter() -> None:
+    content = Path("skills/comfy-minimax-modal/SKILL.md").read_text(encoding="utf-8")
+    assert content.startswith("---\n")
+    assert "name: comfy-minimax-modal" in content
+    assert "modal run modal/minimax_h3.py" in content
+    assert "--prepare-models" in content
+    assert "--force-upload" in content
+    assert "MINIMAX_MODAL_VOLUME" in content
+    assert "MODAL_TOKEN_ID" in content
+    assert "comfy-models" in content
+
+
 def test_comfy_bernini_videoedit_skill_frontmatter() -> None:
     skill_path = Path("skills/comfy-bernini-videoedit/SKILL.md")
     content = skill_path.read_text(encoding="utf-8")

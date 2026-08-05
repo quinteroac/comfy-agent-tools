@@ -136,6 +136,20 @@ uv run comfy-videogen flf2v \
   --out outputs
 ```
 
+MiniMax H3 acceleration:
+
+```bash
+uv run comfy-videogen minimax-h3-t2v \
+  --prompt "a cinematic sunset over the ocean" \
+  --sageattention --easycache --out outputs
+```
+
+The `--sageattention`/`--no-sageattention` and `--easycache`/`--no-easycache`
+switches are available on `minimax-h3-t2v`, `minimax-h3-i2v`, and
+`minimax-h3-r2v`. SageAttention requires the `sageattention` package. EasyCache
+can reduce render time but may reduce quality; it uses threshold `1.06` and the
+sampling range `0.15`–`0.95`.
+
 WAN 2.2 text to video:
 
 ```bash
