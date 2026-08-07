@@ -9,6 +9,15 @@ Use this skill when MiniMax H3 should run on Modal rather than on the local
 GPU. The workflow uses the repository's `modal/minimax_h3.py` app and keeps the
 result as an MP4 in the local workspace.
 
+For MiniMax H3 generations, use the MiniMax-H3 Turbo LoRA and its four-step
+sampler by default. The preparation flow uploads
+`loras/minimax/minimax_h3_turbo_4step_ckpt850.safetensors` to the Volume and
+the Modal image installs `ComfyUI-MiniMax-H3-Turbo`. Pass
+`--sage-attention` by default; omit `--easycache` when audio quality matters.
+Only omit either accelerator when the user explicitly requests it or wants
+maximum quality/compatibility instead of speed. These flags are still opt-in in
+the CLI itself; this skill defines the agent's default behavior.
+
 ## Bootstrap
 
 If the `modal` command is missing, install it with:
@@ -43,6 +52,11 @@ modal run modal/minimax_h3.py \
   --prepare-models \
   --out outputs
 ```
+
+The default remote configuration uses `steps=4`. Override `--steps` only when
+testing another Turbo schedule. The local models directory must contain the
+Turbo LoRA at `loras/minimax/minimax_h3_turbo_4step_ckpt850.safetensors` before
+`--prepare-models` can upload it.
 
 Preparation is enabled by default; `--prepare-models` makes the intent
 explicit. Use `--no-prepare-models` only when the Volume is already known to be

@@ -8,6 +8,18 @@ description: Generate local MiniMax H3 text-to-video, image-to-video, or referen
 Use this skill for local MiniMax H3 text-to-video, image-to-video, and
 reference-to-video generation through the `comfy-videogen` CLI. The pipeline is
 included in `comfy-diffusion` 2.6.0 and generates an MP4 with synchronized audio.
+All MiniMax modes use the MiniMax-H3 Turbo LoRA and its four-step audio/video
+sampler. The LoRA is expected at
+`loras/minimax/minimax_h3_turbo_4step_ckpt850.safetensors` under the
+configured models directory. The custom node directory defaults to
+`/home/victor/AI/Comfy/ComfyUI/custom_nodes/ComfyUI-MiniMax-H3-Turbo`; use
+`--turbo-node` when ComfyUI is installed elsewhere.
+
+For MiniMax H3 generations, enable both accelerators by default by passing
+`--sage-attention --easycache`. Only omit either flag when the user explicitly
+requests it or prioritizes quality/compatibility over speed. EasyCache remains
+an opt-in CLI default internally; this skill makes it the agent's default
+choice.
 
 If `comfy-videogen` is unavailable, use `comfy-tools-setup` first. In this
 repository, prefer `uv run comfy-videogen`.
@@ -82,12 +94,13 @@ Important options:
 
 - `--width` and `--height`: output dimensions; defaults are 1344x768.
 - `--length`: requested frame count; H3 snaps it to its valid `17k + 5` grid.
-- `--steps`: sampling steps, default 20.
+- `--steps`: sampling steps, default 4 for the Turbo LoRA.
 - `--ref-image-size match|max`: `max` retains larger reference detail but uses
   more memory and time.
 - `--seed`: reproducible sampling seed.
 - `--unet`, `--text-encoder`, `--audio-vae`, and `--video-vae`: explicit model
   overrides when the configured profile paths are not used.
+- `--turbo-lora`, `--turbo-lora-strength`, and `--turbo-node`: Turbo overrides.
 
 The default profile is `minimax-h3`, architecture `minimax-h3`, and capabilities
 `videogen.minimax-h3-t2v`, `videogen.minimax-h3-i2v`, and

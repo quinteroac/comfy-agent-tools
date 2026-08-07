@@ -127,6 +127,8 @@ from comfy_agent_tools.videogen.minimax import (
     DEFAULT_MINIMAX_REF_IMAGE_SIZE,
     DEFAULT_MINIMAX_SEED,
     DEFAULT_MINIMAX_STEPS,
+    DEFAULT_MINIMAX_TURBO_LORA,
+    DEFAULT_MINIMAX_TURBO_NODE,
     DEFAULT_MINIMAX_WIDTH,
     MiniMaxH3Config,
     run_i2v as run_minimax_h3_i2v,
@@ -494,6 +496,9 @@ def build_parser() -> argparse.ArgumentParser:
         subparser.add_argument("--text-encoder", type=_path, default=None)
         subparser.add_argument("--audio-vae", type=_path, default=None)
         subparser.add_argument("--video-vae", type=_path, default=None)
+        subparser.add_argument("--turbo-lora", type=_path, default=None, help="MiniMax H3 Turbo LoRA override.")
+        subparser.add_argument("--turbo-node", type=_path, default=None, help="ComfyUI-MiniMax-H3-Turbo node directory.")
+        subparser.add_argument("--turbo-lora-strength", type=float, default=1.0)
         subparser.add_argument(
             "--sageattention", "--sage-attention",
             dest="sage_attention", action=argparse.BooleanOptionalAction, default=None,
@@ -693,6 +698,9 @@ def _minimax_h3_config(args: argparse.Namespace, profile: ResolvedProfile) -> Mi
         text_encoder=args.text_encoder if args.text_encoder is not None else models.get("text_encoder"),
         audio_vae=args.audio_vae if args.audio_vae is not None else models.get("audio_vae"),
         video_vae=args.video_vae if args.video_vae is not None else models.get("video_vae"),
+        turbo_lora=args.turbo_lora if args.turbo_lora is not None else Path(str(defaults.get("turbo_lora", DEFAULT_MINIMAX_TURBO_LORA))),
+        turbo_node=args.turbo_node if args.turbo_node is not None else DEFAULT_MINIMAX_TURBO_NODE,
+        turbo_lora_strength=args.turbo_lora_strength,
         sage_attention=args.sage_attention if args.sage_attention is not None else bool(defaults.get("sage_attention", False)),
         easycache=args.easycache if args.easycache is not None else bool(defaults.get("easycache", False)),
         easycache_reuse_threshold=float(defaults.get("easycache_reuse_threshold", DEFAULT_MINIMAX_EASYCACHE_REUSE_THRESHOLD)),

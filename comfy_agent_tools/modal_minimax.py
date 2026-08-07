@@ -15,11 +15,13 @@ import subprocess
 from typing import Callable, Sequence
 
 from comfy_agent_tools.profiles import load_config
+from comfy_agent_tools.videogen.minimax import DEFAULT_MINIMAX_TURBO_LORA
 
 
 DEFAULT_MODAL_VOLUME = "comfy-minimax-h3-models"
 DEFAULT_MODAL_GPU = "RTX-PRO-6000"
 MODEL_MOUNT = Path("/mnt/models/comfyui")
+MODAL_TURBO_NODE = Path("/root/.cache/comfy-diffusion/custom_nodes/ComfyUI-MiniMax-H3-Turbo")
 
 MODEL_PATHS: dict[str, Path] = {
     "ref2va_unet": Path("diffusion_models/minimax/minimax_h3_ref2va_pruned_int8_convrot.safetensors"),
@@ -27,6 +29,7 @@ MODEL_PATHS: dict[str, Path] = {
     "text_encoder": Path("text_encoders/minimax/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"),
     "audio_vae": Path("vae/minimax/minimax_h3_audio_vae_fp32.safetensors"),
     "video_vae": Path("vae/minimax/minimax_h3_video_vae_fp16.safetensors"),
+    "turbo_lora": DEFAULT_MINIMAX_TURBO_LORA,
 }
 
 CAPABILITIES = {
@@ -49,7 +52,7 @@ def required_model_paths(mode: str) -> tuple[Path, ...]:
     except KeyError as exc:
         raise ValueError(f"unsupported MiniMax Modal mode: {mode}") from exc
     keys = ("ref2va_unet",) if capability.endswith("r2v") else ("fl2va_unet",)
-    return tuple(MODEL_PATHS[key] for key in (*keys, "text_encoder", "audio_vae", "video_vae"))
+    return tuple(MODEL_PATHS[key] for key in (*keys, "text_encoder", "audio_vae", "video_vae", "turbo_lora"))
 
 
 def configured_models_dir() -> Path:
@@ -118,7 +121,13 @@ def _volume_listing(
         try:
             listings.append(_run([*command, "--json"], runner=runner))
         except ModalPreparationError:
-            listings.append(_run(command, runner=runner))
+            try:
+                listings.append(_run(command, runner=runner))
+            except ModalPreparationError as exc:
+                # A newly added model family (for example loras/minimax) may
+                # not have a directory in the Volume yet; treat it as empty.
+                if "no such file or directory" not in str(exc).lower():
+                    raise
     return "\n".join(listings)
 
 
