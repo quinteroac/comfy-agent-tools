@@ -222,6 +222,8 @@ def test_minimax_h3_profile() -> None:
         "videogen.minimax-h3-r2v",
     ]
     assert set(profile["models"]) == {"unet", "fl2va_unet", "text_encoder", "audio_vae", "video_vae"}
+    assert profile["defaults"]["turbo_lora"].endswith("loras/minimax/minimax_h3_turbo_4step_ckpt850.safetensors")
+    assert profile["defaults"]["steps"] == 4
     assert BUILTIN_DEFAULTS["videogen.minimax-h3-t2v"] == "minimax-h3"
     assert BUILTIN_DEFAULTS["videogen.minimax-h3-i2v"] == "minimax-h3"
     assert BUILTIN_DEFAULTS["videogen.minimax-h3-r2v"] == "minimax-h3"

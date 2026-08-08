@@ -19,8 +19,10 @@ def test_required_model_paths_are_mode_specific() -> None:
     assert "minimax_h3_fl2va" in str(modal_minimax.required_model_paths("t2v")[0])
     assert "minimax_h3_fl2va" in str(modal_minimax.required_model_paths("i2v")[0])
     assert "minimax_h3_ref2va" in str(modal_minimax.required_model_paths("r2v")[0])
-    assert len(modal_minimax.required_model_paths("t2v")) == 4
-    assert len(modal_minimax.required_model_paths("r2v")) == 4
+    assert modal_minimax.DEFAULT_MINIMAX_TURBO_LORA in modal_minimax.required_model_paths("t2v")
+    assert modal_minimax.DEFAULT_MINIMAX_TURBO_LORA in modal_minimax.required_model_paths("r2v")
+    assert len(modal_minimax.required_model_paths("t2v")) == 5
+    assert len(modal_minimax.required_model_paths("r2v")) == 5
 
     with pytest.raises(ValueError, match="unsupported"):
         modal_minimax.required_model_paths("bad")
@@ -43,7 +45,7 @@ def test_prepare_models_uploads_only_missing_volume_files(monkeypatch: pytest.Mo
     assert result["skipped"] == [required[0].as_posix()]
     assert set(result["uploaded"]) == {path.as_posix() for path in required[1:]}
     upload_calls = [call for call in calls if len(call) > 3 and call[1:3] == ["volume", "put"]]
-    assert len(upload_calls) == 3
+    assert len(upload_calls) == 4
     assert all(call[-1].startswith("/") for call in upload_calls)
 
 
@@ -62,7 +64,7 @@ def test_prepare_models_force_uploads_existing_files(monkeypatch: pytest.MonkeyP
     result = modal_minimax.prepare_models("r2v", models_dir=tmp_path, volume="vol", force_upload=True, runner=runner)
 
     assert result["skipped"] == []
-    assert len([call for call in calls if call[1:3] == ["volume", "put"]]) == 4
+    assert len([call for call in calls if call[1:3] == ["volume", "put"]]) == 5
 
 
 def test_prepare_models_downloads_missing_capability(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

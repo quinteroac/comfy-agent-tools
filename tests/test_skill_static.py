@@ -76,6 +76,10 @@ def test_comfy_minimax_videogen_skill_frontmatter() -> None:
     assert "minimax-h3-r2v" in content
     assert "comfy-diffusion` 2.6.0" in content
     assert "<Picture 1>" in content
+    assert "--sage-attention --easycache" in content
+    assert "minimax_h3_turbo_4step_ckpt850.safetensors" in content
+    assert "--turbo-node" in content
+    assert "four-step" in content
 
 
 def test_comfy_minimax_modal_skill_frontmatter() -> None:
@@ -88,6 +92,9 @@ def test_comfy_minimax_modal_skill_frontmatter() -> None:
     assert "MINIMAX_MODAL_VOLUME" in content
     assert "MODAL_TOKEN_ID" in content
     assert "comfy-models" in content
+    assert "--sage-attention --easycache" in content
+    assert "minimax_h3_turbo_4step_ckpt850.safetensors" in content
+    assert "steps=4" in content
 
 
 def test_comfy_bernini_videoedit_skill_frontmatter() -> None:

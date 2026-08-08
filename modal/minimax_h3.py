@@ -21,6 +21,7 @@ from comfy_agent_tools.modal_minimax import (
     DEFAULT_MODAL_GPU,
     DEFAULT_MODAL_VOLUME,
     MODEL_MOUNT,
+    MODAL_TURBO_NODE,
     prepare_models as prepare_modal_models,
     validate_modal_auth,
 )
@@ -34,6 +35,10 @@ VOLUME_NAME = os.environ.get("MINIMAX_MODAL_VOLUME", DEFAULT_MODAL_VOLUME)
 image = (
     modal.Image.from_registry("pytorch/pytorch:2.12.0-cuda13.0-cudnn9-runtime")
     .apt_install("git", "ffmpeg")
+    .run_commands(
+        "mkdir -p /root/.cache/comfy-diffusion/custom_nodes",
+        "git clone --depth 1 https://github.com/Larryvrh/ComfyUI-MiniMax-H3-Turbo.git /root/.cache/comfy-diffusion/custom_nodes/ComfyUI-MiniMax-H3-Turbo",
+    )
     .uv_pip_install(
         "comfy-diffusion[video,audio] @ git+https://github.com/quinteroac/comfy-diffusion.git@v2.6.0",
         "psutil",
@@ -76,7 +81,7 @@ def generate(
     width: int = 1344,
     height: int = 768,
     length: int = 124,
-    steps: int = 20,
+    steps: int = 4,
     seed: int = 0,
     ref_image_size: str = "match",
     sage_attention: bool = False,
@@ -111,6 +116,7 @@ def generate(
             ref_image_size=ref_image_size,
             sage_attention=sage_attention,
             easycache=easycache,
+            turbo_node=MODAL_TURBO_NODE,
         )
         if multishot:
             if mode != "t2v":
@@ -154,7 +160,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--width", type=int, default=1344)
     parser.add_argument("--height", type=int, default=768)
     parser.add_argument("--length", type=int, default=124)
-    parser.add_argument("--steps", type=int, default=20)
+    parser.add_argument("--steps", type=int, default=4)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--ref-image-size", choices=("match", "max"), default="match")
     parser.add_argument("--sage-attention", action=argparse.BooleanOptionalAction, default=False)
@@ -185,7 +191,7 @@ def main(
     width: int = 1344,
     height: int = 768,
     length: int = 124,
-    steps: int = 20,
+    steps: int = 4,
     seed: int = 0,
     ref_image_size: str = "match",
     sage_attention: bool = False,

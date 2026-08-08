@@ -845,8 +845,10 @@ uv run comfy-videogen minimax-h3-r2v \
 ```
 
 Repeat `--input` for additional references and address them as `<Picture 1>`,
-`<Picture 2>`, etc. The default profile uses a 1344x768 canvas, 124 requested
-frames, 20 steps, and `ref_image_size=match`; H3 adjusts frame count to its
+`<Picture 2>`, etc. All MiniMax modes use the MiniMax-H3 Turbo LoRA at
+`loras/minimax/minimax_h3_turbo_4step_ckpt850.safetensors` and its separate
+video/audio four-step sampler. The default profile uses a 1344x768 canvas, 124
+requested frames, and `ref_image_size=match`; H3 adjusts frame count to its
 valid frame grid. T2V and I2V use
 `diffusion_models/minimax/minimax_h3_fl2va_pruned_int8_convrot.safetensors`;
 R2V uses the `ref2va` checkpoint.
@@ -874,7 +876,10 @@ Use `--shot-duration 5` for six shots in a 30-second video, or
 The `comfy-minimax-modal` skill runs the same MiniMax H3 pipeline on a Modal
 GPU. It can create the persistent Volume, download missing H3 files locally,
 upload only files absent from the Volume, run the selected mode, and save the
-returned MP4 under the local workspace.
+returned MP4 under the local workspace. Modal also installs the
+`ComfyUI-MiniMax-H3-Turbo` node in its image and uploads
+`loras/minimax/minimax_h3_turbo_4step_ckpt850.safetensors`; MiniMax defaults to
+the corrected four-step Turbo sampler.
 
 Install and authenticate Modal once:
 
