@@ -174,6 +174,13 @@ def test_builtin_profiles_separate_architecture_and_profile() -> None:
     assert grok["defaults"]["model"] == "grok-imagine-image"
     assert grok["supports"] == ["imagegen.grok-generate", "imagegen.grok-edit"]
 
+    atlas = BUILTIN_PROFILES["atlascloud-image-api"]
+    assert atlas["architecture"] == "atlascloud-image-api"
+    assert atlas["models"] == {}
+    assert atlas["defaults"]["remote"] is True
+    assert atlas["defaults"]["model"] == "bytedance/seedream-v5.0-lite"
+    assert atlas["supports"] == ["imagegen.atlas-generate"]
+
     rtx = BUILTIN_PROFILES["rtx-vsr"]
     assert rtx["architecture"] == "rtx-vsr"
     assert "videogen.rtx-upscale" in rtx["supports"]
@@ -204,6 +211,7 @@ def test_builtin_defaults_point_to_supported_profiles() -> None:
     assert BUILTIN_DEFAULTS["videogen.seedvr2-upscale"] == "seedvr2"
     assert BUILTIN_DEFAULTS["imagegen.grok-generate"] == "grok-imagine-api"
     assert BUILTIN_DEFAULTS["imagegen.grok-edit"] == "grok-imagine-api"
+    assert BUILTIN_DEFAULTS["imagegen.atlas-generate"] == "atlascloud-image-api"
     assert BUILTIN_DEFAULTS["imagegen.ideogram4-generate"] == "ideogram4-fp8"
     assert BUILTIN_DEFAULTS["imagegen.krea2-generate"] == "krea2-turbo"
     assert BUILTIN_DEFAULTS["imagegen.rtx-upscale"] == "rtx-vsr"

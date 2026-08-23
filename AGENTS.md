@@ -78,7 +78,7 @@ When editing any skill:
 Current skills:
 
 - `comfy-tools-setup`: installs/validates the Python CLIs.
-- `comfy-imagegen`: local image generation/edit/upscale, including Krea2 Turbo and NVIDIA RTX image upscale.
+- `comfy-imagegen`: local image generation/edit/upscale, including Krea2 Turbo and NVIDIA RTX image upscale, plus optional remote Atlas Cloud generation.
 - `comfy-imagedescribe`: local Qwen3-VL 2B Instruct image description/captioning/visual QA.
 - `comfy-videogen`: local LTX 2.3/WAN 2.2 video generation and remote Seedance 2.0 API video.
 - `comfy-bernini-videoedit`: Bernini WAN 2.2 video edit workflows.
@@ -102,6 +102,7 @@ The repo should not download models automatically. Built-in defaults include:
 - music: ACE-Step 1.5 base
 - image description: Qwen3-VL 2B Instruct (HuggingFace model directory)
 - remote video API: Seedance 2.0 via `COMFY_ORG_API_KEY`
+- remote image API: Atlas Cloud via `ATLASCLOUD_API_KEY`
 
 Use `comfy-models` for persistent profile/default changes. Keep architecture and
 profile separate: for example, `ltx23` is the architecture and `ltx23-10eros` is
@@ -130,6 +131,11 @@ Seedance 2.0 is not a local model profile. Do not route `seedance2-api` through
 the downloader, `models_dir`, local LoRAs, or checkpoint onboarding. It requires
 `COMFY_ORG_API_KEY`, uses ComfyUI API Nodes vendored by `comfy-diffusion`, and
 must remain limited to Seedance 2.0 only.
+
+Atlas Cloud is also remote-only. Do not route `atlascloud-image-api` through the
+downloader, `models_dir`, local LoRAs, or checkpoint onboarding. The
+`atlas-generate` command must submit at most one generation POST; only prediction
+GET requests may use bounded retries.
 
 ## LoRAs
 

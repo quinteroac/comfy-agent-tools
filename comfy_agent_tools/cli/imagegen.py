@@ -29,6 +29,20 @@ from comfy_agent_tools.imagegen.config import (
     ImagegenConfig,
 )
 from comfy_agent_tools.imagegen.anima import run_anima_t2i
+from comfy_agent_tools.imagegen.atlascloud import (
+    ATLAS_OUTPUT_FORMATS,
+    ATLAS_PROVIDER,
+    ATLAS_SIZES,
+    DEFAULT_ATLAS_MAX_POLLS,
+    DEFAULT_ATLAS_MODEL,
+    DEFAULT_ATLAS_OUTPUT_FORMAT,
+    DEFAULT_ATLAS_POLL_INTERVAL,
+    DEFAULT_ATLAS_REQUEST_TIMEOUT,
+    DEFAULT_ATLAS_SIZE,
+    AtlasCloudConfig,
+    AtlasCloudError,
+    run_generate as run_atlas_generate,
+)
 from comfy_agent_tools.imagegen.flux_klein import run_flux_klein_edit, run_flux_klein_t2i
 from comfy_agent_tools.imagegen.grok import (
     DEFAULT_GROK_ASPECT_RATIO,
@@ -216,6 +230,33 @@ def build_parser() -> argparse.ArgumentParser:
     grok_edit.add_argument("--input", type=_path, required=True)
     grok_edit.add_argument("--prompt", required=True)
 
+    atlas_generate = subparsers.add_parser(
+        "atlas-generate",
+        help="Generate remote images through the Atlas Cloud API.",
+    )
+    atlas_generate.add_argument("--prompt", required=True)
+    atlas_generate.add_argument("--out", type=_path, default=DEFAULT_OUT)
+    atlas_generate.add_argument(
+        "--no-manifest",
+        action="store_true",
+        help="Do not write a comfy-media run manifest for this generation.",
+    )
+    atlas_generate.add_argument("--model", default=None)
+    atlas_generate.add_argument("--size", default=None, choices=ATLAS_SIZES)
+    atlas_generate.add_argument(
+        "--output-format",
+        default=None,
+        choices=ATLAS_OUTPUT_FORMATS,
+    )
+    atlas_generate.add_argument("--max-polls", type=int, default=None)
+    atlas_generate.add_argument("--poll-interval", type=float, default=None)
+    atlas_generate.add_argument("--request-timeout", type=float, default=None)
+    atlas_generate.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show Atlas Cloud request output while running.",
+    )
+
     ideogram4 = subparsers.add_parser("ideogram4-generate", help="Generate local Ideogram 4 images.")
     add_common(ideogram4)
     ideogram4.add_argument("--prompt", required=True, help="High-level Ideogram 4 description.")
@@ -324,6 +365,31 @@ def _grok_config(args: argparse.Namespace, profile: ResolvedProfile) -> GrokImag
     )
 
 
+def _atlas_config(args: argparse.Namespace, profile: ResolvedProfile) -> AtlasCloudConfig:
+    return AtlasCloudConfig(
+        model=args.model if args.model is not None else str(profile.defaults.get("model", DEFAULT_ATLAS_MODEL)),
+        size=args.size if args.size is not None else str(profile.defaults.get("size", DEFAULT_ATLAS_SIZE)),
+        output_format=(
+            args.output_format
+            if args.output_format is not None
+            else str(profile.defaults.get("output_format", DEFAULT_ATLAS_OUTPUT_FORMAT))
+        ),
+        max_polls=(
+            args.max_polls
+            if args.max_polls is not None
+            else int(profile.defaults.get("max_polls", DEFAULT_ATLAS_MAX_POLLS))
+        ),
+        poll_interval=(
+            args.poll_interval
+            if args.poll_interval is not None
+            else float(profile.defaults.get("poll_interval", DEFAULT_ATLAS_POLL_INTERVAL))
+        ),
+        request_timeout=(
+            args.request_timeout
+            if args.request_timeout is not None
+            else float(profile.defaults.get("request_timeout", DEFAULT_ATLAS_REQUEST_TIMEOUT))
+        ),
+    )
 def _ideogram4_config(args: argparse.Namespace, profile: ResolvedProfile) -> Ideogram4Config:
     cfg_override_value: float | None
     if args.disable_cfg_override:
@@ -469,6 +535,33 @@ def _grok_success(
     if input_path is not None:
         payload["input"] = str(input_path)
     return payload
+
+
+def _atlas_success(
+    *,
+    artifacts: list[Path],
+    images: list[object],
+    prediction_id: str,
+    config: AtlasCloudConfig,
+    profile: ResolvedProfile,
+) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "kind": "image",
+        "mode": "atlas-generate",
+        "remote": True,
+        "provider": ATLAS_PROVIDER,
+        "prediction_id": prediction_id,
+        "artifacts": [str(path) for path in artifacts],
+        "model": config.model,
+        "size": config.size,
+        "output_format": config.output_format,
+        "outputs": [_image_metadata(image) for image in images],
+        "capability": profile.capability,
+        "model_profile": profile.name,
+        "architecture": profile.architecture,
+        "resolved_models": {},
+    }
 
 
 def _ideogram4_success(
@@ -646,6 +739,8 @@ def _classify_error(error: Exception) -> str:
         return error.error_type
     if isinstance(error, GrokImagineError):
         return error.error_type
+    if isinstance(error, AtlasCloudError):
+        return error.error_type
     if "api key" in message or "comfy_org_api_key" in message:
         return "auth_required"
     if "grok imagine api" in message or "api request" in message:
@@ -671,6 +766,19 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
         profile = _resolve_krea2_profile(args.profile, capability)
     else:
         profile, _source = resolve_capability(capability)
+
+    if args.command == "atlas-generate":
+        config = _atlas_config(args, profile)
+        with _maybe_silence(not args.verbose):
+            images, prediction_id = run_atlas_generate(prompt=args.prompt, config=config)
+        artifacts = save_images(images, args.out, prefix="comfy-imagegen-atlas-generate")
+        return _atlas_success(
+            artifacts=artifacts,
+            images=images,
+            prediction_id=prediction_id,
+            config=config,
+            profile=profile,
+        )
 
     if args.command == "grok-generate":
         config = _grok_config(args, profile)

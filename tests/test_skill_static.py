@@ -27,6 +27,9 @@ def test_comfy_imagegen_skill_frontmatter() -> None:
     assert "uv run comfy-imagegen krea2-generate" in content
     assert "rtx-upscale" in content
     assert "uv run comfy-imagegen rtx-upscale" in content
+    assert "uv run comfy-imagegen atlas-generate" in content
+    assert "ATLASCLOUD_API_KEY" in content
+    assert "atlascloud-image-api" in content
     assert "uv run comfy-media gallery --out outputs" in content
     assert "uv run comfy-media index --out outputs" in content
 

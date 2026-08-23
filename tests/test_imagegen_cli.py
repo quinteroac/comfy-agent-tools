@@ -97,6 +97,65 @@ def test_parser_grok_defaults(tmp_path: Path) -> None:
     assert edit.aspect_ratio is None
 
 
+def test_parser_atlas_defaults() -> None:
+    args = imagegen.build_parser().parse_args(["atlas-generate", "--prompt", "hello"])
+
+    assert args.command == "atlas-generate"
+    assert args.model is None
+    assert args.size is None
+    assert args.output_format is None
+    assert args.max_polls is None
+    assert args.poll_interval is None
+
+
+def test_atlas_generate_success_json(monkeypatch: MagicMock, tmp_path: Path, capsys: MagicMock) -> None:
+    produced = Image.new("RGB", (18, 10), "orange")
+    seen: dict[str, object] = {}
+
+    def fake_run_atlas_generate(*, prompt: str, config: object) -> tuple[list[Image.Image], str]:
+        seen["prompt"] = prompt
+        seen["model"] = config.model
+        seen["size"] = config.size
+        seen["output_format"] = config.output_format
+        return [produced], "pred-123"
+
+    monkeypatch.setattr(imagegen, "run_atlas_generate", fake_run_atlas_generate)
+
+    rc = imagegen.main(
+        [
+            "atlas-generate",
+            "--prompt",
+            "remote image",
+            "--model",
+            "bytedance/seedream-v5.0-pro/text-to-image",
+            "--size",
+            "2304*1728",
+            "--output-format",
+            "png",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    assert seen == {
+        "prompt": "remote image",
+        "model": "bytedance/seedream-v5.0-pro/text-to-image",
+        "size": "2304*1728",
+        "output_format": "png",
+    }
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["mode"] == "atlas-generate"
+    assert payload["provider"] == "atlascloud"
+    assert payload["prediction_id"] == "pred-123"
+    assert payload["capability"] == "imagegen.atlas-generate"
+    assert payload["model_profile"] == "atlascloud-image-api"
+    assert payload["architecture"] == "atlascloud-image-api"
+    assert payload["outputs"] == [{"width": 18, "height": 10, "mode": "RGB"}]
+    assert Path(payload["artifacts"][0]).is_file()
+
+
 def test_parser_ideogram4_generate_accepts_core_and_builder_flags(tmp_path: Path) -> None:
     args = imagegen.build_parser().parse_args(
         [
