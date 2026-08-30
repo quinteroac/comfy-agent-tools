@@ -36,6 +36,7 @@ BUILTIN_DEFAULTS: dict[str, str] = {
     "videogen.minimax-h3-r2v": "minimax-h3",
     "imagegen.grok-generate": "grok-imagine-api",
     "imagegen.grok-edit": "grok-imagine-api",
+    "imagegen.atlas-generate": "atlascloud-image-api",
     "imagegen.ideogram4-generate": "ideogram4-fp8",
     "imagegen.krea2-generate": "krea2-turbo",
     "imagegen.rtx-upscale": "rtx-vsr",
@@ -606,6 +607,22 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
             "remote": True,
         },
     },
+    "atlascloud-image-api": {
+        "label": "Atlas Cloud Image API",
+        "architecture": "atlascloud-image-api",
+        "supports": ["imagegen.atlas-generate"],
+        "models": {},
+        "defaults": {
+            "provider": "atlascloud",
+            "model": "bytedance/seedream-v5.0-lite",
+            "size": "2048*2048",
+            "output_format": "jpeg",
+            "max_polls": 60,
+            "poll_interval": 3.0,
+            "request_timeout": 60.0,
+            "remote": True,
+        },
+    },
 }
 
 SUPPORTED_ARCHITECTURES = {
@@ -623,6 +640,7 @@ SUPPORTED_ARCHITECTURES = {
     "seedance2-api",
     "minimax-h3",
     "grok-imagine-api",
+    "atlascloud-image-api",
     "qwen3-vl",
 }
 

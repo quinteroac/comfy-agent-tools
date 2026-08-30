@@ -1,6 +1,6 @@
 ---
 name: comfy-imagegen
-description: Generate, edit, or upscale raster images with comfy-diffusion, including local Anima Base v1.0 with turbo LoRA, Qwen Image Edit 2511, FLUX.2 Klein 9B SNOFS, local Ideogram 4 structured prompt/bbox generation, local Krea2 Turbo, ClearReality, and remote Grok Imagine API nodes. Use when the user wants image generation or image editing from the current machine with outputs saved into the workspace. Do not use for hosted OpenAI image generation, vector/SVG work, video, music, voice, model downloads, custom node installation, or ComfyUI server workflows.
+description: Generate, edit, or upscale raster images with comfy-diffusion, including local Anima Base v1.0 with turbo LoRA, Qwen Image Edit 2511, FLUX.2 Klein 9B SNOFS, local Ideogram 4 structured prompt/bbox generation, local Krea2 Turbo, ClearReality, remote Grok Imagine API nodes, and optional Atlas Cloud generation. Use when the user wants image generation or image editing from the current machine with outputs saved into the workspace. Do not use for hosted OpenAI image generation, vector/SVG work, video, music, voice, model downloads, custom node installation, or ComfyUI server workflows.
 ---
 
 # comfy-imagegen
@@ -60,6 +60,8 @@ chosen file with `--extra-lora`.
   nodes. Requires `COMFY_ORG_API_KEY`, not local model files.
 - `grok-edit`: remote Grok Imagine input image plus prompt to PNG through Comfy
   API nodes. Requires `COMFY_ORG_API_KEY`, not local model files.
+- `atlas-generate`: optional remote text-to-image generation through Atlas Cloud.
+  Requires `ATLASCLOUD_API_KEY`, not local model files.
 
 ## Commands
 
@@ -189,6 +191,17 @@ COMFY_ORG_API_KEY=... uv run comfy-imagegen grok-edit \
   --out outputs
 ```
 
+Atlas Cloud generation:
+
+```bash
+ATLASCLOUD_API_KEY=... uv run comfy-imagegen atlas-generate \
+  --prompt "A cinematic product photo of a translucent orange cassette player on wet asphalt" \
+  --model bytedance/seedream-v5.0-lite \
+  --size '2048*2048' \
+  --output-format jpeg \
+  --out outputs
+```
+
 ## Prompt Guidance
 
 For generation, Anima accepts Danbooru-style tags, natural language, or a mix.
@@ -226,6 +239,13 @@ profiles. Do not route `grok-imagine-api` through `models_dir`,
 `comfy-model-downloader`, local LoRAs, or checkpoint onboarding. Supported image
 models are `grok-imagine-image-pro`, `grok-imagine-image`, and
 `grok-imagine-image-beta`; supported resolutions are `1K` and `2K`.
+
+Atlas Cloud is a separate remote profile. Do not route
+`atlascloud-image-api` through `models_dir`, `comfy-model-downloader`, local
+LoRAs, or checkpoint onboarding. Before selecting a non-default model, verify
+its current Atlas Cloud schema. The command submits one generation POST and
+uses only bounded prediction GET polling; never resubmit automatically after an
+uncertain response.
 
 FLUX.2 Klein 9B SNOFS uses natural-language prompts, supports both generation
 and editing, and is step-distilled for `steps=4`, `cfg=1.0`. Keep dimensions
@@ -277,6 +297,9 @@ conditioning, `Flux2Scheduler`, `CFGGuider`, and `SamplerCustomAdvanced`.
 - Grok provider: `comfy-api`
 - Grok model: `grok-imagine-image`
 - Grok params: `resolution=1K`, `aspect_ratio=1:1`, `number_of_images=1`, `seed=0`
+- Atlas Cloud profile: `atlascloud-image-api`
+- Atlas Cloud model: `bytedance/seedream-v5.0-lite`
+- Atlas Cloud params: `size=2048*2048`, `output_format=jpeg`, `max_polls=60`, `poll_interval=3`
 - Dependency: `comfy-diffusion[video,audio]` v2.4.5 or newer plus the vendored
   ComfyUI requirements
 

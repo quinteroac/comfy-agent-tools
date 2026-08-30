@@ -11,7 +11,7 @@ runtime, initialize model profiles, and run generation commands.
 Local model files are not distributed with this repo. Local Anima, Qwen,
 Ideogram 4, Krea2, LTX, MiniMax H3, ACE-Step, and upscaler profiles use model
 files under the user's configured `models_dir`; remote API profiles such as
-Seedance 2.0 and Grok Imagine use provider credentials instead of local
+Seedance 2.0, Grok Imagine, and Atlas Cloud use provider credentials instead of local
 weights.
 
 Contributions use fork-based pull requests. See
@@ -45,7 +45,7 @@ Python CLIs on demand, initialize local config if needed, and validate models.
 
 ## What You Get
 
-- `comfy-imagegen`: image generation, Ideogram 4 structured prompting, Krea2 Turbo (FP8 and INT4), image editing, upscaling (ClearReality and NVIDIA RTX), and remote Grok Imagine.
+- `comfy-imagegen`: image generation, Ideogram 4 structured prompting, Krea2 Turbo (FP8 and INT4), image editing, upscaling (ClearReality and NVIDIA RTX), and optional remote Grok Imagine or Atlas Cloud generation.
 - `comfy-imagedescribe`: local Qwen3-VL 2B Instruct image description, captioning, tagging, and visual QA.
 - `comfy-videogen`: local LTX 2.3/WAN 2.2/MiniMax H3 video plus remote Seedance 2.0 API video.
 - `comfy-minimax-modal`: autonomous MiniMax H3 preparation and execution on Modal GPUs.
@@ -191,6 +191,7 @@ absent, the CLIs use built-in defaults:
 | `imagegen.upscale` | `clear-reality` | `upscale-model` |
 | `imagegen.grok-generate` | `grok-imagine-api` | `grok-imagine-api` |
 | `imagegen.grok-edit` | `grok-imagine-api` | `grok-imagine-api` |
+| `imagegen.atlas-generate` | `atlascloud-image-api` | `atlascloud-image-api` |
 | `imagegen.ideogram4-generate` | `ideogram4-fp8` | `ideogram4` |
 | `imagegen.krea2-generate` | `krea2-turbo` | `krea2` |
 | `imagegen.rtx-upscale` | `rtx-vsr` | `rtx-vsr` |
@@ -578,6 +579,26 @@ Grok defaults are `model="grok-imagine-image"`, `resolution=1K`,
 `aspect_ratio=1:1`, `number_of_images=1`, and `seed=0`. Supported image models
 are `grok-imagine-image-pro`, `grok-imagine-image`, and
 `grok-imagine-image-beta`.
+
+### Atlas Cloud API Images
+
+Atlas Cloud is an optional remote text-to-image path. It does not change the
+local `imagegen.generate` default and does not use local model files. Set
+`ATLASCLOUD_API_KEY` before running:
+
+```bash
+ATLASCLOUD_API_KEY=... uv run comfy-imagegen atlas-generate \
+  --prompt "A cinematic product photo of a translucent orange cassette player on wet asphalt" \
+  --model bytedance/seedream-v5.0-lite \
+  --size '2048*2048' \
+  --output-format jpeg \
+  --out outputs
+```
+
+The command submits exactly one generation request and polls the returned
+prediction with bounded retries. Its default model is
+`bytedance/seedream-v5.0-lite`; pass `--model` to select another current Atlas
+Cloud image model whose schema accepts `prompt`, `size`, and `output_format`.
 
 ## Video Generation
 
