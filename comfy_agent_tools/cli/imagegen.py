@@ -101,6 +101,20 @@ from comfy_agent_tools.imagegen.krea2_config import (
     DEFAULT_KREA2_WIDTH,
     Krea2Config,
 )
+from comfy_agent_tools.imagegen.muapi import (
+    DEFAULT_MUAPI_HEIGHT,
+    DEFAULT_MUAPI_MAX_POLLS,
+    DEFAULT_MUAPI_MODEL,
+    DEFAULT_MUAPI_NUMBER_OF_IMAGES,
+    DEFAULT_MUAPI_POLL_INTERVAL,
+    DEFAULT_MUAPI_REQUEST_TIMEOUT,
+    DEFAULT_MUAPI_WIDTH,
+    MUAPI_MODELS,
+    MUAPI_PROVIDER,
+    MuAPIConfig,
+    MuAPIError,
+    run_generate as run_muapi_generate,
+)
 from comfy_agent_tools.imagegen.qwen import run_qwen_edit
 from comfy_agent_tools.imagegen.upscale import run_upscale
 from comfy_agent_tools.media import write_run_manifest
@@ -257,6 +271,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show Atlas Cloud request output while running.",
     )
 
+    muapi_generate = subparsers.add_parser(
+        "muapi-generate",
+        help="Generate remote images through the MuAPI image API.",
+    )
+    muapi_generate.add_argument("--prompt", required=True)
+    muapi_generate.add_argument("--out", type=_path, default=DEFAULT_OUT)
+    muapi_generate.add_argument(
+        "--no-manifest",
+        action="store_true",
+        help="Do not write a comfy-media run manifest for this generation.",
+    )
+    muapi_generate.add_argument("--model", default=None, choices=MUAPI_MODELS)
+    muapi_generate.add_argument("--width", type=int, default=None)
+    muapi_generate.add_argument("--height", type=int, default=None)
+    muapi_generate.add_argument("--number-of-images", type=int, default=None)
+    muapi_generate.add_argument("--max-polls", type=int, default=None)
+    muapi_generate.add_argument("--poll-interval", type=float, default=None)
+    muapi_generate.add_argument("--request-timeout", type=float, default=None)
+    muapi_generate.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show MuAPI request output while running.",
+    )
+
     ideogram4 = subparsers.add_parser("ideogram4-generate", help="Generate local Ideogram 4 images.")
     add_common(ideogram4)
     ideogram4.add_argument("--prompt", required=True, help="High-level Ideogram 4 description.")
@@ -388,6 +426,34 @@ def _atlas_config(args: argparse.Namespace, profile: ResolvedProfile) -> AtlasCl
             args.request_timeout
             if args.request_timeout is not None
             else float(profile.defaults.get("request_timeout", DEFAULT_ATLAS_REQUEST_TIMEOUT))
+        ),
+    )
+
+
+def _muapi_config(args: argparse.Namespace, profile: ResolvedProfile) -> MuAPIConfig:
+    return MuAPIConfig(
+        model=args.model if args.model is not None else str(profile.defaults.get("model", DEFAULT_MUAPI_MODEL)),
+        width=args.width if args.width is not None else int(profile.defaults.get("width", DEFAULT_MUAPI_WIDTH)),
+        height=args.height if args.height is not None else int(profile.defaults.get("height", DEFAULT_MUAPI_HEIGHT)),
+        number_of_images=(
+            args.number_of_images
+            if args.number_of_images is not None
+            else int(profile.defaults.get("number_of_images", DEFAULT_MUAPI_NUMBER_OF_IMAGES))
+        ),
+        max_polls=(
+            args.max_polls
+            if args.max_polls is not None
+            else int(profile.defaults.get("max_polls", DEFAULT_MUAPI_MAX_POLLS))
+        ),
+        poll_interval=(
+            args.poll_interval
+            if args.poll_interval is not None
+            else float(profile.defaults.get("poll_interval", DEFAULT_MUAPI_POLL_INTERVAL))
+        ),
+        request_timeout=(
+            args.request_timeout
+            if args.request_timeout is not None
+            else float(profile.defaults.get("request_timeout", DEFAULT_MUAPI_REQUEST_TIMEOUT))
         ),
     )
 def _ideogram4_config(args: argparse.Namespace, profile: ResolvedProfile) -> Ideogram4Config:
@@ -556,6 +622,34 @@ def _atlas_success(
         "model": config.model,
         "size": config.size,
         "output_format": config.output_format,
+        "outputs": [_image_metadata(image) for image in images],
+        "capability": profile.capability,
+        "model_profile": profile.name,
+        "architecture": profile.architecture,
+        "resolved_models": {},
+    }
+
+
+def _muapi_success(
+    *,
+    artifacts: list[Path],
+    images: list[object],
+    prediction_id: str,
+    config: MuAPIConfig,
+    profile: ResolvedProfile,
+) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "kind": "image",
+        "mode": "muapi-generate",
+        "remote": True,
+        "provider": MUAPI_PROVIDER,
+        "prediction_id": prediction_id,
+        "artifacts": [str(path) for path in artifacts],
+        "model": config.model,
+        "width": config.width,
+        "height": config.height,
+        "number_of_images": config.number_of_images,
         "outputs": [_image_metadata(image) for image in images],
         "capability": profile.capability,
         "model_profile": profile.name,
@@ -741,6 +835,8 @@ def _classify_error(error: Exception) -> str:
         return error.error_type
     if isinstance(error, AtlasCloudError):
         return error.error_type
+    if isinstance(error, MuAPIError):
+        return error.error_type
     if "api key" in message or "comfy_org_api_key" in message:
         return "auth_required"
     if "grok imagine api" in message or "api request" in message:
@@ -773,6 +869,19 @@ def run_command(args: argparse.Namespace) -> dict[str, Any]:
             images, prediction_id = run_atlas_generate(prompt=args.prompt, config=config)
         artifacts = save_images(images, args.out, prefix="comfy-imagegen-atlas-generate")
         return _atlas_success(
+            artifacts=artifacts,
+            images=images,
+            prediction_id=prediction_id,
+            config=config,
+            profile=profile,
+        )
+
+    if args.command == "muapi-generate":
+        config = _muapi_config(args, profile)
+        with _maybe_silence(not args.verbose):
+            images, prediction_id = run_muapi_generate(prompt=args.prompt, config=config)
+        artifacts = save_images(images, args.out, prefix="comfy-imagegen-muapi-generate")
+        return _muapi_success(
             artifacts=artifacts,
             images=images,
             prediction_id=prediction_id,

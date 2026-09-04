@@ -42,6 +42,8 @@ uses the `seedvr2` profile and the pinned SeedVR2 upstream CLI auto-downloads
 its own model files.
 Do not map Grok Imagine API requests to downloads either. `imagegen.grok-generate`
 and `imagegen.grok-edit` use the remote `grok-imagine-api` profile.
+Do not map MuAPI image requests to downloads either. `imagegen.muapi-generate`
+uses the remote `muapi-image-api` profile and requires `MUAPI_API_KEY`.
 Ideogram 4 is local and should be downloaded with `imagegen.ideogram4-generate`
 when requested.
 

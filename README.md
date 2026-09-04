@@ -46,6 +46,7 @@ Python CLIs on demand, initialize local config if needed, and validate models.
 ## What You Get
 
 - `comfy-imagegen`: image generation, Ideogram 4 structured prompting, Krea2 Turbo (FP8 and INT4), image editing, upscaling (ClearReality and NVIDIA RTX), and optional remote Grok Imagine or Atlas Cloud generation.
+- `comfy-imagegen` also includes optional remote MuAPI image generation.
 - `comfy-imagedescribe`: local Qwen3-VL 2B Instruct image description, captioning, tagging, and visual QA.
 - `comfy-videogen`: local LTX 2.3/WAN 2.2/MiniMax H3 video plus remote Seedance 2.0 API video.
 - `comfy-minimax-modal`: autonomous MiniMax H3 preparation and execution on Modal GPUs.
@@ -192,6 +193,7 @@ absent, the CLIs use built-in defaults:
 | `imagegen.grok-generate` | `grok-imagine-api` | `grok-imagine-api` |
 | `imagegen.grok-edit` | `grok-imagine-api` | `grok-imagine-api` |
 | `imagegen.atlas-generate` | `atlascloud-image-api` | `atlascloud-image-api` |
+| `imagegen.muapi-generate` | `muapi-image-api` | `muapi-image-api` |
 | `imagegen.ideogram4-generate` | `ideogram4-fp8` | `ideogram4` |
 | `imagegen.krea2-generate` | `krea2-turbo` | `krea2` |
 | `imagegen.rtx-upscale` | `rtx-vsr` | `rtx-vsr` |
@@ -599,6 +601,27 @@ The command submits exactly one generation request and polls the returned
 prediction with bounded retries. Its default model is
 `bytedance/seedream-v5.0-lite`; pass `--model` to select another current Atlas
 Cloud image model whose schema accepts `prompt`, `size`, and `output_format`.
+
+### MuAPI Image API
+
+MuAPI is an optional remote text-to-image path. It does not change the local
+`imagegen.generate` default and does not use local model files. Set
+`MUAPI_API_KEY` before running; create one from the [MuAPI access keys](https://muapi.ai/access-keys)
+page.
+
+```bash
+MUAPI_API_KEY=... uv run comfy-imagegen muapi-generate \
+  --prompt "A cinematic product photo of a translucent orange cassette player on wet asphalt" \
+  --model flux-dev \
+  --width 1024 \
+  --height 1024 \
+  --number-of-images 1 \
+  --out outputs
+```
+
+The command submits one request to the [MuAPI image API](https://muapi.ai/ai-image-api),
+polls the prediction with bounded retries, downloads completed image outputs,
+and saves them through the normal `comfy-media` artifact flow.
 
 ## Video Generation
 

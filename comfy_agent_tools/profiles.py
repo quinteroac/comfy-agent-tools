@@ -37,6 +37,7 @@ BUILTIN_DEFAULTS: dict[str, str] = {
     "imagegen.grok-generate": "grok-imagine-api",
     "imagegen.grok-edit": "grok-imagine-api",
     "imagegen.atlas-generate": "atlascloud-image-api",
+    "imagegen.muapi-generate": "muapi-image-api",
     "imagegen.ideogram4-generate": "ideogram4-fp8",
     "imagegen.krea2-generate": "krea2-turbo",
     "imagegen.rtx-upscale": "rtx-vsr",
@@ -623,6 +624,23 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
             "remote": True,
         },
     },
+    "muapi-image-api": {
+        "label": "MuAPI Image API",
+        "architecture": "muapi-image-api",
+        "supports": ["imagegen.muapi-generate"],
+        "models": {},
+        "defaults": {
+            "provider": "muapi",
+            "model": "flux-dev",
+            "width": 1024,
+            "height": 1024,
+            "number_of_images": 1,
+            "max_polls": 60,
+            "poll_interval": 3.0,
+            "request_timeout": 60.0,
+            "remote": True,
+        },
+    },
 }
 
 SUPPORTED_ARCHITECTURES = {
@@ -641,6 +659,7 @@ SUPPORTED_ARCHITECTURES = {
     "minimax-h3",
     "grok-imagine-api",
     "atlascloud-image-api",
+    "muapi-image-api",
     "qwen3-vl",
 }
 
