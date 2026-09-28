@@ -62,6 +62,8 @@ chosen file with `--extra-lora`.
   API nodes. Requires `COMFY_ORG_API_KEY`, not local model files.
 - `atlas-generate`: optional remote text-to-image generation through Atlas Cloud.
   Requires `ATLASCLOUD_API_KEY`, not local model files.
+- `muapi-generate`: optional remote text-to-image generation through MuAPI.
+  Requires `MUAPI_API_KEY`, not local model files.
 
 ## Commands
 
@@ -202,6 +204,17 @@ ATLASCLOUD_API_KEY=... uv run comfy-imagegen atlas-generate \
   --out outputs
 ```
 
+MuAPI generation:
+
+```bash
+MUAPI_API_KEY=... uv run comfy-imagegen muapi-generate \
+  --prompt "a cinematic product photo of a translucent orange cassette player" \
+  --model flux-dev \
+  --width 1024 \
+  --height 1024 \
+  --out outputs
+```
+
 ## Prompt Guidance
 
 For generation, Anima accepts Danbooru-style tags, natural language, or a mix.
@@ -246,6 +259,11 @@ LoRAs, or checkpoint onboarding. Before selecting a non-default model, verify
 its current Atlas Cloud schema. The command submits one generation POST and
 uses only bounded prediction GET polling; never resubmit automatically after an
 uncertain response.
+
+MuAPI is a separate remote profile. Do not route `muapi-image-api` through
+`models_dir`, `comfy-model-downloader`, local LoRAs, or checkpoint onboarding.
+The command uses `MUAPI_API_KEY`, submits one generation POST, and uses bounded
+prediction GET polling; never resubmit automatically after an uncertain response.
 
 FLUX.2 Klein 9B SNOFS uses natural-language prompts, supports both generation
 and editing, and is step-distilled for `steps=4`, `cfg=1.0`. Keep dimensions
@@ -300,6 +318,9 @@ conditioning, `Flux2Scheduler`, `CFGGuider`, and `SamplerCustomAdvanced`.
 - Atlas Cloud profile: `atlascloud-image-api`
 - Atlas Cloud model: `bytedance/seedream-v5.0-lite`
 - Atlas Cloud params: `size=2048*2048`, `output_format=jpeg`, `max_polls=60`, `poll_interval=3`
+- MuAPI profile: `muapi-image-api`
+- MuAPI model: `flux-dev`
+- MuAPI params: `width=1024`, `height=1024`, `number_of_images=1`, `max_polls=60`, `poll_interval=3`
 - Dependency: `comfy-diffusion[video,audio]` v2.4.5 or newer plus the vendored
   ComfyUI requirements
 

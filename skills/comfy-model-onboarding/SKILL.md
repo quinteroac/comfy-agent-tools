@@ -49,6 +49,7 @@ Only configure these architectures in v1:
 - `ace-step-1.5`: base profile `ace15-base`, capability `musicgen.generate`.
 - `seedance2-api`: remote profile `seedance2-api`, capabilities `videogen.seedance2-t2v`, `videogen.seedance2-r2v`, `videogen.seedance2-flf2v`.
 - `grok-imagine-api`: remote profile `grok-imagine-api`, capabilities `imagegen.grok-generate`, `imagegen.grok-edit`.
+- `muapi-image-api`: remote profile `muapi-image-api`, capability `imagegen.muapi-generate`.
 
 If a model is SDXL, a non-WAN-2.2 Wan variant, a new audio architecture, or any
 Flux variant other than the built-in `flux-klein` adapter, do not

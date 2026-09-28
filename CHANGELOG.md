@@ -12,6 +12,9 @@ and uses semantic versioning once releases are tagged.
 - Add optional Atlas Cloud text-to-image generation through `comfy-imagegen
   atlas-generate`, with single-submit semantics, bounded prediction polling,
   artifact downloads, and the `atlascloud-image-api` remote profile.
+- Add optional MuAPI text-to-image generation through `comfy-imagegen
+  muapi-generate`, with API-key authentication, bounded prediction polling,
+  artifact downloads, and the `muapi-image-api` remote profile.
 
 ## [0.1.3] - 2026-07-20
 
